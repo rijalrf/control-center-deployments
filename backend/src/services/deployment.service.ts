@@ -39,19 +39,24 @@ export class DeploymentService {
     const isDraft = data.status === 'draft';
     const now = new Date();
 
-    // Start with 1 placeholder step: "Inisialisasi"
-    await DeploymentStep.bulkCreate([
-      {
+    // Define standard pipeline steps for a complete view immediately
+    const standardSteps = [
+      { step_number: 1, step_name: 'Inisialisasi', status: isDraft ? 'pending' : 'running', log: isDraft ? null : 'Mempersiapkan deployment dan memicu workflow GitHub Actions...' },
+      { step_number: 2, step_name: '01. Checkout Target Repository', status: 'pending' },
+      { step_number: 3, step_name: '02. Build Docker Image', status: 'pending' },
+      { step_number: 4, step_name: '03. Push to Docker Hub', status: 'pending' },
+      { step_number: 5, step_name: '04. Proses di Server (Setup Environment)', status: 'pending' },
+      { step_number: 6, step_name: '05. Execute Final Deployment (Run Container)', status: 'pending' },
+    ];
+
+    await DeploymentStep.bulkCreate(
+      standardSteps.map(s => ({
+        ...s,
         deployment_id: deployment.id,
-        step_number: 1,
-        step_name: 'Inisialisasi',
-        status: isDraft ? 'pending' : 'running',
-        detail: { environment_id: data.environment_id, repositories: data.repositories },
-        started_at: isDraft ? null : now,
-        completed_at: null,
-        log: isDraft ? null : 'Mempersiapkan deployment dan memicu workflow GitHub Actions...',
-      }
-    ]);
+        started_at: s.status === 'running' ? now : null,
+        detail: s.step_number === 1 ? { environment_id: data.environment_id, repositories: data.repositories } : {},
+      }))
+    );
 
     if (!isDraft) {
       this.startGitHubActionsDeployment(deployment.id, data.accessToken, data);
@@ -176,52 +181,59 @@ export class DeploymentService {
         firstRun.status = runStatus.status;
         firstRun.conclusion = runStatus.conclusion;
 
-        // 3. Pertama kali steps tersedia: sync semua steps dari GitHub Actions ke DB
-        if (!stepsInitialized && ghSteps.length > 0) {
-          stepsInitialized = true;
+        // 3. Sync steps from GitHub Actions to DB
+        if (ghSteps.length > 0) {
+          if (!stepsInitialized) {
+            stepsInitialized = true;
+            await Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
+          }
 
-          // Hapus semua step lama (kecuali step 1 "Inisialisasi" yang sudah completed)
-          await DeploymentStep.destroy({ where: { deployment_id: deploymentId, step_number: { [require('sequelize').Op.gt]: 1 } } });
-
-          // Buat steps baru berdasarkan GitHub Actions steps (mulai dari step_number 2)
-          const newSteps = ghSteps.map((ghStep: any) => ({
-            deployment_id: deploymentId,
-            step_number: ghStep.number + 1, // +1 karena step 1 sudah dipakai "Inisialisasi"
-            step_name: ghStep.name,
-            status: mapStepStatus(ghStep.status, ghStep.conclusion),
-            detail: { github_step_number: ghStep.number, run_url: firstRun.htmlUrl },
-            started_at: ghStep.started_at ? new Date(ghStep.started_at) : null,
-            completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : null,
-            log: null,
-          }));
-
-          await DeploymentStep.bulkCreate(newSteps);
-          await Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
-        }
-
-        // 4. Update status setiap step dari GitHub Actions
-        if (stepsInitialized && ghSteps.length > 0) {
           for (const ghStep of ghSteps) {
             const dbStepNum = ghStep.number + 1;
             const newStatus = mapStepStatus(ghStep.status, ghStep.conclusion);
 
-            await DeploymentStep.update(
-              {
+            // Try to find step by name first (more robust if numbers shift) or by number
+            const existingStep = await DeploymentStep.findOne({
+              where: { 
+                deployment_id: deploymentId,
+                [require('sequelize').Op.or]: [
+                  { step_name: ghStep.name },
+                  { step_number: dbStepNum }
+                ]
+              }
+            });
+
+            if (existingStep) {
+              await existingStep.update({
                 status: newStatus,
-                started_at: ghStep.started_at ? new Date(ghStep.started_at) : undefined,
-                completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : undefined,
-              },
-              { where: { deployment_id: deploymentId, step_number: dbStepNum } }
-            );
+                started_at: ghStep.started_at ? new Date(ghStep.started_at) : existingStep.started_at,
+                completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : existingStep.completed_at,
+                // Update name in case it was slightly different in DB
+                step_name: ghStep.name, 
+                detail: { ...((existingStep.detail as any) || {}), github_step_number: ghStep.number, run_url: firstRun.htmlUrl }
+              });
+            } else {
+              // If not found (new unexpected step), create it
+              await DeploymentStep.create({
+                deployment_id: deploymentId,
+                step_number: dbStepNum,
+                step_name: ghStep.name,
+                status: newStatus,
+                detail: { github_step_number: ghStep.number, run_url: firstRun.htmlUrl },
+                started_at: ghStep.started_at ? new Date(ghStep.started_at) : null,
+                completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : null,
+              } as any);
+            }
           }
 
           // Update log on the last step or failed step with job URL
           const failedStep = ghSteps.find((s: any) => s.conclusion === 'failure');
-          const logTarget = failedStep ? failedStep.number + 1 : ghSteps[ghSteps.length - 1].number + 1;
+          const logTargetStep = failedStep || ghSteps[ghSteps.length - 1];
           const logs = await GitHubService.getJobLogs(accessToken, firstRun.owner, firstRun.repo, firstRun.jobId!);
+          
           await DeploymentStep.update(
             { log: `GitHub Actions Run: ${firstRun.htmlUrl}\n\n${logs}` },
-            { where: { deployment_id: deploymentId, step_number: logTarget } }
+            { where: { deployment_id: deploymentId, step_name: logTargetStep.name } }
           );
         }
 
@@ -256,18 +268,26 @@ export class DeploymentService {
 
     await deployment.update({ status: 'pending', deployed_at: null });
 
-    // Hapus semua step lama dan buat ulang step "Inisialisasi"
+    // Hapus semua step lama dan buat ulang steps standard
     await DeploymentStep.destroy({ where: { deployment_id: deploymentId } });
-    await DeploymentStep.create({
-      deployment_id: deploymentId,
-      step_number: 1,
-      step_name: 'Inisialisasi',
-      status: 'running',
-      detail: { environment_id: deployment.environment_id, repositories: deployment.repositories },
-      started_at: new Date(),
-      completed_at: null,
-      log: 'Mempersiapkan deployment dan memicu workflow GitHub Actions...',
-    } as any);
+    
+    const standardSteps = [
+      { step_number: 1, step_name: 'Inisialisasi', status: 'running', log: 'Mempersiapkan deployment dan memicu workflow GitHub Actions...' },
+      { step_number: 2, step_name: '01. Checkout Target Repository', status: 'pending' },
+      { step_number: 3, step_name: '02. Build Docker Image', status: 'pending' },
+      { step_number: 4, step_name: '03. Push to Docker Hub', status: 'pending' },
+      { step_number: 5, step_name: '04. Proses di Server (Setup Environment)', status: 'pending' },
+      { step_number: 6, step_name: '05. Execute Final Deployment (Run Container)', status: 'pending' },
+    ];
+
+    await DeploymentStep.bulkCreate(
+      standardSteps.map(s => ({
+        ...s,
+        deployment_id: deploymentId,
+        started_at: s.status === 'running' ? new Date() : null,
+        detail: s.step_number === 1 ? { environment_id: deployment.environment_id, repositories: deployment.repositories } : {},
+      }))
+    );
 
     const data = {
       environment_id: deployment.environment_id as number,

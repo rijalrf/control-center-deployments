@@ -175,12 +175,13 @@ function ActiveDeploymentDashboard({ deployment, onReset, onRefresh }: ActiveDep
             <p className="text-xs text-ccd-text-muted mt-0.5">Real-time step tracking from central runner</p>
           </div>
 
-          <div className="space-y-5 relative pl-4 border-l border-ccd-border/60 ml-3">
+            <div className="space-y-5 relative pl-4 border-l border-ccd-border/60 ml-3">
             {sortedSteps.map((s) => {
               const isCompleted = s.status === 'completed'
               const isRunning = s.status === 'running'
               const isFailed = s.status === 'failed'
-              const isPending = s.status === 'pending' || s.status === 'skipped'
+              const isSkipped = s.status === 'skipped'
+              const isPending = s.status === 'pending'
 
               return (
                 <div key={s.id} className="relative flex items-start gap-4">
@@ -205,6 +206,13 @@ function ActiveDeploymentDashboard({ deployment, onReset, onRefresh }: ActiveDep
                         </svg>
                       </div>
                     )}
+                    {isSkipped && (
+                      <div className="w-5 h-5 rounded-full bg-ccd-muted/30 border border-ccd-border flex items-center justify-center shrink-0 opacity-60">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-2.5 h-2.5 text-ccd-text-muted">
+                          <path d="M5 4l15 8-15 8V4z" /><line x1="19" y1="4" x2="19" y2="20" />
+                        </svg>
+                      </div>
+                    )}
                     {isPending && (
                       <div className="w-5 h-5 rounded-full bg-[#1e293b] border border-ccd-border flex items-center justify-center shrink-0">
                         <div className="w-1.5 h-1.5 rounded-full bg-ccd-text-muted/60" />
@@ -215,10 +223,16 @@ function ActiveDeploymentDashboard({ deployment, onReset, onRefresh }: ActiveDep
                   {/* Step Description */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-semibold ${isRunning ? 'text-ccd-accent' : isCompleted ? 'text-ccd-success' : 'text-ccd-text-dim'}`}>
+                      <span className={`text-sm font-semibold ${
+                        isRunning ? 'text-ccd-accent' : 
+                        isCompleted ? 'text-ccd-success' : 
+                        isSkipped ? 'text-ccd-text-muted opacity-60' :
+                        'text-ccd-text-dim'
+                      }`}>
                         {s.step_name}
                       </span>
                       {isRunning && <span className="text-[10px] text-ccd-accent font-mono animate-pulse">processing...</span>}
+                      {isSkipped && <span className="text-[10px] text-ccd-text-muted font-mono italic">skipped</span>}
                     </div>
                     {s.started_at && (
                       <div className="text-[10px] text-ccd-text-muted mt-0.5 font-mono">
