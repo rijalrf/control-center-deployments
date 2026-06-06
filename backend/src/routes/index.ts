@@ -4,6 +4,7 @@ import reposRoutes from './repos.routes';
 import deploymentsRoutes from './deployments.routes';
 import environmentsRoutes from './environments.routes';
 import serversRoutes from './servers.routes';
+import envVarsRoutes from './envvars.routes';
 
 const router = Router();
 
@@ -12,5 +13,7 @@ router.use('/repos', reposRoutes);
 router.use('/deployments', deploymentsRoutes);
 router.use('/environments', environmentsRoutes);
 router.use('/servers', serversRoutes);
+router.use('/env-vars', envVarsRoutes);
 
 export default router;
+
