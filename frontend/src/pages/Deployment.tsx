@@ -171,106 +171,104 @@ export default function Deployment() {
   return (
     <div className="space-y-6 animate-fade-in">
 
-      <div className="flex gap-6">
-        {/* Left — Form Panel */}
-        <div className={`flex-1 min-w-0 ${activeDeployment ? 'max-w-[55%]' : ''}`}>
-          {/* Stepper header */}
-          <div className="ccd-card p-5 mb-5">
-            <StepIndicator current={currentStep} steps={STEPS} />
+      {/* Form Panel */}
+      <div className="w-full">
+        {/* Stepper header */}
+        <div className="ccd-card p-5 mb-5">
+          <StepIndicator current={currentStep} steps={STEPS} />
+        </div>
+
+        {/* Step content */}
+        <div className="ccd-card p-6">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-ccd-border">
+            <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
+              0{currentStep}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
+              <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
+            </div>
           </div>
 
-          {/* Step content */}
-          <div className="ccd-card p-6">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-ccd-border">
-              <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
-                0{currentStep}
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
-                <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
-              </div>
-            </div>
+          {currentStep === 1 && <Step01Setup data={formData} onChange={updateData} />}
+          {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
+          {currentStep === 3 && <Step03Review data={formData} />}
 
-            {currentStep === 1 && <Step01Setup data={formData} onChange={updateData} />}
-            {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
-            {currentStep === 3 && <Step03Review data={formData} />}
+          {/* Navigation buttons */}
+          <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
+            <button
+              onClick={() => currentStep > 1 ? setCurrentStep(s => s - 1) : null}
+              disabled={currentStep === 1 || loadingKeys}
+              className="ccd-btn-secondary"
+            >
+              ← Back
+            </button>
 
-            {/* Navigation buttons */}
-            <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
-              <button
-                onClick={() => currentStep > 1 ? setCurrentStep(s => s - 1) : null}
-                disabled={currentStep === 1 || loadingKeys}
-                className="ccd-btn-secondary"
-              >
-                ← Back
-              </button>
-
-              <div className="flex gap-3">
-                {currentStep < 3 ? (
-                  <button
-                    onClick={handleNext}
-                    disabled={!canNext() || loadingKeys}
-                    className="ccd-btn-primary flex items-center gap-2"
-                  >
-                    {loadingKeys ? (
-                      <>
-                        <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
-                        Loading variables...
-                      </>
-                    ) : (
-                      <>Next →</>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleExecute}
-                    disabled={submitting}
-                    id="execute-deploy-btn"
-                    className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90"
-                  >
-                    {submitting ? (
-                      <><div className="spinner w-4 h-4" />Executing...</>
-                    ) : (
-                      <>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-                          <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                        Execute Deployment
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
+            <div className="flex gap-3">
+              {currentStep < 3 ? (
+                <button
+                  onClick={handleNext}
+                  disabled={!canNext() || loadingKeys}
+                  className="ccd-btn-primary flex items-center gap-2"
+                >
+                  {loadingKeys ? (
+                    <>
+                      <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                      Loading variables...
+                    </>
+                  ) : (
+                    <>Next →</>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={handleExecute}
+                  disabled={submitting}
+                  id="execute-deploy-btn"
+                  className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90"
+                >
+                  {submitting ? (
+                    <><div className="spinner w-4 h-4" />Executing...</>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                      Execute Deployment
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Right — Accordion Tracker */}
-        {activeDeployment && (
-          <div className="w-[45%] shrink-0 animate-slide-up">
-            <div className="ccd-card p-5 sticky top-6">
-              <div className="flex items-center justify-between mb-5">
-                <div className="text-sm font-semibold text-ccd-text flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-accent">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
-                  </svg>
-                  Deployment Progress
-                </div>
-                <button
-                  onClick={handleReset}
-                  className="text-xs text-ccd-text-muted hover:text-ccd-text transition-colors"
-                >
-                  + New
-                </button>
-              </div>
-              <DeploymentAccordion
-                deployment={activeDeployment}
-                onRefresh={refreshDeployment}
-              />
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Bottom — Accordion Tracker */}
+      {activeDeployment && (
+        <div className="w-full animate-slide-up mt-6">
+          <div className="ccd-card p-5">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-ccd-border/30">
+              <div className="text-sm font-semibold text-ccd-text flex items-center gap-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-accent">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                </svg>
+                Deployment Progress & Terminal Logs
+              </div>
+              <button
+                onClick={handleReset}
+                className="text-xs text-ccd-text-muted hover:text-ccd-text transition-colors px-2.5 py-1 bg-ccd-muted/30 hover:bg-ccd-muted/50 rounded-lg border border-ccd-border/50 transition-all"
+              >
+                + New Deployment
+              </button>
+            </div>
+            <DeploymentAccordion
+              deployment={activeDeployment}
+              onRefresh={refreshDeployment}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
