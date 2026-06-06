@@ -31,7 +31,7 @@ export const env = {
   },
   central: {
     owner: process.env.GITHUB_CENTRAL_OWNER || '',
-    repo: process.env.GITHUB_CENTRAL_REPO || 'center-control-deployments',
+    repo: process.env.GITHUB_CENTRAL_REPO || 'control-center-deployments',
     workflow: process.env.GITHUB_CENTRAL_WORKFLOW || 'central-deploy.yml',
   }
 };
