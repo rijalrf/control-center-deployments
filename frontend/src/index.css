@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-ccd-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply bg-ccd-bg text-ccd-text font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { @apply bg-ccd-surface; }
+  ::-webkit-scrollbar-thumb  { @apply bg-ccd-muted rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ccd-accent; }
+
+  ::selection { @apply bg-ccd-accent/30 text-white; }
+}
+
+@layer components {
+  /* ── Card ── */
+  .ccd-card {
+    @apply bg-ccd-card border border-ccd-border rounded-xl;
+  }
+
+  /* ── Input ── */
+  .ccd-input {
+    @apply w-full bg-ccd-surface border border-ccd-border rounded-lg px-3 py-2
+           text-ccd-text placeholder-ccd-text-muted text-sm
+           focus:outline-none focus:ring-1 focus:ring-ccd-accent focus:border-ccd-accent
+           transition-colors duration-150;
+  }
+
+  .ccd-select {
+    @apply ccd-input appearance-none cursor-pointer;
+  }
+
+  /* ── Button variants ── */
+  .ccd-btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .ccd-btn-primary {
+    @apply ccd-btn bg-ccd-accent hover:bg-ccd-accent-light text-white;
+  }
+  .ccd-btn-secondary {
+    @apply ccd-btn bg-ccd-muted hover:bg-ccd-muted/80 text-ccd-text-dim;
+  }
+  .ccd-btn-danger {
+    @apply ccd-btn bg-ccd-danger/20 hover:bg-ccd-danger/30 text-ccd-danger border border-ccd-danger/30;
+  }
+  .ccd-btn-ghost {
+    @apply ccd-btn hover:bg-ccd-muted/50 text-ccd-text-dim;
+  }
+  .ccd-btn-github {
+    @apply ccd-btn bg-[#24292f] hover:bg-[#32383f] text-white border border-white/10;
+  }
+
+  /* ── Table ── */
+  .ccd-table {
+    @apply w-full text-sm;
+  }
+  .ccd-table th {
+    @apply text-left text-xs font-semibold text-ccd-text-muted uppercase tracking-wider
+           px-4 py-3 bg-ccd-surface border-b border-ccd-border;
+  }
+  .ccd-table td {
+    @apply px-4 py-3 border-b border-ccd-border/50 text-ccd-text-dim;
+  }
+  .ccd-table tr:hover td {
+    @apply bg-ccd-muted/20;
+  }
+  .ccd-table tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* ── Badge ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-success { @apply badge bg-ccd-success/15 text-ccd-success border border-ccd-success/25; }
+  .badge-warning { @apply badge bg-ccd-warning/15 text-ccd-warning border border-ccd-warning/25; }
+  .badge-danger  { @apply badge bg-ccd-danger/15  text-ccd-danger  border border-ccd-danger/25; }
+  .badge-info    { @apply badge bg-ccd-info/15    text-ccd-info    border border-ccd-info/25; }
+  .badge-muted   { @apply badge bg-ccd-muted/50   text-ccd-text-muted border border-ccd-border; }
+  .badge-accent  { @apply badge bg-ccd-accent/15  text-ccd-accent  border border-ccd-accent/25; }
+  .badge-cyan    { @apply badge bg-ccd-cyan/15    text-ccd-cyan    border border-ccd-cyan/25; }
+
+  /* ── Accordion ── */
+  .accordion-content {
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  }
+  .accordion-content.open  { max-height: 1000px; opacity: 1; }
+  .accordion-content.closed { max-height: 0; opacity: 0; }
+
+  /* ── Stepper ── */
+  .step-connector {
+    @apply flex-1 h-px bg-ccd-border mx-2;
+  }
+  .step-connector.active {
+    @apply bg-gradient-to-r from-ccd-accent to-ccd-cyan;
+  }
+
+  /* ── Spinner ── */
+  .spinner {
+    @apply inline-block rounded-full border-2 border-ccd-muted border-t-ccd-accent animate-spin;
+  }
+
+  /* ── Gradient text ── */
+  .gradient-text {
+    @apply bg-gradient-to-r from-ccd-accent to-ccd-cyan bg-clip-text text-transparent;
+  }
+
+  /* ── Glow effects ── */
+  .glow-accent { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
+  .glow-success { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
+}
+
+/* ── Scan line background ── */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(30, 39, 64, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 39, 64, 0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Login particles ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.4; }
+  50%       { transform: translateY(-20px) rotate(180deg); opacity: 0.8; }
+}
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  animation: float linear infinite;
+  pointer-events: none;
+}
+
+/* ── Toast Progress Shrink Animation ── */
+@keyframes shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+.toast-progress {
+  animation: shrink linear forwards;
+}
