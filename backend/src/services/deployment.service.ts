@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import { Deployment } from '../models/Deployment';
 import { DeploymentStep } from '../models/DeploymentStep';
 import { Environment } from '../models/Environment';

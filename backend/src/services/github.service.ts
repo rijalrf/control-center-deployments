@@ -4,13 +4,13 @@ import { Repository } from '../models/Repository';
 
 export class GitHubService {
   private static getEffectiveToken(accessToken: string | null): string {
+    if (accessToken) {
+      return accessToken;
+    }
     if (env.github.token && env.github.token !== 'your_github_personal_access_token' && env.github.token.trim() !== '') {
       return env.github.token;
     }
-    if (!accessToken) {
-      throw new Error('GitHub access token is required.');
-    }
-    return accessToken;
+    throw new Error('GitHub access token is required.');
   }
 
   static async syncRepositories(accessToken: string | null) {
