@@ -42,11 +42,11 @@ export class DeploymentService {
     // Define standard pipeline steps for a complete view immediately
     const standardSteps = [
       { step_number: 1, step_name: 'Inisialisasi', status: (isDraft ? 'pending' : 'running') as any, log: isDraft ? null : 'Mempersiapkan deployment dan memicu workflow GitHub Actions...' },
-      { step_number: 2, step_name: '01. Checkout Target Repository', status: 'pending' as any },
-      { step_number: 3, step_name: '02. Build Docker Image', status: 'pending' as any },
-      { step_number: 4, step_name: '03. Push to Docker Hub', status: 'pending' as any },
-      { step_number: 5, step_name: '04. Proses di Server (Setup Environment)', status: 'pending' as any },
-      { step_number: 6, step_name: '05. Execute Final Deployment (Run Container)', status: 'pending' as any },
+      { step_number: 2, step_name: 'Checkout Target Repository', status: 'pending' as any },
+      { step_number: 3, step_name: 'Build Docker Image', status: 'pending' as any },
+      { step_number: 4, step_name: 'Push to Docker Hub', status: 'pending' as any },
+      { step_number: 5, step_name: 'Proses di Server (Setup Environment)', status: 'pending' as any },
+      { step_number: 6, step_name: 'Execute Final Deployment (Run Container)', status: 'pending' as any },
     ];
 
     await DeploymentStep.bulkCreate(
@@ -280,11 +280,11 @@ export class DeploymentService {
     
     const standardSteps = [
       { step_number: 1, step_name: 'Inisialisasi', status: 'running' as any, log: 'Mempersiapkan deployment dan memicu workflow GitHub Actions...' },
-      { step_number: 2, step_name: '01. Checkout Target Repository', status: 'pending' as any },
-      { step_number: 3, step_name: '02. Build Docker Image', status: 'pending' as any },
-      { step_number: 4, step_name: '03. Push to Docker Hub', status: 'pending' as any },
-      { step_number: 5, step_name: '04. Proses di Server (Setup Environment)', status: 'pending' as any },
-      { step_number: 6, step_name: '05. Execute Final Deployment (Run Container)', status: 'pending' as any },
+      { step_number: 2, step_name: 'Checkout Target Repository', status: 'pending' as any },
+      { step_number: 3, step_name: 'Build Docker Image', status: 'pending' as any },
+      { step_number: 4, step_name: 'Push to Docker Hub', status: 'pending' as any },
+      { step_number: 5, step_name: 'Proses di Server (Setup Environment)', status: 'pending' as any },
+      { step_number: 6, step_name: 'Execute Final Deployment (Run Container)', status: 'pending' as any },
     ];
 
     await DeploymentStep.bulkCreate(
