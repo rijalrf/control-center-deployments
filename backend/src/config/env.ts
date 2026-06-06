@@ -28,6 +28,11 @@ export const env = {
     callbackUrl: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/auth/github/callback',
     token: process.env.GITHUB_TOKEN || '',
     org: process.env.GITHUB_ORG || '',
+  },
+  central: {
+    owner: process.env.GITHUB_CENTRAL_OWNER || '',
+    repo: process.env.GITHUB_CENTRAL_REPO || 'center-control-deployments',
+    workflow: process.env.GITHUB_CENTRAL_WORKFLOW || 'central-deploy.yml',
   }
 };
 

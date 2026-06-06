@@ -1,0 +1,47 @@
+name: Centralized Deployment Pipeline
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo_url:
+        description: 'URL Clone Repositori Target'
+        required: true
+      target_repo_name:
+        description: 'Nama Repositori Target'
+        required: true
+      environment:
+        description: 'Target Environment'
+        required: true
+        default: 'staging'
+      config:
+        description: 'JSON string konfigurasi env variables'
+        required: false
+        default: '{}'
+      server_host:
+        description: 'Server IP / Host'
+        required: true
+      server_username:
+        description: 'SSH Username'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.target_repo_url }}
+          token: ${{ secrets.GITHUB_TOKEN }} # Menggunakan token GitHub default
+      
+      - name: Menyiapkan Konfigurasi & Build
+        run: |
+          echo "Menyiapkan deployment untuk ${{ github.event.inputs.target_repo_name }}"
+          echo "Environment target: ${{ github.event.inputs.environment }}"
+          echo "Menerapkan konfigurasi: ${{ github.event.inputs.config }}"
+          # Tulis logika build di sini jika diperlukan
+          
+      - name: Melakukan SSH Deployment ke Server Target
+        run: |
+          echo "Melakukan SSH ke ${{ github.event.inputs.server_username }}@${{ github.event.inputs.server_host }}"
+          # Di masa depan, di sini Anda dapat menambahkan command SSH nyata untuk menyalin file build / restart docker container target
+          echo "Deployment berhasil diselesaikan!"

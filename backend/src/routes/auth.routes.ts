@@ -8,7 +8,7 @@ import { env } from '../config/env';
 const router = Router();
 
 router.get('/github', passport.authenticate('github', {
-  scope: ['user:email', 'read:org', 'repo'],
+  scope: ['user:email', 'read:org', 'repo', 'workflow'],
   session: false,
 }));
 

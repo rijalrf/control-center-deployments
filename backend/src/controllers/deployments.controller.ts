@@ -49,12 +49,15 @@ export class DeploymentsController {
       }
 
       const userId = (req.user as any).id;
+      const userToken = (req.user as any).access_token || '';
+
       const deployment = await DeploymentService.createDeployment({
         environment_id,
         user_id: userId,
         repositories,
         config: config || {},
         notes,
+        accessToken: userToken,
       });
 
       const result = await Deployment.findByPk(deployment.id, {
