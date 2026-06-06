@@ -27,6 +27,10 @@ on:
       server_username:
         description: 'SSH Username'
         required: true
+      dockerfile_path:
+        description: 'Path ke Dockerfile (relatif terhadap root repo)'
+        required: false
+        default: 'Dockerfile'
 
 jobs:
   deploy:
@@ -41,7 +45,7 @@ jobs:
       - name: 02. Build Docker Image
         run: |
           echo "Membangun image docker untuk ${{ github.event.inputs.target_repo_name }}..."
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ github.event.inputs.target_repo_name }}:latest .
+          docker build -f ${{ github.event.inputs.dockerfile_path }} -t ${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ github.event.inputs.target_repo_name }}:latest .
 
       - name: 03. Push to Docker Hub
         if: env.DOCKERHUB_USERNAME != ''

@@ -69,6 +69,7 @@ export class GitHubService {
     
     const repo = env.central.repo || 'control-center-deployments';
     const workflowId = env.central.workflow || 'central-deploy.yml';
+    const ref = env.central.ref || 'main';
 
     const dispatchTime = new Date();
     
@@ -76,7 +77,7 @@ export class GitHubService {
       owner,
       repo,
       workflow_id: workflowId,
-      ref: 'main',
+      ref,
       inputs: targetInputs,
     });
 

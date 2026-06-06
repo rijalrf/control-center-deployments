@@ -82,15 +82,19 @@ export class DeploymentService {
       const runsInfo: any[] = [];
 
       for (const r of data.repositories) {
+        const repoConfig = data.config[r.name] || {};
+        const dockerfilePath = repoConfig.DOCKERFILE_PATH || 'Dockerfile';
+
         const targetInputs = {
           target_repo_url: r.clone_url || `https://github.com/${r.full_name}.git`,
           target_repo_name: r.name,
           target_repo_path: r.full_name || r.name,
           environment: envName,
           environment_secret_suffix: envSuffix,
-          config: JSON.stringify(data.config[r.name] || data.config || {}),
+          config: JSON.stringify(repoConfig),
           server_host: serverHost,
           server_username: serverUsername,
+          dockerfile_path: dockerfilePath,
         };
 
         const runInfo = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs);
