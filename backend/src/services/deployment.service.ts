@@ -1,9 +1,20 @@
-import { Op } from 'sequelize';
 import { Deployment } from '../models/Deployment';
 import { DeploymentStep } from '../models/DeploymentStep';
 import { Environment } from '../models/Environment';
 import { Server } from '../models/Server';
 import { GitHubService } from './github.service';
+
+// Map GitHub Actions step status → our status
+function mapStepStatus(ghStatus: string, ghConclusion: string | null): 'pending' | 'running' | 'completed' | 'failed' | 'skipped' {
+  if (ghStatus === 'queued') return 'pending';
+  if (ghStatus === 'in_progress') return 'running';
+  if (ghStatus === 'completed') {
+    if (ghConclusion === 'success') return 'completed';
+    if (ghConclusion === 'skipped') return 'skipped';
+    return 'failed'; // failure | cancelled | timed_out | action_required
+  }
+  return 'pending';
+}
 
 export class DeploymentService {
   static async createDeployment(data: {
@@ -25,25 +36,24 @@ export class DeploymentService {
       deployed_at: null
     });
 
-    const stepDefs = [
-      { step_number: 1, step_name: 'Setup', status: (data.status === 'draft' ? 'pending' : 'running') as any, detail: { environment_id: data.environment_id, repositories: data.repositories } },
-      { step_number: 2, step_name: 'Configuration & Build', status: 'pending' as const, detail: { config: data.config } },
-      { step_number: 3, step_name: 'Review & Execute', status: 'pending' as const, detail: null },
-    ];
-
+    const isDraft = data.status === 'draft';
     const now = new Date();
-    await DeploymentStep.bulkCreate(
-      stepDefs.map((s, i) => ({
-        deployment_id: deployment.id,
-        ...s,
-        started_at: (i === 0 && data.status !== 'draft') ? now : null,
-        completed_at: null,
-        log: (i === 0 && data.status !== 'draft') ? 'Menginisialisasi deployment dan memicu workflow GitHub Actions terpusat...' : null
-      }))
-    );
 
-    // Only run real async triggers if status is NOT draft
-    if (data.status !== 'draft') {
+    // Start with 1 placeholder step: "Inisialisasi"
+    await DeploymentStep.bulkCreate([
+      {
+        deployment_id: deployment.id,
+        step_number: 1,
+        step_name: 'Inisialisasi',
+        status: isDraft ? 'pending' : 'running',
+        detail: { environment_id: data.environment_id, repositories: data.repositories },
+        started_at: isDraft ? null : now,
+        completed_at: null,
+        log: isDraft ? null : 'Mempersiapkan deployment dan memicu workflow GitHub Actions...',
+      }
+    ]);
+
+    if (!isDraft) {
       this.startGitHubActionsDeployment(deployment.id, data.accessToken, data);
     }
 
@@ -56,20 +66,16 @@ export class DeploymentService {
     data: { environment_id: number; repositories: any[]; config: any }
   ) {
     try {
-      // Fetch target environment details
       const envObj = await Environment.findByPk(data.environment_id);
       const envName = envObj?.name || 'staging';
 
-      // Fetch target server details
       const server = await Server.findOne({ where: { environment_id: data.environment_id } });
       const serverHost = server?.host || 'localhost';
       const serverUsername = server?.username || 'deploy';
 
       const envSuffix = envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-
       const runsInfo: any[] = [];
 
-      // Trigger workflow dispatch for each selected repository
       for (const r of data.repositories) {
         const targetInputs = {
           target_repo_url: r.clone_url || `https://github.com/${r.full_name}.git`,
@@ -86,31 +92,37 @@ export class DeploymentService {
         runsInfo.push({ ...runInfo, repoName: r.name });
       }
 
-      // Start the background progress tracking poller
+      // Mark "Inisialisasi" as completed, workflow dispatched
+      await DeploymentStep.update(
+        { status: 'completed', completed_at: new Date(), log: `Workflow GitHub Actions berhasil dipicu untuk ${runsInfo.length} repositori.` },
+        { where: { deployment_id: deploymentId, step_number: 1 } }
+      );
+
       this.pollGitHubActionsProgress(deploymentId, accessToken, runsInfo);
 
     } catch (err: any) {
       console.error('Gagal memulai deployment via GitHub Actions:', err);
-      // Update deployment status to failed
       await Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
       await DeploymentStep.update(
-        { status: 'failed', log: `Gagal memicu workflow GitHub Actions: ${err.message}` },
+        { status: 'failed', completed_at: new Date(), log: `Gagal memicu workflow GitHub Actions: ${err.message}` },
         { where: { deployment_id: deploymentId, step_number: 1 } }
       );
     }
   }
 
   private static pollGitHubActionsProgress(deploymentId: number, accessToken: string, runsInfo: any[]) {
-    const intervalTime = 4000; // Poll setiap 4 detik
-    const maxRetries = 150; // Timeout setelah 10 menit (150 * 4 detik)
+    const intervalTime = 4000;
+    const maxRetries = 150; // 10 menit
     let retries = 0;
+    let stepsInitialized = false; // apakah sudah sync step dari GitHub Actions
 
     const runsMap = runsInfo.map(r => ({
       ...r,
       runId: null as number | null,
       status: 'queued',
       conclusion: null as string | null,
-      logs: '',
+      jobId: null as number | null,
+      htmlUrl: '',
     }));
 
     const timer = setInterval(async () => {
@@ -120,21 +132,17 @@ export class DeploymentService {
           clearInterval(timer);
           await Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
           await DeploymentStep.update(
-            { status: 'failed', log: 'Pelacakan dibatalkan karena waktu tunggu melebihi batas (Timeout 10 Menit).' },
+            { status: 'failed', completed_at: new Date(), log: 'Timeout: pelacakan dibatalkan setelah 10 menit.' },
             { where: { deployment_id: deploymentId, status: ['pending', 'running'] as any } }
           );
           return;
         }
 
-        // 1. Temukan run ID untuk workflow dispatch yang dipicu
+        // 1. Temukan run ID
         for (const run of runsMap) {
           if (!run.runId) {
             const githubRun = await GitHubService.findWorkflowRun(
-              accessToken,
-              run.owner,
-              run.repo,
-              run.workflowId,
-              run.dispatchTime
+              accessToken, run.owner, run.repo, run.workflowId, run.dispatchTime
             );
             if (githubRun) {
               run.runId = githubRun.id;
@@ -145,104 +153,95 @@ export class DeploymentService {
         }
 
         const allFound = runsMap.every(r => r.runId !== null);
+        if (!allFound) return; // tunggu sampai semua run ditemukan
 
-        // 2. Perbarui status run ID yang diketahui dan ambil log
-        for (const run of runsMap) {
-          if (run.runId) {
-            const runStatus = await GitHubService.getWorkflowRunStatus(
-              accessToken,
-              run.owner,
-              run.repo,
-              run.runId
-            );
-            run.status = runStatus.status;
-            run.conclusion = runStatus.conclusion;
+        // 2. Ambil steps dari GitHub Actions untuk setiap run
+        // Untuk simplifikasi, gunakan run pertama sebagai acuan steps
+        const firstRun = runsMap[0];
+        const jobs = await GitHubService.getWorkflowRunJobs(
+          accessToken, firstRun.owner, firstRun.repo, firstRun.runId!
+        );
 
-            const jobs = await GitHubService.getWorkflowRunJobs(
-              accessToken,
-              run.owner,
-              run.repo,
-              run.runId
-            );
-            if (jobs && jobs.length > 0) {
-              const jobId = jobs[0].id;
-              const logs = await GitHubService.getJobLogs(accessToken, run.owner, run.repo, jobId);
-              run.logs = `[Repositori: ${run.repoName}]\nLink Run: ${runStatus.html_url}\nLog Output:\n${logs}`;
-            } else {
-              run.logs = `[Repositori: ${run.repoName}]\nLink Run: ${runStatus.html_url}\nStatus: ${run.status}\nMenunggu pekerjaan dimulai...`;
-            }
-          }
+        if (!jobs || jobs.length === 0) return;
+
+        const job = jobs[0];
+        const ghSteps: any[] = job.steps || [];
+        firstRun.jobId = job.id;
+        firstRun.htmlUrl = job.html_url || '';
+
+        // Update overall run status
+        const runStatus = await GitHubService.getWorkflowRunStatus(
+          accessToken, firstRun.owner, firstRun.repo, firstRun.runId!
+        );
+        firstRun.status = runStatus.status;
+        firstRun.conclusion = runStatus.conclusion;
+
+        // 3. Pertama kali steps tersedia: sync semua steps dari GitHub Actions ke DB
+        if (!stepsInitialized && ghSteps.length > 0) {
+          stepsInitialized = true;
+
+          // Hapus semua step lama (kecuali step 1 "Inisialisasi" yang sudah completed)
+          await DeploymentStep.destroy({ where: { deployment_id: deploymentId, step_number: { [require('sequelize').Op.gt]: 1 } } });
+
+          // Buat steps baru berdasarkan GitHub Actions steps (mulai dari step_number 2)
+          const newSteps = ghSteps.map((ghStep: any) => ({
+            deployment_id: deploymentId,
+            step_number: ghStep.number + 1, // +1 karena step 1 sudah dipakai "Inisialisasi"
+            step_name: ghStep.name,
+            status: mapStepStatus(ghStep.status, ghStep.conclusion),
+            detail: { github_step_number: ghStep.number, run_url: firstRun.htmlUrl },
+            started_at: ghStep.started_at ? new Date(ghStep.started_at) : null,
+            completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : null,
+            log: null,
+          }));
+
+          await DeploymentStep.bulkCreate(newSteps);
+          await Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
         }
 
-        // Gabungkan log dari seluruh workflow
-        const combinedLogs = runsMap
-          .map(r => r.logs || `Menunggu antrean workflow run untuk ${r.repoName} di GitHub...`)
-          .join('\n\n' + '='.repeat(50) + '\n\n');
+        // 4. Update status setiap step dari GitHub Actions
+        if (stepsInitialized && ghSteps.length > 0) {
+          for (const ghStep of ghSteps) {
+            const dbStepNum = ghStep.number + 1;
+            const newStatus = mapStepStatus(ghStep.status, ghStep.conclusion);
 
-        // 3. Evaluasi status
-        const allRunningOrCompleted = runsMap.every(r => r.status === 'in_progress' || r.status === 'completed');
+            await DeploymentStep.update(
+              {
+                status: newStatus,
+                started_at: ghStep.started_at ? new Date(ghStep.started_at) : undefined,
+                completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : undefined,
+              },
+              { where: { deployment_id: deploymentId, step_number: dbStepNum } }
+            );
+          }
+
+          // Update log on the last step or failed step with job URL
+          const failedStep = ghSteps.find((s: any) => s.conclusion === 'failure');
+          const logTarget = failedStep ? failedStep.number + 1 : ghSteps[ghSteps.length - 1].number + 1;
+          const logs = await GitHubService.getJobLogs(accessToken, firstRun.owner, firstRun.repo, firstRun.jobId!);
+          await DeploymentStep.update(
+            { log: `GitHub Actions Run: ${firstRun.htmlUrl}\n\n${logs}` },
+            { where: { deployment_id: deploymentId, step_number: logTarget } }
+          );
+        }
+
+        // 5. Cek apakah semua run selesai
         const allCompleted = runsMap.every(r => r.status === 'completed');
         const anyFailed = runsMap.some(
           r => r.conclusion === 'failure' || r.conclusion === 'cancelled' || r.conclusion === 'timed_out'
         );
 
-        if (anyFailed) {
+        if (allCompleted) {
           clearInterval(timer);
-          await Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
-          
-          // Gagalkan langkah-langkah yang masih aktif
-          await DeploymentStep.update(
-            { status: 'failed', completed_at: new Date(), log: combinedLogs },
-            { where: { deployment_id: deploymentId, status: ['pending', 'running'] as any } }
-          );
-          return;
-        }
-
-        // Perbarui Step 1 (Setup)
-        const step1 = await DeploymentStep.findOne({ where: { deployment_id: deploymentId, step_number: 1 } });
-        if (step1 && step1.status !== 'completed') {
-          if (allFound) {
-            await step1.update({
-              status: 'completed',
-              completed_at: new Date(),
-              log: 'Semua workflow GitHub Actions berhasil dipicu dan terdeteksi.\n\n' + combinedLogs,
-            });
+          if (anyFailed) {
+            await Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
           } else {
-            await step1.update({
-              log: `Memicu workflow terpusat di GitHub...\n\n` + combinedLogs,
-            });
+            await Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
           }
-        }
-
-        // Perbarui Step 2 (Configuration & Build)
-        const step2 = await DeploymentStep.findOne({ where: { deployment_id: deploymentId, step_number: 2 } });
-        if (step2) {
-          if (step2.status === 'pending' && allRunningOrCompleted) {
-            await step2.update({ status: 'running', started_at: new Date(), log: combinedLogs });
-            await Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
-          } else if (step2.status === 'running') {
-            await step2.update({ log: combinedLogs });
-            if (allCompleted) {
-              await step2.update({ status: 'completed', completed_at: new Date() });
-            }
-          }
-        }
-
-        // Perbarui Step 3 (Review & Execute)
-        const step3 = await DeploymentStep.findOne({ where: { deployment_id: deploymentId, step_number: 3 } });
-        if (step3 && step3.status === 'pending' && allCompleted) {
-          await step3.update({
-            status: 'completed',
-            started_at: new Date(),
-            completed_at: new Date(),
-            log: 'Deployment selesai dengan sukses via GitHub Actions!',
-          });
-          await Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
-          clearInterval(timer);
         }
 
       } catch (err: any) {
-        console.error('Error saat melakukan polling status deployment:', err);
+        console.error('Error saat polling deployment:', err.message);
       }
     }, intervalTime);
   }
@@ -252,33 +251,23 @@ export class DeploymentService {
       include: [{ model: DeploymentStep, as: 'steps' }]
     });
 
-    if (!deployment) {
-      throw new Error('Deployment not found');
-    }
+    if (!deployment) throw new Error('Deployment not found');
+    if (deployment.status !== 'draft') throw new Error('Deployment is not a draft and cannot be executed');
 
-    if (deployment.status !== 'draft') {
-      throw new Error('Deployment is not a draft and cannot be executed');
-    }
-
-    // Update status to pending
     await deployment.update({ status: 'pending', deployed_at: null });
 
-    // Reset step 1 to running
-    const step1 = await DeploymentStep.findOne({ where: { deployment_id: deploymentId, step_number: 1 } });
-    if (step1) {
-      await step1.update({
-        status: 'running',
-        started_at: new Date(),
-        completed_at: null,
-        log: 'Menginisialisasi deployment dan memicu workflow GitHub Actions terpusat...'
-      });
-    }
-
-    // Reset steps 2 and 3 to pending
-    await DeploymentStep.update(
-      { status: 'pending', started_at: null, completed_at: null, log: null },
-      { where: { deployment_id: deploymentId, step_number: [2, 3] } }
-    );
+    // Hapus semua step lama dan buat ulang step "Inisialisasi"
+    await DeploymentStep.destroy({ where: { deployment_id: deploymentId } });
+    await DeploymentStep.create({
+      deployment_id: deploymentId,
+      step_number: 1,
+      step_name: 'Inisialisasi',
+      status: 'running',
+      detail: { environment_id: deployment.environment_id, repositories: deployment.repositories },
+      started_at: new Date(),
+      completed_at: null,
+      log: 'Mempersiapkan deployment dan memicu workflow GitHub Actions...',
+    } as any);
 
     const data = {
       environment_id: deployment.environment_id as number,
@@ -286,9 +275,7 @@ export class DeploymentService {
       config: deployment.config || {},
     };
 
-    // Run async trigger
     this.startGitHubActionsDeployment(deployment.id, accessToken, data);
-
     return deployment;
   }
 }
