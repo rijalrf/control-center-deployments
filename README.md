@@ -4,13 +4,13 @@ Dashboard manajemen deployment remote GitHub dengan antarmuka modern dan alur de
 
 ## Stack
 
-| Layer | Tech |
-|-------|------|
+| Layer    | Tech                           |
+| -------- | ------------------------------ |
 | Frontend | React 18 + Vite + Tailwind CSS |
-| Backend | Node.js + Express + Sequelize |
-| Database | MySQL 8 |
-| Auth | GitHub OAuth 2.0 + JWT |
-| Infra | Docker + Docker Compose |
+| Backend  | Node.js + Express + Sequelize  |
+| Database | MySQL 8                        |
+| Auth     | GitHub OAuth 2.0 + JWT         |
+| Infra    | Docker + Docker Compose        |
 
 ## Quick Start
 
@@ -34,6 +34,18 @@ cp .env.example .env
    - **Authorization callback URL**: `http://localhost:5000/api/auth/github/callback`
 4. Copy **Client ID** dan **Client Secret** ke `.env`
 
+### 2. Persiapkan GitHub Secrets
+
+Aplikasi ini menggunakan repo pusat (biasanya repo ini sendiri) untuk menjalankan workflow deployment. Anda perlu menambahkan secrets berikut di repositori GitHub Anda (**Settings > Secrets and variables > Actions**):
+
+| Secret Name | Deskripsi |
+|-------------|-----------|
+| `GIT_TOKEN` | Personal Access Token (PAT) dengan akses `repo` (sama dengan `GITHUB_TOKEN` di `.env`) |
+| `DOCKERHUB_USERNAME` | Username Docker Hub Anda (untuk push/pull image) |
+| `DOCKERHUB_TOKEN` | Access Token Docker Hub Anda |
+| `SSH_KEY_PRODUCTION` | SSH Private Key untuk akses ke server Production |
+| `SSH_KEY_STAGING` | SSH Private Key untuk akses ke server Staging |
+
 ### 3. Jalankan dengan Docker
 
 ```bash
@@ -42,21 +54,21 @@ docker-compose up --build -d
 
 ### 4. Akses Aplikasi
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:5000 |
+| Service      | URL                              |
+| ------------ | -------------------------------- |
+| Frontend     | http://localhost:3000            |
+| Backend API  | http://localhost:5000            |
 | Health Check | http://localhost:5000/api/health |
 
 ## Docker Resources
 
-| Resource | Name |
-|----------|------|
-| Network | `center-deployment-network` |
-| DB Volume | `ccd-mysql-data` |
-| Frontend | `ccd-frontend` |
-| Backend | `ccd-backend` |
-| MySQL | `ccd-mysql` |
+| Resource  | Name                        |
+| --------- | --------------------------- |
+| Network   | `center-deployment-network` |
+| DB Volume | `ccd-mysql-data`            |
+| Frontend  | `ccd-frontend`              |
+| Backend   | `ccd-backend`               |
+| MySQL     | `ccd-mysql`                 |
 
 ## Features
 

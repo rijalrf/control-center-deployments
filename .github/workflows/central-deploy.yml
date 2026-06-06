@@ -27,107 +27,107 @@ on:
       server_username:
         description: 'SSH Username'
         required: true
+      dockerfile_path:
+        description: 'Path ke Dockerfile (relatif terhadap root repo)'
+        required: false
+        default: 'Dockerfile'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Target Repository
+      - name: 01. Checkout Target Repository
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.inputs.target_repo_path }}
           token: ${{ secrets.GIT_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Menyiapkan Konfigurasi & Build
+      - name: 02. Build Docker Image
         run: |
-          echo "Menyiapkan deployment untuk ${{ github.event.inputs.target_repo_name }}"
-          echo "Environment target: ${{ github.event.inputs.environment }}"
-          echo "Menerapkan konfigurasi: ${{ github.event.inputs.config }}"
+          echo "Membangun image docker untuk ${{ github.event.inputs.target_repo_name }}..."
+          docker build -f ${{ github.event.inputs.dockerfile_path }} -t ${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ github.event.inputs.target_repo_name }}:latest .
 
-      - name: Melakukan SSH Deployment ke Server Target
+      - name: 03. Push to Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
+        run: |
+          echo "Login ke Docker Hub..."
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          echo "Pushing image ke Docker Hub..."
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.target_repo_name }}:latest
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
+      - name: 04. Proses di Server (Setup Environment)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ github.event.inputs.server_host }}
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
           port: 22
-          envs: CONFIG_JSON,TARGET_REPO_NAME,TARGET_REPO_URL,GIT_TOKEN,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
+          envs: CONFIG_JSON,TARGET_REPO_NAME
           script: |
-            echo "========================================"
-            echo "Memulai deployment untuk ${TARGET_REPO_NAME}..."
-            echo "========================================"
-
-            # Buat direktori /app jika belum ada
-            sudo mkdir -p /app
-            sudo chown -R $USER:$USER /app
-
-            # Login Docker Hub jika credentials tersedia (hindari rate limit)
-            if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
-              echo "Login ke Docker Hub..."
-              echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-            fi
-
-            # Gunakan token untuk clone repo private
-            CLONE_URL="${TARGET_REPO_URL}"
-            if [ -n "$GIT_TOKEN" ]; then
-              CLONE_URL=$(echo "$TARGET_REPO_URL" | sed "s|https://|https://${GIT_TOKEN}@|g")
-            fi
-
-            # Clone jika folder belum ada, pull jika folder sudah ada
-            if [ ! -d "/app/${TARGET_REPO_NAME}" ]; then
-              echo "Folder /app/${TARGET_REPO_NAME} belum ada. Melakukan clone..."
-              git clone "$CLONE_URL" /app/${TARGET_REPO_NAME}
-            else
-              echo "Folder /app/${TARGET_REPO_NAME} sudah ada. Melakukan git pull..."
-              cd /app/${TARGET_REPO_NAME}
-              git remote set-url origin "$CLONE_URL"
-              git pull
-            fi
-
+            echo "Menyiapkan direktori aplikasi..."
+            sudo mkdir -p /app/${TARGET_REPO_NAME}
+            sudo chown -R $USER:$USER /app/${TARGET_REPO_NAME}
             cd /app/${TARGET_REPO_NAME}
 
-            # Menulis file .env secara dinamis dari input config JSON
             echo "Menulis file .env..."
-            python3 -c "import json, os; d=json.loads(os.getenv('CONFIG_JSON', '{}')); f=open('.env', 'w'); [f.write(f'{k}={v}\n') for k, v in d.items()]"
+            echo "$CONFIG_JSON" > config.json
+            python3 -c "import json, os; d=json.loads(open('config.json').read()); f=open('.env', 'w'); [f.write(f'{k}={v}\n') for k, v in d.items()]"
+            rm config.json
 
-            echo "Isi .env yang akan digunakan:"
+            echo "Isi .env (masked):"
             cat .env | sed 's/=.*/=***/' || true
+        env:
+          CONFIG_JSON: ${{ github.event.inputs.config }}
+          TARGET_REPO_NAME: ${{ github.event.inputs.target_repo_name }}
 
-            # Build dan jalankan Docker container secara dinamis
-            echo "Membangun image docker..."
-            docker build -t ${TARGET_REPO_NAME}:latest .
+      - name: 05. Execute Final Deployment (Run Container)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ github.event.inputs.server_host }}
+          username: ${{ github.event.inputs.server_username }}
+          key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
+          port: 22
+          envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
+          script: |
+            IMAGE_NAME="${DOCKERHUB_USERNAME}/${TARGET_REPO_NAME}:latest"
+            if [ -z "$DOCKERHUB_USERNAME" ]; then
+              echo "DOCKERHUB_USERNAME tidak diset, menggunakan image lokal..."
+              IMAGE_NAME="${TARGET_REPO_NAME}:latest"
+            else
+              echo "Login ke Docker Hub di server..."
+              echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+              echo "Pulling image terbaru: $IMAGE_NAME"
+              docker pull $IMAGE_NAME
+            fi
 
-            echo "Menghentikan dan menghapus container lama (jika ada)..."
+            echo "Menghentikan container lama..."
             docker stop ${TARGET_REPO_NAME} || true
             docker rm ${TARGET_REPO_NAME} || true
 
-            # Mencari port aplikasi dari file .env (default ke port 80 jika tidak ada)
+            cd /app/${TARGET_REPO_NAME}
             TARGET_PORT=$(grep -E "^PORT=" .env | cut -d'=' -f2)
-            if [ -z "$TARGET_PORT" ]; then
-              TARGET_PORT=80
-            fi
+            if [ -z "$TARGET_PORT" ]; then TARGET_PORT=80; fi
 
-            echo "Menjalankan container baru pada port ${TARGET_PORT}..."
+            echo "Menjalankan container pada port ${TARGET_PORT}..."
             docker run -d \
               --name ${TARGET_REPO_NAME} \
               --restart unless-stopped \
               --env-file .env \
               -p ${TARGET_PORT}:${TARGET_PORT} \
-              ${TARGET_REPO_NAME}:latest
+              $IMAGE_NAME
 
-            # Verifikasi container berjalan
             sleep 3
             if docker ps | grep -q "${TARGET_REPO_NAME}"; then
-              echo "✅ Container ${TARGET_REPO_NAME} berhasil berjalan pada port ${TARGET_PORT}!"
+              echo "✅ Deployment Berhasil!"
             else
-              echo "❌ Container ${TARGET_REPO_NAME} gagal start. Melihat logs..."
+              echo "❌ Deployment Gagal!"
               docker logs ${TARGET_REPO_NAME} || true
               exit 1
             fi
         env:
-          CONFIG_JSON: ${{ github.event.inputs.config }}
           TARGET_REPO_NAME: ${{ github.event.inputs.target_repo_name }}
-          TARGET_REPO_URL: ${{ github.event.inputs.target_repo_url }}
-          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+

@@ -57,7 +57,7 @@ export class GitHubService {
     return results;
   }
 
-  static async dispatchCentralWorkflow(accessToken: string, targetInputs: Record<string, string>) {
+  static async dispatchCentralWorkflow(accessToken: string, targetInputs: Record<string, string>, ref: string = 'main') {
     const token = this.getEffectiveToken(accessToken);
     const octokit = new Octokit({ auth: token });
     
@@ -76,7 +76,7 @@ export class GitHubService {
       owner,
       repo,
       workflow_id: workflowId,
-      ref: 'main',
+      ref,
       inputs: targetInputs,
     });
 
