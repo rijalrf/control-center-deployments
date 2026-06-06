@@ -81,6 +81,9 @@ export class DeploymentService {
       const envSuffix = envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
       const runsInfo: any[] = [];
 
+      // Hardcode ref based on environment
+      const workflowRef = envName.toLowerCase() === 'production' ? 'main' : 'staging';
+
       for (const r of data.repositories) {
         const repoConfig = data.config[r.name] || {};
         const dockerfilePath = repoConfig.DOCKERFILE_PATH || 'Dockerfile';
@@ -97,7 +100,7 @@ export class DeploymentService {
           dockerfile_path: dockerfilePath,
         };
 
-        const runInfo = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs);
+        const runInfo = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, workflowRef);
         runsInfo.push({ ...runInfo, repoName: r.name });
       }
 
