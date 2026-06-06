@@ -11,6 +11,7 @@ passport.use(
       clientSecret: env.github.clientSecret,
       callbackURL: env.github.callbackUrl,
       userAgent: 'ccd-backend',
+      scope: ['read:org', 'repo', 'workflow'],
     },
     async (accessToken: string, refreshToken: string, profile: any, done: any) => {
       try {

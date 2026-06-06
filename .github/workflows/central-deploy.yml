@@ -8,6 +8,9 @@ on:
       target_repo_name:
         description: 'Nama Repositori Target'
         required: true
+      target_repo_path:
+        description: 'Path Repositori Target (owner/repo)'
+        required: true
       environment:
         description: 'Target Environment'
         required: true
@@ -32,7 +35,7 @@ jobs:
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.inputs.target_repo_url }}
+          repository: ${{ github.event.inputs.target_repo_path }}
           token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Menyiapkan Konfigurasi & Build

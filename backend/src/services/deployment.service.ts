@@ -19,7 +19,7 @@ export class DeploymentService {
       user_id: data.user_id,
       repositories: data.repositories,
       config: data.config || {},
-      status: data.status || 'pending',
+      status: (data.status as any) || 'pending',
       notes: data.notes || null,
       deployed_at: null
     });
@@ -73,6 +73,7 @@ export class DeploymentService {
         const targetInputs = {
           target_repo_url: r.clone_url || `https://github.com/${r.full_name}.git`,
           target_repo_name: r.name,
+          target_repo_path: r.full_name || r.name,
           environment: envName,
           environment_secret_suffix: envSuffix,
           config: JSON.stringify(data.config[r.name] || data.config || {}),
@@ -279,8 +280,8 @@ export class DeploymentService {
     );
 
     const data = {
-      environment_id: deployment.environment_id,
-      repositories: deployment.repositories || [],
+      environment_id: deployment.environment_id as number,
+      repositories: (deployment.repositories as any[]) || [],
       config: deployment.config || {},
     };
 

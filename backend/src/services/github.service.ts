@@ -3,17 +3,19 @@ import { env } from '../config/env';
 import { Repository } from '../models/Repository';
 
 export class GitHubService {
-  static async syncRepositories(accessToken: string | null) {
-    let token = accessToken;
-    if (!token && env.github.token && env.github.token !== 'your_github_personal_access_token') {
-      token = env.github.token;
+  private static getEffectiveToken(accessToken: string | null): string {
+    if (env.github.token && env.github.token !== 'your_github_personal_access_token' && env.github.token.trim() !== '') {
+      return env.github.token;
     }
-    
-    const org = env.github.org && env.github.org !== 'your_github_org_or_username' ? env.github.org : null;
+    if (!accessToken) {
+      throw new Error('GitHub access token is required.');
+    }
+    return accessToken;
+  }
 
-    if (!token) {
-      throw new Error('GitHub access token is required for synchronization.');
-    }
+  static async syncRepositories(accessToken: string | null) {
+    const token = this.getEffectiveToken(accessToken);
+    const org = env.github.org && env.github.org !== 'your_github_org_or_username' ? env.github.org : null;
 
     const octokit = new Octokit({ auth: token });
     let ghRepos: any[] = [];
@@ -56,7 +58,8 @@ export class GitHubService {
   }
 
   static async dispatchCentralWorkflow(accessToken: string, targetInputs: Record<string, string>) {
-    const octokit = new Octokit({ auth: accessToken });
+    const token = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
     
     let owner = env.central.owner;
     if (!owner) {
@@ -64,7 +67,7 @@ export class GitHubService {
       owner = user.login;
     }
     
-    const repo = env.central.repo || 'center-control-deployments';
+    const repo = env.central.repo || 'control-center-deployments';
     const workflowId = env.central.workflow || 'central-deploy.yml';
 
     const dispatchTime = new Date();
@@ -81,7 +84,8 @@ export class GitHubService {
   }
 
   static async findWorkflowRun(accessToken: string, owner: string, repo: string, workflowId: string, afterTime: Date) {
-    const octokit = new Octokit({ auth: accessToken });
+    const token = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
     const { data } = await octokit.actions.listWorkflowRuns({
       owner,
       repo,
@@ -100,7 +104,8 @@ export class GitHubService {
   }
 
   static async getWorkflowRunStatus(accessToken: string, owner: string, repo: string, runId: number) {
-    const octokit = new Octokit({ auth: accessToken });
+    const token = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
     const { data } = await octokit.actions.getWorkflowRun({
       owner,
       repo,
@@ -114,7 +119,8 @@ export class GitHubService {
   }
 
   static async getWorkflowRunJobs(accessToken: string, owner: string, repo: string, runId: number) {
-    const octokit = new Octokit({ auth: accessToken });
+    const token = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
     const { data } = await octokit.actions.listJobsForWorkflowRun({
       owner,
       repo,
@@ -125,7 +131,8 @@ export class GitHubService {
 
   static async getJobLogs(accessToken: string, owner: string, repo: string, jobId: number) {
     try {
-      const octokit = new Octokit({ auth: accessToken });
+      const token = this.getEffectiveToken(accessToken);
+      const octokit = new Octokit({ auth: token });
       const { data } = await octokit.actions.downloadJobLogsForWorkflowRun({
         owner,
         repo,
@@ -138,7 +145,8 @@ export class GitHubService {
   }
 
   static async getRepoEnvKeys(accessToken: string, owner: string, repo: string) {
-    const octokit = new Octokit({ auth: accessToken });
+    const token = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
     let content = '';
 
     try {
