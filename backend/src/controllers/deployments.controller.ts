@@ -42,7 +42,7 @@ export class DeploymentsController {
 
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const { environment_id, repositories, config, notes } = req.body;
+      const { environment_id, repositories, config, notes, status } = req.body;
 
       if (!environment_id || !repositories?.length) {
         return res.status(400).json({ error: 'environment_id and repositories are required' });
@@ -58,6 +58,7 @@ export class DeploymentsController {
         config: config || {},
         notes,
         accessToken: userToken,
+        status,
       });
 
       const result = await Deployment.findByPk(deployment.id, {
@@ -105,6 +106,26 @@ export class DeploymentsController {
 
       await step.update(updates);
       res.json(step);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async executeDraft(req: Request, res: Response, next: NextFunction) {
+    try {
+      const deploymentId = parseInt(req.params.id, 10);
+      const userToken = (req.user as any).access_token || '';
+
+      const deployment = await DeploymentService.executeDraftDeployment(deploymentId, userToken);
+      
+      const result = await Deployment.findByPk(deployment.id, {
+        include: [
+          { model: Environment, as: 'environment' },
+          { model: DeploymentStep, as: 'steps' },
+        ],
+      });
+
+      res.json(result);
     } catch (err) {
       next(err);
     }

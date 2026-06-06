@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { Deployment } from '../types'
 
@@ -38,6 +38,21 @@ function StatCard({ label, value, icon, colorClass, sub }: StatCardProps) {
 export default function Dashboard() {
   const [stats, setStats]           = useState<{ repos: number; envs: number; servers: number; deployments: Deployment[] }>({ repos: 0, envs: 0, servers: 0, deployments: [] })
   const [loading, setLoading]       = useState(true)
+  const [executingId, setExecutingId] = useState<number | null>(null)
+  const navigate = useNavigate()
+
+  const handleExecutePlan = async (id: number) => {
+    setExecutingId(id)
+    try {
+      await api.post(`/deployments/${id}/execute`)
+      localStorage.setItem('ccd_active_deployment_id', String(id))
+      navigate('/deployment')
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to execute deployment')
+    } finally {
+      setExecutingId(null)
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -125,6 +140,7 @@ export default function Dashboard() {
                   <th>Status</th>
                   <th>Deployed By</th>
                   <th>Date</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -163,6 +179,26 @@ export default function Dashboard() {
                         <span className="text-xs font-mono">
                           {new Date(d.created_at).toLocaleDateString()}
                         </span>
+                      </td>
+                      <td>
+                        {d.status === 'draft' ? (
+                          <button
+                            onClick={() => handleExecutePlan(d.id)}
+                            disabled={executingId !== null}
+                            className="text-xs bg-ccd-accent/10 hover:bg-ccd-accent text-ccd-accent hover:text-white px-2.5 py-1 rounded border border-ccd-accent/20 transition-all font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {executingId === d.id ? (
+                              <div className="spinner w-3 h-3 border-t-transparent animate-spin" />
+                            ) : (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                              </svg>
+                            )}
+                            Execute Plan
+                          </button>
+                        ) : (
+                          <span className="text-xs text-ccd-text-muted font-mono">—</span>
+                        )}
                       </td>
                     </tr>
                   )

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import Step01Setup from '../components/Deployment/Step01Setup'
 import Step02Config from '../components/Deployment/Step02Config'
@@ -336,6 +337,7 @@ function ActiveDeploymentDashboard({ deployment, onReset, onRefresh }: ActiveDep
 }
 
 export default function Deployment() {
+  const navigate = useNavigate()
   const [currentStep, setCurrentStep]         = useState<number>(() => {
     const saved = localStorage.getItem('ccd_wizard_step')
     return saved ? Number(saved) : 1
@@ -441,6 +443,28 @@ export default function Deployment() {
     }
   }
 
+  const handleSavePlan = async () => {
+    setSubmitting(true)
+    try {
+      await api.post('/deployments', {
+        environment_id: formData.environment_id,
+        repositories:   formData.repositories,
+        config:         formData.config,
+        status:         'draft',
+      })
+      showToast('Deployment plan saved successfully!', 'success')
+      localStorage.removeItem('ccd_wizard_step')
+      localStorage.removeItem('ccd_wizard_form_data')
+      setFormData(INIT_DATA)
+      setCurrentStep(1)
+      navigate('/dashboard')
+    } catch (err: any) {
+      showToast(err.response?.data?.error || 'Failed to save plan', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const refreshDeployment = useCallback(async () => {
     if (!activeDeployment?.id) return
     try {
@@ -517,23 +541,32 @@ export default function Deployment() {
                     )}
                   </button>
                 ) : (
-                  <button
-                    onClick={handleExecute}
-                    disabled={submitting}
-                    id="execute-deploy-btn"
-                    className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 animate-pulse"
-                  >
-                    {submitting ? (
-                      <><div className="spinner w-4 h-4 animate-spin border-t-transparent mr-2" />Executing...</>
-                    ) : (
-                      <>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-                          <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                        Execute Deployment
-                      </>
-                    )}
-                  </button>
+                  <>
+                    <button
+                      onClick={handleSavePlan}
+                      disabled={submitting}
+                      className="ccd-btn-secondary border border-ccd-border/50 text-xs py-2.5 px-4"
+                    >
+                      Save as Plan
+                    </button>
+                    <button
+                      onClick={handleExecute}
+                      disabled={submitting}
+                      id="execute-deploy-btn"
+                      className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 animate-pulse"
+                    >
+                      {submitting ? (
+                        <><div className="spinner w-4 h-4 animate-spin border-t-transparent mr-2" />Executing...</>
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                          </svg>
+                          Execute Deployment
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
               </div>
             </div>

@@ -12,19 +12,20 @@ export class DeploymentService {
     config: any;
     notes?: string;
     accessToken: string;
+    status?: string;
   }) {
     const deployment = await Deployment.create({
       environment_id: data.environment_id,
       user_id: data.user_id,
       repositories: data.repositories,
       config: data.config || {},
-      status: 'pending',
+      status: data.status || 'pending',
       notes: data.notes || null,
       deployed_at: null
     });
 
     const stepDefs = [
-      { step_number: 1, step_name: 'Setup', status: 'running' as const, detail: { environment_id: data.environment_id, repositories: data.repositories } },
+      { step_number: 1, step_name: 'Setup', status: (data.status === 'draft' ? 'pending' : 'running') as any, detail: { environment_id: data.environment_id, repositories: data.repositories } },
       { step_number: 2, step_name: 'Configuration & Build', status: 'pending' as const, detail: { config: data.config } },
       { step_number: 3, step_name: 'Review & Execute', status: 'pending' as const, detail: null },
     ];
@@ -34,14 +35,16 @@ export class DeploymentService {
       stepDefs.map((s, i) => ({
         deployment_id: deployment.id,
         ...s,
-        started_at: i === 0 ? now : null,
+        started_at: (i === 0 && data.status !== 'draft') ? now : null,
         completed_at: null,
-        log: i === 0 ? 'Menginisialisasi deployment dan memicu workflow GitHub Actions terpusat...' : null
+        log: (i === 0 && data.status !== 'draft') ? 'Menginisialisasi deployment dan memicu workflow GitHub Actions terpusat...' : null
       }))
     );
 
-    // Run real async GitHub Actions triggers and tracking
-    this.startGitHubActionsDeployment(deployment.id, data.accessToken, data);
+    // Only run real async triggers if status is NOT draft
+    if (data.status !== 'draft') {
+      this.startGitHubActionsDeployment(deployment.id, data.accessToken, data);
+    }
 
     return deployment;
   }
@@ -240,5 +243,50 @@ export class DeploymentService {
         console.error('Error saat melakukan polling status deployment:', err);
       }
     }, intervalTime);
+  }
+
+  static async executeDraftDeployment(deploymentId: number, accessToken: string) {
+    const deployment = await Deployment.findByPk(deploymentId, {
+      include: [{ model: DeploymentStep, as: 'steps' }]
+    });
+
+    if (!deployment) {
+      throw new Error('Deployment not found');
+    }
+
+    if (deployment.status !== 'draft') {
+      throw new Error('Deployment is not a draft and cannot be executed');
+    }
+
+    // Update status to pending
+    await deployment.update({ status: 'pending', deployed_at: null });
+
+    // Reset step 1 to running
+    const step1 = await DeploymentStep.findOne({ where: { deployment_id: deploymentId, step_number: 1 } });
+    if (step1) {
+      await step1.update({
+        status: 'running',
+        started_at: new Date(),
+        completed_at: null,
+        log: 'Menginisialisasi deployment dan memicu workflow GitHub Actions terpusat...'
+      });
+    }
+
+    // Reset steps 2 and 3 to pending
+    await DeploymentStep.update(
+      { status: 'pending', started_at: null, completed_at: null, log: null },
+      { where: { deployment_id: deploymentId, step_number: [2, 3] } }
+    );
+
+    const data = {
+      environment_id: deployment.environment_id,
+      repositories: deployment.repositories || [],
+      config: deployment.config || {},
+    };
+
+    // Run async trigger
+    this.startGitHubActionsDeployment(deployment.id, accessToken, data);
+
+    return deployment;
   }
 }
