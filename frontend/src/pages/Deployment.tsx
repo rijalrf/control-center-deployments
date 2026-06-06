@@ -89,12 +89,52 @@ export default function Deployment() {
   const [activeDeployment, setActiveDeployment] = useState<DeploymentType | null>(null)
   const { showToast }                         = useToast()
 
+  const [loadingKeys, setLoadingKeys]         = useState(false)
+
   const updateData = (patch: Partial<FormData>) => setFormData(prev => ({ ...prev, ...patch }))
 
   const canNext = () => {
     if (currentStep === 1) return formData.environment_id !== null && formData.repositories.length > 0
     if (currentStep === 2) return true
     return false
+  }
+
+  const handleNext = async () => {
+    if (currentStep === 1) {
+      setLoadingKeys(true)
+      try {
+        const newConfig = { ...formData.config }
+        
+        await Promise.all(
+          formData.repositories.map(async (repo) => {
+            if (!newConfig[repo.name] || Object.keys(newConfig[repo.name]).length === 0) {
+              try {
+                const res = await api.get(`/repos/${repo.id}/env-keys`)
+                const keys = res.data.keys && res.data.keys.length > 0 ? res.data.keys : []
+                
+                const defaults: Record<string, string> = {}
+                keys.forEach((k: string) => {
+                  defaults[k] = ''
+                })
+                newConfig[repo.name] = defaults
+              } catch (err) {
+                const defaults: Record<string, string> = {}
+                newConfig[repo.name] = defaults
+              }
+            }
+          })
+        )
+        
+        setFormData(prev => ({ ...prev, config: newConfig }))
+        setCurrentStep(2)
+      } catch (err) {
+        showToast('Failed to fetch environment variables', 'error')
+      } finally {
+        setLoadingKeys(false)
+      }
+    } else {
+      setCurrentStep(s => s + 1)
+    }
   }
 
   const handleExecute = async () => {
@@ -159,7 +199,7 @@ export default function Deployment() {
             <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
               <button
                 onClick={() => currentStep > 1 ? setCurrentStep(s => s - 1) : null}
-                disabled={currentStep === 1}
+                disabled={currentStep === 1 || loadingKeys}
                 className="ccd-btn-secondary"
               >
                 ← Back
@@ -168,11 +208,18 @@ export default function Deployment() {
               <div className="flex gap-3">
                 {currentStep < 3 ? (
                   <button
-                    onClick={() => setCurrentStep(s => s + 1)}
-                    disabled={!canNext()}
-                    className="ccd-btn-primary"
+                    onClick={handleNext}
+                    disabled={!canNext() || loadingKeys}
+                    className="ccd-btn-primary flex items-center gap-2"
                   >
-                    Next →
+                    {loadingKeys ? (
+                      <>
+                        <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                        Loading variables...
+                      </>
+                    ) : (
+                      <>Next →</>
+                    )}
                   </button>
                 ) : (
                   <button

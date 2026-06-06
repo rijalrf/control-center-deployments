@@ -136,4 +136,51 @@ export class GitHubService {
       return `Tidak dapat mengambil log dari GitHub API: ${e.message}`;
     }
   }
+
+  static async getRepoEnvKeys(accessToken: string, owner: string, repo: string) {
+    const octokit = new Octokit({ auth: accessToken });
+    let content = '';
+
+    try {
+      const { data } = await octokit.repos.getContent({
+        owner,
+        repo,
+        path: '.env.example',
+      });
+      
+      if (data && 'content' in data) {
+        content = Buffer.from(data.content, 'base64').toString('utf-8');
+      }
+    } catch (e: any) {
+      try {
+        const { data } = await octokit.repos.getContent({
+          owner,
+          repo,
+          path: '.env',
+        });
+        if (data && 'content' in data) {
+          content = Buffer.from(data.content, 'base64').toString('utf-8');
+        }
+      } catch (err: any) {
+        return [];
+      }
+    }
+
+    const lines = content.split(/\r?\n/);
+    const keys: string[] = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const match = trimmed.match(/^([^=]+)/);
+      if (match) {
+        const key = match[1].trim();
+        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+          keys.push(key);
+        }
+      }
+    }
+
+    return keys;
+  }
 }
