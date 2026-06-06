@@ -61,6 +61,8 @@ export class DeploymentService {
       const serverHost = server?.host || 'localhost';
       const serverUsername = server?.username || 'deploy';
 
+      const envSuffix = envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+
       const runsInfo: any[] = [];
 
       // Trigger workflow dispatch for each selected repository
@@ -69,6 +71,7 @@ export class DeploymentService {
           target_repo_url: r.clone_url || `https://github.com/${r.full_name}.git`,
           target_repo_name: r.name,
           environment: envName,
+          environment_secret_suffix: envSuffix,
           config: JSON.stringify(data.config[r.name] || data.config || {}),
           server_host: serverHost,
           server_username: serverUsername,

@@ -11,7 +11,9 @@ on:
       environment:
         description: 'Target Environment'
         required: true
-        default: 'staging'
+      environment_secret_suffix:
+        description: 'Suffix Secret Key (e.g. PRODUCTION)'
+        required: true
       config:
         description: 'JSON string konfigurasi env variables'
         required: false
@@ -31,17 +33,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.inputs.target_repo_url }}
-          token: ${{ secrets.GITHUB_TOKEN }} # Menggunakan token GitHub default
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Menyiapkan Konfigurasi & Build
         run: |
           echo "Menyiapkan deployment untuk ${{ github.event.inputs.target_repo_name }}"
           echo "Environment target: ${{ github.event.inputs.environment }}"
           echo "Menerapkan konfigurasi: ${{ github.event.inputs.config }}"
-          # Tulis logika build di sini jika diperlukan
           
       - name: Melakukan SSH Deployment ke Server Target
-        run: |
-          echo "Melakukan SSH ke ${{ github.event.inputs.server_username }}@${{ github.event.inputs.server_host }}"
-          # Di masa depan, di sini Anda dapat menambahkan command SSH nyata untuk menyalin file build / restart docker container target
-          echo "Deployment berhasil diselesaikan!"
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ github.event.inputs.server_host }}
+          username: ${{ github.event.inputs.server_username }}
+          key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
+          port: 22
+          script: |
+            echo "Koneksi SSH ke ${{ github.event.inputs.server_host }} Berhasil!"
+            # Di masa depan, jalankan deployment docker di sini:
+            # cd /app/${{ github.event.inputs.target_repo_name }}
+            # docker build -t ${{ github.event.inputs.target_repo_name }}:latest .
+            # docker stop ${{ github.event.inputs.target_repo_name }} || true
+            # docker rm ${{ github.event.inputs.target_repo_name }} || true
+            # docker run -d --name ${{ github.event.inputs.target_repo_name }} -p 80:80 ${{ github.event.inputs.target_repo_name }}:latest
+            echo "Deployment berhasil diselesaikan!"
