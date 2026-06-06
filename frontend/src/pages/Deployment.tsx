@@ -1,11 +1,9 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import api from '../services/api'
 import Step01Setup from '../components/Deployment/Step01Setup'
 import Step02Config from '../components/Deployment/Step02Config'
 import Step03Review from '../components/Deployment/Step03Review'
-import DeploymentAccordion from '../components/Deployment/DeploymentAccordion'
 import { Environment, Repository, Deployment as DeploymentType } from '../types'
-
 import { useToast } from '../context/ToastContext'
 
 interface Step {
@@ -82,16 +80,304 @@ function StepIndicator({ current, steps }: StepIndicatorProps) {
   )
 }
 
+interface ActiveDeploymentDashboardProps {
+  deployment: DeploymentType;
+  onReset: () => void;
+  onRefresh: () => void;
+}
+
+function ActiveDeploymentDashboard({ deployment, onReset, onRefresh }: ActiveDeploymentDashboardProps) {
+  const steps = deployment.steps || []
+  const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number)
+  const terminalRef = useRef<HTMLPreElement>(null)
+
+  // Auto-refresh while running
+  useEffect(() => {
+    const hasRunning = steps.some(s => s.status === 'running' || s.status === 'pending')
+    if (!hasRunning) return
+    const interval = setInterval(onRefresh, 4000)
+    return () => clearInterval(interval)
+  }, [steps, onRefresh])
+
+  // Consolidate logs like GitHub Actions
+  const consolidatedLogs = sortedSteps
+    .map(s => {
+      const title = `[STEP 0${s.step_number}] ${s.step_name.toUpperCase()} - ${s.status.toUpperCase()}`;
+      const divider = `========================================================================`;
+      const logContent = s.log ? s.log.trim() : (s.status === 'pending' ? 'Waiting to start...' : 'No log output.');
+      return `${divider}\n${title}\n${divider}\n${logContent}\n\n`;
+    })
+    .join('');
+
+  // Scroll terminal to bottom
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [consolidatedLogs])
+
+  const overallStatus = deployment.status || 'pending'
+  const statusColors: Record<string, string> = {
+    pending:   'bg-ccd-warning/15 text-ccd-warning border-ccd-warning/30',
+    running:   'bg-ccd-accent/15 text-ccd-accent border-ccd-accent/30 animate-pulse',
+    success:   'bg-ccd-success/15 text-ccd-success border-ccd-success/30',
+    failed:    'bg-ccd-danger/15 text-ccd-danger border-ccd-danger/30',
+    cancelled: 'bg-ccd-muted/50 text-ccd-text-muted border-ccd-border',
+  }
+
+  const animationStyle = `
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(0.96); opacity: 0.7; filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.3)); }
+      50% { transform: scale(1.04); opacity: 1; filter: drop-shadow(0 0 30px rgba(6, 182, 212, 0.6)); }
+    }
+    @keyframes pulseDiod {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    @keyframes flowLines {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -40; }
+    }
+  `;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <style>{animationStyle}</style>
+      
+      {/* Header */}
+      <div className="ccd-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-bold text-ccd-text">Deployment #{deployment.id}</h2>
+            <span className={`badge uppercase tracking-wider text-[10px] px-2.5 py-0.5 border ${statusColors[overallStatus] || 'badge-muted'}`}>
+              {overallStatus}
+            </span>
+          </div>
+          <p className="text-xs text-ccd-text-muted mt-1.5 font-mono">
+            Triggered at: {new Date(deployment.created_at).toLocaleString()}
+          </p>
+        </div>
+        <button
+          onClick={onReset}
+          className="ccd-btn-secondary text-xs py-2 px-4 ml-auto sm:ml-0 border border-ccd-border/50"
+        >
+          ← New Deployment
+        </button>
+      </div>
+
+      {/* Two Columns: Left Step Progress | Right Animation */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Progress Steps */}
+        <div className="ccd-card p-6 flex flex-col justify-center space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold text-ccd-text">Pipeline Execution Steps</h3>
+            <p className="text-xs text-ccd-text-muted mt-0.5">Real-time step tracking from central runner</p>
+          </div>
+
+          <div className="space-y-5 relative pl-4 border-l border-ccd-border/60 ml-3">
+            {sortedSteps.map((s) => {
+              const isCompleted = s.status === 'completed'
+              const isRunning = s.status === 'running'
+              const isFailed = s.status === 'failed'
+              const isPending = s.status === 'pending' || s.status === 'skipped'
+
+              return (
+                <div key={s.id} className="relative flex items-start gap-4">
+                  {/* Left Side Icon/Spinner */}
+                  <div className="absolute left-[-26px] top-1 z-10">
+                    {isCompleted && (
+                      <div className="w-5 h-5 rounded-full bg-ccd-success text-white flex items-center justify-center shrink-0 border border-ccd-success/30 shadow-lg shadow-ccd-success/20">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.5} className="w-3 h-3">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    )}
+                    {isRunning && (
+                      <div className="w-5 h-5 rounded-full bg-[#0d1117] border border-ccd-accent flex items-center justify-center shrink-0 shadow-lg shadow-ccd-accent/20">
+                        <div className="spinner w-3 h-3 border-t-transparent border-ccd-accent animate-spin" />
+                      </div>
+                    )}
+                    {isFailed && (
+                      <div className="w-5 h-5 rounded-full bg-ccd-danger text-white flex items-center justify-center shrink-0 border border-ccd-danger/30 shadow-lg shadow-ccd-danger/20 animate-bounce">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.5} className="w-3 h-3">
+                          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </div>
+                    )}
+                    {isPending && (
+                      <div className="w-5 h-5 rounded-full bg-[#1e293b] border border-ccd-border flex items-center justify-center shrink-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-ccd-text-muted/60" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step Description */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-semibold ${isRunning ? 'text-ccd-accent' : isCompleted ? 'text-ccd-success' : 'text-ccd-text-dim'}`}>
+                        {s.step_name}
+                      </span>
+                      {isRunning && <span className="text-[10px] text-ccd-accent font-mono animate-pulse">processing...</span>}
+                    </div>
+                    {s.started_at && (
+                      <div className="text-[10px] text-ccd-text-muted mt-0.5 font-mono">
+                        Started: {new Date(s.started_at).toLocaleTimeString()}
+                        {s.completed_at && ` · Finished: ${new Date(s.completed_at).toLocaleTimeString()}`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Right Column: Animation Illustration */}
+        <div className="ccd-card p-6 flex flex-col items-center justify-center min-h-[220px] bg-ccd-muted/10 relative overflow-hidden">
+          {/* Animated Server Pipeline Illustration */}
+          <div className="relative flex flex-col items-center justify-center w-full h-full py-4">
+            {/* Glowing aura */}
+            <div 
+              className="absolute w-32 h-32 rounded-full blur-2xl transition-all duration-1000"
+              style={{
+                background: overallStatus === 'success' ? 'rgba(34, 197, 94, 0.15)' :
+                            overallStatus === 'failed' ? 'rgba(239, 68, 68, 0.15)' :
+                            'rgba(6, 182, 212, 0.15)',
+                animation: 'pulseGlow 3s infinite ease-in-out'
+              }}
+            />
+
+            <svg viewBox="0 0 100 80" className="w-36 h-36 relative z-10">
+              {/* Connection paths */}
+              <path 
+                d="M 50 15 L 50 65" 
+                stroke="#1e293b" 
+                strokeWidth="2" 
+              />
+              <path 
+                d="M 50 15 L 50 65" 
+                stroke={overallStatus === 'running' ? '#06b6d4' : overallStatus === 'success' ? '#10b981' : '#1e293b'} 
+                strokeWidth="2" 
+                strokeDasharray="8 8"
+                style={{
+                  animation: overallStatus === 'running' ? 'flowLines 1s linear infinite' : 'none'
+                }}
+              />
+
+              {/* Node 1: Cloud/GitHub */}
+              <g transform="translate(42, 5)">
+                <rect x="0" y="0" width="16" height="12" rx="3" fill="#0f172a" stroke={overallStatus === 'running' || overallStatus === 'success' ? '#06b6d4' : '#334155'} strokeWidth="1.5" />
+                <path d="M 4 8 L 8 4 L 12 8" stroke="#06b6d4" strokeWidth="1.2" fill="none" className={overallStatus === 'running' ? 'animate-bounce' : ''} />
+              </g>
+
+              {/* Node 2: Server Runner */}
+              <g transform="translate(42, 33)">
+                <rect x="0" y="0" width="16" height="14" rx="2" fill="#0f172a" stroke={overallStatus === 'running' ? '#22d3ee' : overallStatus === 'success' ? '#10b981' : '#334155'} strokeWidth="1.5" />
+                <line x1="3" y1="4" x2="13" y2="4" stroke="#1e293b" strokeWidth="1.5" />
+                <line x1="3" y1="7" x2="13" y2="7" stroke="#1e293b" strokeWidth="1.5" />
+                {/* Blinking LEDs */}
+                <circle cx="4" cy="11" r="0.8" fill="#22c55e" style={{ animation: 'pulseDiod 1s infinite' }} />
+                <circle cx="7" cy="11" r="0.8" fill="#eab308" style={{ animation: 'pulseDiod 1.5s infinite' }} />
+                <circle cx="10" cy="11" r="0.8" fill="#ef4444" style={{ animation: 'pulseDiod 0.7s infinite' }} />
+              </g>
+
+              {/* Node 3: Target Server */}
+              <g transform="translate(42, 63)">
+                <rect x="0" y="0" width="16" height="12" rx="2" fill="#0f172a" stroke={overallStatus === 'success' ? '#10b981' : overallStatus === 'failed' ? '#ef4444' : '#334155'} strokeWidth="1.5" />
+                <circle cx="8" cy="6" r="2.5" stroke={overallStatus === 'success' ? '#10b981' : overallStatus === 'failed' ? '#ef4444' : '#06b6d4'} strokeWidth="1" fill="none" className={overallStatus === 'running' ? 'animate-ping' : ''} />
+              </g>
+            </svg>
+
+            <div className="mt-2 text-center z-10">
+              <span className={`text-xs font-semibold ${
+                overallStatus === 'success' ? 'text-ccd-success' :
+                overallStatus === 'failed' ? 'text-ccd-danger' :
+                overallStatus === 'running' ? 'text-ccd-accent' :
+                'text-ccd-text-muted'
+              }`}>
+                {overallStatus === 'success' ? 'Deployment Successful!' :
+                 overallStatus === 'failed' ? 'Deployment Failed' :
+                 overallStatus === 'running' ? 'Deploying to server via SSH...' :
+                 'Awaiting Action Runner...'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Terminal Logs (Styled like GitHub Actions logs) */}
+      <div className="w-full mt-6">
+        <div className="ccd-card overflow-hidden border-[#1e293b] shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117] border-b border-[#21262d]">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-ccd-danger/60" />
+              <span className="w-2.5 h-2.5 rounded-full bg-ccd-warning/60" />
+              <span className="w-2.5 h-2.5 rounded-full bg-ccd-success/60" />
+              <span className="text-xs font-mono text-[#8b949e] ml-2">runner@ubuntu-latest: ~logs</span>
+            </div>
+            <span className="text-[10px] font-mono text-[#8b949e] flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full bg-ccd-accent ${overallStatus === 'running' ? 'animate-ping' : ''}`} />
+              {overallStatus === 'running' ? 'LIVE TRACKING' : 'STREAM ENDED'}
+            </span>
+          </div>
+          
+          {/* Terminal Console */}
+          <pre 
+            ref={terminalRef}
+            className="p-5 font-mono text-xs text-[#c9d1d9] bg-[#0d1117] overflow-y-auto max-h-[420px] h-[360px] whitespace-pre-wrap break-all scrollbar-thin scrollbar-thumb-[#21262d] scrollbar-track-transparent leading-relaxed"
+          >
+            {consolidatedLogs}
+          </pre>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Deployment() {
-  const [currentStep, setCurrentStep]         = useState(1)
-  const [formData, setFormData]               = useState<FormData>(INIT_DATA)
+  const [currentStep, setCurrentStep]         = useState<number>(() => {
+    const saved = localStorage.getItem('ccd_wizard_step')
+    return saved ? Number(saved) : 1
+  })
+  const [formData, setFormData]               = useState<FormData>(() => {
+    const saved = localStorage.getItem('ccd_wizard_form_data')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {}
+    }
+    return INIT_DATA
+  })
   const [submitting, setSubmitting]           = useState(false)
   const [activeDeployment, setActiveDeployment] = useState<DeploymentType | null>(null)
   const { showToast }                         = useToast()
-
   const [loadingKeys, setLoadingKeys]         = useState(false)
 
   const updateData = (patch: Partial<FormData>) => setFormData(prev => ({ ...prev, ...patch }))
+
+  // Restore active deployment on mount
+  useEffect(() => {
+    const savedActiveId = localStorage.getItem('ccd_active_deployment_id')
+    if (savedActiveId) {
+      api.get(`/deployments/${savedActiveId}`)
+        .then(res => {
+          setActiveDeployment(res.data)
+        })
+        .catch(() => {
+          localStorage.removeItem('ccd_active_deployment_id')
+        })
+    }
+  }, [])
+
+  // Persist wizard step and data
+  useEffect(() => {
+    localStorage.setItem('ccd_wizard_step', String(currentStep))
+  }, [currentStep])
+
+  useEffect(() => {
+    localStorage.setItem('ccd_wizard_form_data', JSON.stringify(formData))
+  }, [formData])
 
   const canNext = () => {
     if (currentStep === 1) return formData.environment_id !== null && formData.repositories.length > 0
@@ -146,6 +432,7 @@ export default function Deployment() {
         config:         formData.config,
       })
       setActiveDeployment(res.data)
+      localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
       showToast('Deployment triggered successfully!', 'success')
     } catch (err: any) {
       showToast(err.response?.data?.error || 'Deployment failed', 'error')
@@ -166,106 +453,90 @@ export default function Deployment() {
     setFormData(INIT_DATA)
     setCurrentStep(1)
     setActiveDeployment(null)
+    localStorage.removeItem('ccd_active_deployment_id')
+    localStorage.removeItem('ccd_wizard_step')
+    localStorage.removeItem('ccd_wizard_form_data')
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-
-      {/* Form Panel */}
-      <div className="w-full">
-        {/* Stepper header */}
-        <div className="ccd-card p-5 mb-5">
-          <StepIndicator current={currentStep} steps={STEPS} />
-        </div>
-
-        {/* Step content */}
-        <div className="ccd-card p-6">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-ccd-border">
-            <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
-              0{currentStep}
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
-              <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
-            </div>
+      {activeDeployment ? (
+        <ActiveDeploymentDashboard
+          deployment={activeDeployment}
+          onReset={handleReset}
+          onRefresh={refreshDeployment}
+        />
+      ) : (
+        /* Form Panel */
+        <div className="w-full">
+          {/* Stepper header */}
+          <div className="ccd-card p-5 mb-5">
+            <StepIndicator current={currentStep} steps={STEPS} />
           </div>
 
-          {currentStep === 1 && <Step01Setup data={formData} onChange={updateData} />}
-          {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
-          {currentStep === 3 && <Step03Review data={formData} />}
-
-          {/* Navigation buttons */}
-          <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
-            <button
-              onClick={() => currentStep > 1 ? setCurrentStep(s => s - 1) : null}
-              disabled={currentStep === 1 || loadingKeys}
-              className="ccd-btn-secondary"
-            >
-              ← Back
-            </button>
-
-            <div className="flex gap-3">
-              {currentStep < 3 ? (
-                <button
-                  onClick={handleNext}
-                  disabled={!canNext() || loadingKeys}
-                  className="ccd-btn-primary flex items-center gap-2"
-                >
-                  {loadingKeys ? (
-                    <>
-                      <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
-                      Loading variables...
-                    </>
-                  ) : (
-                    <>Next →</>
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={handleExecute}
-                  disabled={submitting}
-                  id="execute-deploy-btn"
-                  className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90"
-                >
-                  {submitting ? (
-                    <><div className="spinner w-4 h-4" />Executing...</>
-                  ) : (
-                    <>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-                        <polygon points="5 3 19 12 5 21 5 3" />
-                      </svg>
-                      Execute Deployment
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom — Accordion Tracker */}
-      {activeDeployment && (
-        <div className="w-full animate-slide-up mt-6">
-          <div className="ccd-card p-5">
-            <div className="flex items-center justify-between mb-5 pb-3 border-b border-ccd-border/30">
-              <div className="text-sm font-semibold text-ccd-text flex items-center gap-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-accent">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
-                </svg>
-                Deployment Progress & Terminal Logs
+          {/* Step content */}
+          <div className="ccd-card p-6">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-ccd-border">
+              <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
+                0{currentStep}
               </div>
-              <button
-                onClick={handleReset}
-                className="text-xs text-ccd-text-muted hover:text-ccd-text transition-colors px-2.5 py-1 bg-ccd-muted/30 hover:bg-ccd-muted/50 rounded-lg border border-ccd-border/50 transition-all"
-              >
-                + New Deployment
-              </button>
+              <div>
+                <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
+                <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
+              </div>
             </div>
-            <DeploymentAccordion
-              deployment={activeDeployment}
-              onRefresh={refreshDeployment}
-            />
+
+            {currentStep === 1 && <Step01Setup data={formData} onChange={updateData} />}
+            {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
+            {currentStep === 3 && <Step03Review data={formData} />}
+
+            {/* Navigation buttons */}
+            <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
+              <button
+                onClick={() => currentStep > 1 ? setCurrentStep(s => s - 1) : null}
+                disabled={currentStep === 1 || loadingKeys}
+                className="ccd-btn-secondary"
+              >
+                ← Back
+              </button>
+
+              <div className="flex gap-3">
+                {currentStep < 3 ? (
+                  <button
+                    onClick={handleNext}
+                    disabled={!canNext() || loadingKeys}
+                    className="ccd-btn-primary flex items-center gap-2"
+                  >
+                    {loadingKeys ? (
+                      <>
+                        <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                        Loading variables...
+                      </>
+                    ) : (
+                      <>Next →</>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleExecute}
+                    disabled={submitting}
+                    id="execute-deploy-btn"
+                    className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 animate-pulse"
+                  >
+                    {submitting ? (
+                      <><div className="spinner w-4 h-4 animate-spin border-t-transparent mr-2" />Executing...</>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                          <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                        Execute Deployment
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
