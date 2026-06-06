@@ -36,18 +36,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Target Repository
+      - name: Fetching Source Code from Repository
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.inputs.target_repo_path }}
           token: ${{ secrets.GIT_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker Image
+      - name: Building Application Container Image
         run: |
           echo "Membangun image docker untuk ${{ github.event.inputs.target_repo_name }}..."
           docker build -f ${{ github.event.inputs.dockerfile_path }} -t ${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ github.event.inputs.target_repo_name }}:latest .
 
-      - name: Push to Docker Hub
+      - name: Uploading Image to Docker Hub Registry
         if: env.DOCKERHUB_USERNAME != ''
         run: |
           echo "Login ke Docker Hub..."
@@ -57,7 +57,7 @@ jobs:
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
-      - name: Proses di Server (Setup Environment)
+      - name: Configuring Server Environment & Assets
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ github.event.inputs.server_host }}
@@ -82,7 +82,7 @@ jobs:
           CONFIG_JSON: ${{ github.event.inputs.config }}
           TARGET_REPO_NAME: ${{ github.event.inputs.target_repo_name }}
 
-      - name: Execute Final Deployment (Run Container)
+      - name: Deploying Container & Verifying Service
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ github.event.inputs.server_host }}
