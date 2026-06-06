@@ -36,14 +36,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.inputs.target_repo_path }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      
+          token: ${{ secrets.GIT_TOKEN || secrets.GITHUB_TOKEN }}
+
       - name: Menyiapkan Konfigurasi & Build
         run: |
           echo "Menyiapkan deployment untuk ${{ github.event.inputs.target_repo_name }}"
           echo "Environment target: ${{ github.event.inputs.environment }}"
           echo "Menerapkan konfigurasi: ${{ github.event.inputs.config }}"
-          
+
       - name: Melakukan SSH Deployment ke Server Target
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -51,48 +51,75 @@ jobs:
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
           port: 22
-          envs: CONFIG_JSON, TARGET_REPO_NAME, TARGET_REPO_URL
+          envs: CONFIG_JSON,TARGET_REPO_NAME,TARGET_REPO_URL,GIT_TOKEN
           script: |
+            echo "========================================"
             echo "Memulai deployment untuk ${TARGET_REPO_NAME}..."
-            
+            echo "========================================"
+
             # Buat direktori /app jika belum ada
             sudo mkdir -p /app
             sudo chown -R $USER:$USER /app
-            
+
+            # Gunakan token untuk clone repo private
+            CLONE_URL="${TARGET_REPO_URL}"
+            if [ -n "$GIT_TOKEN" ]; then
+              CLONE_URL=$(echo "$TARGET_REPO_URL" | sed "s|https://|https://${GIT_TOKEN}@|g")
+            fi
+
             # Clone jika folder belum ada, pull jika folder sudah ada
             if [ ! -d "/app/${TARGET_REPO_NAME}" ]; then
               echo "Folder /app/${TARGET_REPO_NAME} belum ada. Melakukan clone..."
-              git clone ${TARGET_REPO_URL} /app/${TARGET_REPO_NAME}
+              git clone "$CLONE_URL" /app/${TARGET_REPO_NAME}
             else
               echo "Folder /app/${TARGET_REPO_NAME} sudah ada. Melakukan git pull..."
               cd /app/${TARGET_REPO_NAME}
+              git remote set-url origin "$CLONE_URL"
               git pull
             fi
-            
+
             cd /app/${TARGET_REPO_NAME}
-            
+
             # Menulis file .env secara dinamis dari input config JSON
             echo "Menulis file .env..."
             python3 -c "import json, os; d=json.loads(os.getenv('CONFIG_JSON', '{}')); f=open('.env', 'w'); [f.write(f'{k}={v}\n') for k, v in d.items()]"
-            
+
+            echo "Isi .env yang akan digunakan:"
+            cat .env | sed 's/=.*/=***/' || true
+
             # Build dan jalankan Docker container secara dinamis
             echo "Membangun image docker..."
             docker build -t ${TARGET_REPO_NAME}:latest .
-            
+
             echo "Menghentikan dan menghapus container lama (jika ada)..."
             docker stop ${TARGET_REPO_NAME} || true
             docker rm ${TARGET_REPO_NAME} || true
-            
+
             # Mencari port aplikasi dari file .env (default ke port 80 jika tidak ada)
             TARGET_PORT=$(grep -E "^PORT=" .env | cut -d'=' -f2)
             if [ -z "$TARGET_PORT" ]; then
               TARGET_PORT=80
             fi
-            
+
             echo "Menjalankan container baru pada port ${TARGET_PORT}..."
-            docker run -d --name ${TARGET_REPO_NAME} -p ${TARGET_PORT}:${TARGET_PORT} ${TARGET_REPO_NAME}:latest
-            echo "Deployment berhasil diselesaikan untuk ${TARGET_REPO_NAME}!"
+            docker run -d \
+              --name ${TARGET_REPO_NAME} \
+              --restart unless-stopped \
+              --env-file .env \
+              -p ${TARGET_PORT}:${TARGET_PORT} \
+              ${TARGET_REPO_NAME}:latest
+
+            # Verifikasi container berjalan
+            sleep 3
+            if docker ps | grep -q "${TARGET_REPO_NAME}"; then
+              echo "✅ Container ${TARGET_REPO_NAME} berhasil berjalan pada port ${TARGET_PORT}!"
+            else
+              echo "❌ Container ${TARGET_REPO_NAME} gagal start. Melihat logs..."
+              docker logs ${TARGET_REPO_NAME} || true
+              exit 1
+            fi
         env:
           CONFIG_JSON: ${{ github.event.inputs.config }}
           TARGET_REPO_NAME: ${{ github.event.inputs.target_repo_name }}
           TARGET_REPO_URL: ${{ github.event.inputs.target_repo_url }}
+          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
