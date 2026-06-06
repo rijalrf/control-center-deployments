@@ -51,7 +51,7 @@ jobs:
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
           port: 22
-          envs: CONFIG_JSON,TARGET_REPO_NAME,TARGET_REPO_URL,GIT_TOKEN
+          envs: CONFIG_JSON,TARGET_REPO_NAME,TARGET_REPO_URL,GIT_TOKEN,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
           script: |
             echo "========================================"
             echo "Memulai deployment untuk ${TARGET_REPO_NAME}..."
@@ -60,6 +60,12 @@ jobs:
             # Buat direktori /app jika belum ada
             sudo mkdir -p /app
             sudo chown -R $USER:$USER /app
+
+            # Login Docker Hub jika credentials tersedia (hindari rate limit)
+            if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+              echo "Login ke Docker Hub..."
+              echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            fi
 
             # Gunakan token untuk clone repo private
             CLONE_URL="${TARGET_REPO_URL}"
@@ -123,3 +129,5 @@ jobs:
           TARGET_REPO_NAME: ${{ github.event.inputs.target_repo_name }}
           TARGET_REPO_URL: ${{ github.event.inputs.target_repo_url }}
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
