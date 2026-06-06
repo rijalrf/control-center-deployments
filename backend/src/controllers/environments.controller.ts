@@ -7,8 +7,18 @@ export class EnvironmentsController {
     try {
       const envs = await Environment.findAll({
         include: [{ model: Server, as: 'servers' }],
-        order: [['name', 'ASC']],
       });
+
+      const getEnvPriority = (slug: string) => {
+        const s = slug.toLowerCase();
+        if (s.includes('dev')) return 1;
+        if (s.includes('qa') || s.includes('staging') || s.includes('test')) return 2;
+        if (s.includes('prod') || s.includes('production')) return 3;
+        return 99;
+      };
+
+      envs.sort((a, b) => getEnvPriority(a.slug) - getEnvPriority(b.slug));
+
       res.json(envs);
     } catch (err) {
       next(err);
