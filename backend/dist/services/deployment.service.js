@@ -84,7 +84,7 @@ class DeploymentService {
             const server = await Server_1.Server.findOne({ where: { environment_id: data.environment_id } });
             const serverHost = server?.host ?? 'localhost';
             const serverUsername = server?.username ?? 'deploy';
-            const envSuffix = envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+            const envSuffix = envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_').replace(/_+/g, '_');
             const runsInfo = [];
             for (const r of data.repositories) {
                 const repoConfig = data.config[r.name] ?? {};
