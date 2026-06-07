@@ -513,32 +513,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
 
                 {expandedAdvanced[repo.name] && (
                   <div className="mt-4 pt-3 border-t border-ccd-border/20 space-y-4 animate-slide-down">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Strategy Selection */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-ccd-text-muted">Deployment Strategy</label>
-                        <select
-                          value={getSpecialVal(repo.name, 'DEPLOY_STRATEGY', 'standard')}
-                          onChange={e => setSpecialVal(repo.name, 'DEPLOY_STRATEGY', e.target.value)}
-                          className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan"
-                        >
-                          <option value="standard">Standard Container (docker run)</option>
-                          <option value="docker-compose">Docker Compose (docker compose)</option>
-                        </select>
-                      </div>
-
-                      {/* Dockerfile Path */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-ccd-text-muted">Dockerfile Path</label>
-                        <input
-                          type="text"
-                          value={getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile')}
-                          onChange={e => setSpecialVal(repo.name, 'DOCKERFILE_PATH', e.target.value)}
-                          placeholder="Dockerfile"
-                          className="ccd-input font-mono text-xs w-full"
-                        />
-                      </div>
-
+                    <div className="space-y-4">
                       {/* Target Deployment Directory */}
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-ccd-text-muted">Target Directory in VPS</label>
@@ -550,20 +525,6 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                           className="ccd-input font-mono text-xs w-full"
                         />
                       </div>
-
-                      {/* Compose File Name */}
-                      {getSpecialVal(repo.name, 'DEPLOY_STRATEGY', 'standard') === 'docker-compose' && (
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-ccd-text-muted">Compose File Name</label>
-                          <input
-                            type="text"
-                            value={getSpecialVal(repo.name, 'COMPOSE_FILE', 'docker-compose.yml')}
-                            onChange={e => setSpecialVal(repo.name, 'COMPOSE_FILE', e.target.value)}
-                            placeholder="docker-compose.yml"
-                            className="ccd-input font-mono text-xs w-full"
-                          />
-                        </div>
-                      )}
                     </div>
 
                     {/* Pre-Deploy Commands */}
