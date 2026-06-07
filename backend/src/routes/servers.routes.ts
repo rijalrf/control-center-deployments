@@ -10,5 +10,6 @@ router.get('/', ServersController.list);
 router.post('/', ServersController.create);
 router.put('/:id', ServersController.update);
 router.delete('/:id', ServersController.delete);
+router.post('/:id/ping', ServersController.ping);
 
 export default router;

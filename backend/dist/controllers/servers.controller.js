@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServersController = void 0;
 const Server_1 = require("../models/Server");
 const Environment_1 = require("../models/Environment");
+const net_1 = __importDefault(require("net"));
 class ServersController {
     static async list(_req, res, next) {
         try {
@@ -57,6 +61,45 @@ class ServersController {
             }
             await server.destroy();
             res.json({ message: 'Deleted' });
+        }
+        catch (err) {
+            next(err);
+        }
+    }
+    static async ping(req, res, next) {
+        try {
+            const server = await Server_1.Server.findByPk(req.params.id);
+            if (!server) {
+                res.status(404).json({ error: 'Server not found' });
+                return;
+            }
+            const isReachable = await new Promise((resolve) => {
+                const socket = new net_1.default.Socket();
+                let finished = false;
+                socket.setTimeout(3000);
+                socket.on('connect', () => {
+                    finished = true;
+                    socket.destroy();
+                    resolve(true);
+                });
+                const handleFail = () => {
+                    if (!finished) {
+                        finished = true;
+                        socket.destroy();
+                        resolve(false);
+                    }
+                };
+                socket.on('timeout', handleFail);
+                socket.on('error', handleFail);
+                socket.connect(server.port || 22, server.host);
+            });
+            const newStatus = isReachable ? 'active' : 'inactive';
+            await server.update({ status: newStatus });
+            res.json({
+                message: `Connection ${isReachable ? 'succeeded' : 'failed'}`,
+                status: newStatus,
+                server,
+            });
         }
         catch (err) {
             next(err);
