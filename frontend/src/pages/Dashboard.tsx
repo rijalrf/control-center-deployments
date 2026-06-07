@@ -1,17 +1,8 @@
-import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../services/api'
-import { Deployment } from '../types'
-import { getApiErrorMessage } from '../utils/errors'
+import { Deployment, Server, Environment } from '../types'
 
-const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-  draft:     { cls: 'badge-muted',    label: 'Draft' },
-  pending:   { cls: 'badge-warning',  label: 'Pending' },
-  running:   { cls: 'badge-accent',   label: 'Running' },
-  success:   { cls: 'badge-success',  label: 'Success' },
-  failed:    { cls: 'badge-danger',   label: 'Failed' },
-  cancelled: { cls: 'badge-muted',    label: 'Cancelled' },
-}
 
 interface StatCardProps {
   label: string;
@@ -37,23 +28,10 @@ function StatCard({ label, value, icon, colorClass, sub }: StatCardProps) {
 }
 
 export default function Dashboard() {
-  const [stats, setStats]           = useState<{ repos: number; envs: number; servers: number; deployments: Deployment[] }>({ repos: 0, envs: 0, servers: 0, deployments: [] })
-  const [loading, setLoading]       = useState(true)
-  const [executingId, setExecutingId] = useState<number | null>(null)
-  const navigate = useNavigate()
-
-  const handleExecutePlan = async (id: number) => {
-    setExecutingId(id)
-    try {
-      await api.post(`/deployments/${id}/execute`)
-      localStorage.setItem('ccd_active_deployment_id', String(id))
-      navigate('/deployment')
-    } catch (err: unknown) {
-      alert(getApiErrorMessage(err, 'Failed to execute deployment'))
-    } finally {
-      setExecutingId(null)
-    }
-  }
+  const [stats, setStats] = useState<{ repos: number; envs: number; servers: Server[]; deployments: Deployment[] }>({
+    repos: 0, envs: 0, servers: [], deployments: []
+  })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
@@ -63,18 +41,41 @@ export default function Dashboard() {
       api.get('/deployments'),
     ]).then(([r, e, s, d]) => {
       setStats({
-        repos:       r.data.length,
-        envs:        e.data.length,
-        servers:     s.data.length,
+        repos: r.data.length,
+        envs: e.data.length,
+        servers: s.data, // now saving the actual Server[] array
         deployments: d.data,
       })
     }).catch(console.error)
       .finally(() => setLoading(false))
   }, [])
 
-  const recent = stats.deployments.slice(0, 8)
   const successCount = stats.deployments.filter(d => d.status === 'success').length
-  const failedCount  = stats.deployments.filter(d => d.status === 'failed').length
+  const failedCount = stats.deployments.filter(d => d.status === 'failed').length
+
+  // Calculate Deployed Repositories
+  const deployedRepos = useMemo(() => {
+    const map = new Map<string, any>()
+    
+    // Sort deployments ascending by date so newer ones overwrite older ones
+    const sortedDeployments = [...stats.deployments].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+    sortedDeployments.forEach(d => {
+      if (d.status === 'success') {
+        (d.repositories || []).forEach(repo => {
+          map.set(repo.github_id, {
+            ...repo,
+            last_deployed_at: d.created_at,
+            last_environment: d.environment?.name,
+            last_environment_color: d.environment?.color,
+          })
+        })
+      }
+    })
+
+    // Return array sorted descending by last deploy date
+    return Array.from(map.values()).sort((a, b) => new Date(b.last_deployed_at).getTime() - new Date(a.last_deployed_at).getTime())
+  }, [stats.deployments])
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -96,7 +97,7 @@ export default function Dashboard() {
         />
         <StatCard
           label="Servers"
-          value={loading ? '—' : stats.servers}
+          value={loading ? '—' : stats.servers.length}
           colorClass="bg-ccd-info/15 text-ccd-info"
           sub="Infrastructure"
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5"><rect x="2" y="2" width="20" height="8" rx="2" /><rect x="2" y="14" width="20" height="8" rx="2" /><line x1="6" y1="6" x2="6.01" y2="6" /><line x1="6" y1="18" x2="6.01" y2="18" /></svg>}
@@ -110,104 +111,141 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Recent deployments */}
-      <div className="ccd-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-ccd-border">
-          <div className="text-sm font-semibold text-ccd-text">Recent Deployments</div>
-          <Link to="/deployment" className="text-xs text-ccd-accent hover:underline">
-            New Deployment →
-          </Link>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Active Deployed Applications */}
+        <div className="ccd-card flex flex-col min-h-[400px]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ccd-border">
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-ccd-text">Active Deployed Applications</span>
+              <span className="text-[11px] text-ccd-text-muted mt-0.5">Repositori yang sukses di-deploy</span>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-x-auto">
+            {loading ? (
+              <div className="flex items-center justify-center h-full min-h-[200px]">
+                <div className="spinner w-6 h-6" />
+              </div>
+            ) : deployedRepos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-6">
+                <span className="text-ccd-text-muted text-sm mb-2">No active deployed apps</span>
+                <Link to="/deployment" className="text-ccd-accent text-xs hover:underline">Deploy an application →</Link>
+              </div>
+            ) : (
+              <table className="ccd-table">
+                <thead>
+                  <tr>
+                    <th>Repository</th>
+                    <th>Branch</th>
+                    <th>Environment</th>
+                    <th>Last Deployed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deployedRepos.map(repo => (
+                    <tr key={repo.github_id}>
+                      <td>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-ccd-text">{repo.name}</span>
+                          {repo.docker_image_name && (
+                            <span className="text-[10px] text-ccd-text-muted font-mono mt-0.5" title="Docker Image">
+                              {repo.docker_image_name}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="font-mono text-xs text-ccd-cyan bg-ccd-cyan/10 px-1.5 py-0.5 rounded border border-ccd-cyan/20">
+                          {repo.branch}
+                        </span>
+                      </td>
+                      <td>
+                        {repo.last_environment ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: repo.last_environment_color }} />
+                            <span className="text-xs">{repo.last_environment}</span>
+                          </div>
+                        ) : <span className="text-ccd-text-muted text-xs">—</span>}
+                      </td>
+                      <td>
+                        <span className="text-xs text-ccd-text-dim" title={new Date(repo.last_deployed_at).toLocaleString()}>
+                          {new Date(repo.last_deployed_at).toLocaleDateString()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="spinner w-6 h-6" />
+        {/* Right Column: Infrastructure Servers */}
+        <div className="ccd-card flex flex-col min-h-[400px]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ccd-border">
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-ccd-text">Infrastructure Servers</span>
+              <span className="text-[11px] text-ccd-text-muted mt-0.5">Daftar VPS yang terhubung</span>
+            </div>
+            <Link to="/configuration" className="text-[11px] text-ccd-accent hover:underline">Manage →</Link>
           </div>
-        ) : recent.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-ccd-text-muted text-sm mb-2">No deployments yet</div>
-            <Link to="/deployment" className="text-ccd-accent text-sm hover:underline">
-              Create your first deployment →
-            </Link>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="ccd-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Environment</th>
-                  <th>Applications</th>
-                  <th>Status</th>
-                  <th>Deployed By</th>
-                  <th>Date</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map(d => {
-                  const badge = STATUS_BADGE[d.status] || STATUS_BADGE.draft
-                  return (
-                    <tr key={d.id}>
+          
+          <div className="flex-1 overflow-x-auto">
+            {loading ? (
+              <div className="flex items-center justify-center h-full min-h-[200px]">
+                <div className="spinner w-6 h-6" />
+              </div>
+            ) : stats.servers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-6">
+                <span className="text-ccd-text-muted text-sm mb-2">No servers connected</span>
+                <Link to="/configuration" className="text-ccd-accent text-xs hover:underline">Add a server →</Link>
+              </div>
+            ) : (
+              <table className="ccd-table">
+                <thead>
+                  <tr>
+                    <th>Server Name</th>
+                    <th>Host / IP</th>
+                    <th>Environment</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.servers.map(server => (
+                    <tr key={server.id}>
                       <td>
-                        <span className="font-mono text-xs text-ccd-text-dim">#{d.id}</span>
+                        <span className="text-sm font-medium text-ccd-text">{server.name}</span>
                       </td>
                       <td>
-                        {d.environment ? (
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.environment.color }} />
-                            <span className="text-sm">{d.environment.name}</span>
+                        <div className="flex flex-col">
+                          <span className="font-mono text-xs text-ccd-text-dim">{server.host}</span>
+                          <span className="text-[10px] text-ccd-text-muted mt-0.5">{server.username}@{server.host}:{server.port}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {server.environment ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: server.environment.color }} />
+                            <span className="text-xs">{server.environment.name}</span>
                           </div>
                         ) : <span className="text-ccd-text-muted text-xs">—</span>}
                       </td>
                       <td>
-                        <span className="text-xs text-ccd-text-muted">
-                          {Array.isArray(d.repositories) ? `${d.repositories.length} app${d.repositories.length !== 1 ? 's' : ''}` : '—'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={badge.cls}>{badge.label}</span>
-                      </td>
-                      <td>
-                        {d.user ? (
-                          <div className="flex items-center gap-2">
-                            <img src={d.user.avatar_url || ''} alt={d.user.login} className="w-5 h-5 rounded-full" />
-                            <span className="text-xs font-mono">{d.user.login}</span>
-                          </div>
-                        ) : <span className="text-ccd-text-muted text-xs">—</span>}
-                      </td>
-                      <td>
-                        <span className="text-xs font-mono">
-                          {new Date(d.created_at).toLocaleDateString()}
-                        </span>
-                      </td>
-                      <td>
-                        {d.status === 'draft' ? (
-                          <button
-                            onClick={() => handleExecutePlan(d.id)}
-                            disabled={executingId !== null}
-                            className="text-xs bg-ccd-accent/10 hover:bg-ccd-accent text-ccd-accent hover:text-white px-2.5 py-1 rounded border border-ccd-accent/20 transition-all font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {executingId === d.id ? (
-                              <div className="spinner w-3 h-3 border-t-transparent animate-spin" />
-                            ) : (
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3">
-                                <polygon points="5 3 19 12 5 21 5 3" />
-                              </svg>
-                            )}
-                            Execute Plan
-                          </button>
+                        {server.status === 'active' ? (
+                          <span className="badge-success text-[10px] uppercase tracking-wider px-2 py-0.5 border">Active</span>
+                        ) : server.status === 'inactive' ? (
+                          <span className="badge-danger text-[10px] uppercase tracking-wider px-2 py-0.5 border">Inactive</span>
                         ) : (
-                          <span className="text-xs text-ccd-text-muted font-mono">—</span>
+                          <span className="badge-muted text-[10px] uppercase tracking-wider px-2 py-0.5 border">Unknown</span>
                         )}
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
