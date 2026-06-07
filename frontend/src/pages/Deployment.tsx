@@ -789,6 +789,24 @@ export default function Deployment() {
   const [loadingDeployments, setLoadingDeployments] = useState(false)
   const { showToast }                         = useToast()
   const [loadingKeys, setLoadingKeys]         = useState(false)
+  const [isValidated, setIsValidated]         = useState<boolean>(() => {
+    return localStorage.getItem('ccd_wizard_is_validated') === 'true'
+  })
+  const [validationResults, setValidationResults] = useState<Record<number, {
+    resolved_branch: string;
+    desired_branch: string;
+    exists: boolean;
+    fallback_used: boolean;
+  }>>(() => {
+    const saved = localStorage.getItem('ccd_wizard_validation_results')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {}
+    }
+    return {}
+  })
+  const [validating, setValidating]           = useState(false)
   
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [filterEnv, setFilterEnv] = useState<string>('')
@@ -884,6 +902,25 @@ export default function Deployment() {
     localStorage.setItem('ccd_show_wizard', String(showWizard))
   }, [showWizard])
 
+  const repoIdsKey = useMemo(() => {
+    return (formData.repositories || []).map(r => r.id).sort().join(',')
+  }, [formData.repositories])
+
+  useEffect(() => {
+    setIsValidated(false)
+    setValidationResults({})
+    localStorage.removeItem('ccd_wizard_is_validated')
+    localStorage.removeItem('ccd_wizard_validation_results')
+  }, [formData.environment_id, repoIdsKey])
+
+  useEffect(() => {
+    localStorage.setItem('ccd_wizard_is_validated', String(isValidated))
+  }, [isValidated])
+
+  useEffect(() => {
+    localStorage.setItem('ccd_wizard_validation_results', JSON.stringify(validationResults))
+  }, [validationResults])
+
   // Fetch all deployments
   const fetchDeployments = useCallback(async () => {
     setLoadingDeployments(true)
@@ -925,6 +962,63 @@ export default function Deployment() {
     if (currentStep === 1) return formData.environment_id !== null && formData.repositories.length > 0
     if (currentStep === 2) return true
     return false
+  }
+
+  const handleValidate = async () => {
+    setValidating(true)
+    try {
+      const res = await api.post('/repos/validate-branches', {
+        environment_id: formData.environment_id,
+        repositories:   formData.repositories
+      })
+
+      const resultsMap: Record<number, {
+        resolved_branch: string;
+        desired_branch: string;
+        exists: boolean;
+        fallback_used: boolean;
+      }> = {}
+      let hasError = false
+
+      res.data.results.forEach((item: any) => {
+        resultsMap[item.repository_id] = {
+          resolved_branch: item.resolved_branch,
+          desired_branch: item.desired_branch,
+          exists:          item.exists,
+          fallback_used:   item.fallback_used
+        }
+        if (item.fallback_used) {
+          hasError = true
+        }
+      })
+
+      setValidationResults(resultsMap)
+      setIsValidated(true)
+
+      const updatedRepositories = formData.repositories.map(repo => {
+        const result = resultsMap[repo.id];
+        return {
+          ...repo,
+          branch: result ? result.resolved_branch : repo.default_branch,
+          fallback_used: result ? result.fallback_used : false
+        };
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        repositories: updatedRepositories
+      }));
+
+      if (hasError) {
+        showToast('Beberapa repositori tidak memiliki branch target. Sistem akan menggunakan branch default.', 'warning')
+      } else {
+        showToast('Validasi sukses! Semua branch target ditemukan.', 'success')
+      }
+    } catch (err: unknown) {
+      showToast(getApiErrorMessage(err, 'Gagal memvalidasi branch target'), 'error')
+    } finally {
+      setValidating(false)
+    }
   }
 
   const handleNext = async () => {
@@ -994,6 +1088,8 @@ export default function Deployment() {
         localStorage.removeItem('ccd_wizard_step')
         localStorage.removeItem('ccd_wizard_form_data')
         localStorage.removeItem('ccd_show_wizard')
+        localStorage.removeItem('ccd_wizard_is_validated')
+        localStorage.removeItem('ccd_wizard_validation_results')
         setFormData(INIT_DATA)
         setCurrentStep(1)
         setShowWizard(false)
@@ -1030,6 +1126,8 @@ export default function Deployment() {
       localStorage.removeItem('ccd_wizard_step')
       localStorage.removeItem('ccd_wizard_form_data')
       localStorage.removeItem('ccd_show_wizard')
+      localStorage.removeItem('ccd_wizard_is_validated')
+      localStorage.removeItem('ccd_wizard_validation_results')
       setFormData(INIT_DATA)
       setCurrentStep(1)
       setShowWizard(false)
@@ -1111,9 +1209,16 @@ export default function Deployment() {
               </button>
             </div>
 
-            {currentStep === 1 && <Step01Setup data={formData} onChange={updateData} />}
+            {currentStep === 1 && (
+              <Step01Setup
+                data={formData}
+                onChange={updateData}
+                isValidated={isValidated}
+                validationResults={validationResults}
+              />
+            )}
             {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
-            {currentStep === 3 && <Step03Review data={formData} />}
+            {currentStep === 3 && <Step03Review data={formData} validationResults={validationResults} />}
 
             {/* Navigation buttons */}
             <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
@@ -1126,7 +1231,41 @@ export default function Deployment() {
               </button>
 
               <div className="flex gap-3">
-                {currentStep < 3 ? (
+                {currentStep === 1 ? (
+                  !isValidated ? (
+                    <button
+                      onClick={handleValidate}
+                      disabled={formData.environment_id === null || formData.repositories.length === 0 || validating}
+                      className="ccd-btn-primary flex items-center gap-2"
+                      id="validate-wizard-btn"
+                    >
+                      {validating ? (
+                        <>
+                          <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                          Validating...
+                        </>
+                      ) : (
+                        <>Validate</>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleNext}
+                      disabled={loadingKeys}
+                      className="ccd-btn-primary flex items-center gap-2"
+                      id="next-wizard-btn"
+                    >
+                      {loadingKeys ? (
+                        <>
+                          <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                          Loading variables...
+                        </>
+                      ) : (
+                        <>Next →</>
+                      )}
+                    </button>
+                  )
+                ) : currentStep === 2 ? (
                   <button
                     onClick={handleNext}
                     disabled={!canNext() || loadingKeys}

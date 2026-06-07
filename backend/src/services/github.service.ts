@@ -245,7 +245,7 @@ export class GitHubService {
   }
 
   static async checkBranchExists(
-    accessToken: string,
+    accessToken: string | null,
     owner: string,
     repo: string,
     branch: string,
