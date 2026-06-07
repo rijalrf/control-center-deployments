@@ -76,15 +76,26 @@ export default function Step03Review({ data, validationResults = {} }: Step03Rev
                       {/* Image name details */}
                       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                         <span className="text-[9px] font-semibold text-ccd-text-muted uppercase tracking-wider">Image:</span>
-                        {repo.docker_image_name ? (
-                          <span className="text-[10px] font-mono text-ccd-accent bg-ccd-accent/10 py-0.5 px-2 rounded font-semibold border border-ccd-accent/20">
-                            {repo.docker_image_name}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-mono text-ccd-text-muted italic bg-ccd-muted/10 py-0.5 px-2 rounded">
-                            {`<DOCKERHUB_USERNAME>/${repo.name}:latest (default)`}
-                          </span>
-                        )}
+                        {(() => {
+                          const versionTag = config[repo.name]?.['VERSION_TAG'] || 'latest';
+                          if (repo.docker_image_name) {
+                            const lastColon = repo.docker_image_name.lastIndexOf(':');
+                            const lastSlash = repo.docker_image_name.lastIndexOf('/');
+                            const hasTag = lastColon !== -1 && lastColon > lastSlash;
+                            const baseImage = hasTag ? repo.docker_image_name.substring(0, lastColon) : repo.docker_image_name;
+                            return (
+                              <span className="text-[10px] font-mono text-ccd-accent bg-ccd-accent/10 py-0.5 px-2 rounded font-semibold border border-ccd-accent/20">
+                                {`${baseImage}:${versionTag}`}
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="text-[10px] font-mono text-ccd-text-dim bg-ccd-muted/10 py-0.5 px-2 rounded font-medium">
+                                {`<DOCKERHUB_USERNAME>/${repo.name}:${versionTag}`}
+                              </span>
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                   </div>

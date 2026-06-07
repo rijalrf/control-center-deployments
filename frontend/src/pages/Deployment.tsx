@@ -1728,6 +1728,19 @@ export default function Deployment() {
                         {formData.repositories.map(repo => {
                           const result = validationResults[repo.id];
                           const validatedBranch = result?.resolved_branch || repo.default_branch;
+                          const versionTag = formData.config[repo.name]?.['VERSION_TAG'] || 'latest';
+                          
+                          let displayImage = '';
+                          if (repo.docker_image_name) {
+                            const lastColon = repo.docker_image_name.lastIndexOf(':');
+                            const lastSlash = repo.docker_image_name.lastIndexOf('/');
+                            const hasTag = lastColon !== -1 && lastColon > lastSlash;
+                            const baseImage = hasTag ? repo.docker_image_name.substring(0, lastColon) : repo.docker_image_name;
+                            displayImage = `${baseImage}:${versionTag}`;
+                          } else {
+                            displayImage = `${repo.name}:${versionTag} (default)`;
+                          }
+
                           return (
                             <div key={repo.id} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
                               <div className="flex justify-between font-semibold">
@@ -1736,8 +1749,8 @@ export default function Deployment() {
                               </div>
                               <div className="flex justify-between text-[9px] text-ccd-text-muted">
                                 <span>Image:</span>
-                                <span className="truncate max-w-[190px] font-mono">
-                                  {repo.docker_image_name || `${repo.name}:latest (default)`}
+                                <span className="truncate max-w-[190px] font-mono" title={displayImage}>
+                                  {displayImage}
                                 </span>
                               </div>
                             </div>
@@ -1760,20 +1773,35 @@ export default function Deployment() {
                       <div className="flex flex-col gap-1.5">
                         <span className="text-ccd-text-muted font-sans font-semibold mb-1">Applications to Deploy:</span>
                         <div className="pl-3 border-l-2 border-ccd-warning/30 flex flex-col gap-2.5 text-[10px] text-ccd-text-dim max-h-40 overflow-y-auto pr-1">
-                          {draftDetails.repositories.map(repo => (
-                            <div key={repo.github_id || repo.name} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
-                              <div className="flex justify-between font-semibold">
-                                <span className="text-ccd-text">{repo.name}</span>
-                                <span className="text-ccd-warning">{repo.branch}</span>
+                          {draftDetails.repositories.map(repo => {
+                            const versionTag = draftDetails.config?.[repo.name]?.['VERSION_TAG'] || 'latest';
+                            
+                            let displayImage = '';
+                            if (repo.docker_image_name) {
+                              const lastColon = repo.docker_image_name.lastIndexOf(':');
+                              const lastSlash = repo.docker_image_name.lastIndexOf('/');
+                              const hasTag = lastColon !== -1 && lastColon > lastSlash;
+                              const baseImage = hasTag ? repo.docker_image_name.substring(0, lastColon) : repo.docker_image_name;
+                              displayImage = `${baseImage}:${versionTag}`;
+                            } else {
+                              displayImage = `${repo.name}:${versionTag} (default)`;
+                            }
+
+                            return (
+                              <div key={repo.github_id || repo.name} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
+                                <div className="flex justify-between font-semibold">
+                                  <span className="text-ccd-text">{repo.name}</span>
+                                  <span className="text-ccd-warning">{repo.branch}</span>
+                                </div>
+                                <div className="flex justify-between text-[9px] text-ccd-text-muted">
+                                  <span>Image:</span>
+                                  <span className="truncate max-w-[190px] font-mono" title={displayImage}>
+                                    {displayImage}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex justify-between text-[9px] text-ccd-text-muted">
-                                <span>Image:</span>
-                                <span className="truncate max-w-[190px] font-mono">
-                                  {repo.docker_image_name || `${repo.name}:latest (default)`}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
