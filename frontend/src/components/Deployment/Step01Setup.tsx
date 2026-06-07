@@ -317,13 +317,149 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
                     </button>
-                  </div>
+              </div>
                 </div>
               ))}
             </div>
           </div>
         )}
       </div>
+
+      {/* Validation Summary Banner — shown after validate */}
+      {isValidated && data.repositories.length > 0 && (() => {
+        const errors: { repo: string; message: string }[] = [];
+        const warnings: { repo: string; message: string }[] = [];
+
+        data.repositories.forEach(repo => {
+          const result = validationResults?.[repo.id];
+          if (!result) return;
+
+          // ERRORS (blockers)
+          if (!result.dockerfile_exists) {
+            errors.push({
+              repo: repo.name,
+              message: `Dockerfile tidak ditemukan di branch "${result.resolved_branch}". File ini wajib ada karena server menggunakan Docker untuk menjalankan aplikasi.`,
+            });
+          }
+
+          // WARNINGS (non-blockers)
+          if (result.fallback_used) {
+            warnings.push({
+              repo: repo.name,
+              message: `Branch target "${result.desired_branch}" tidak ditemukan. Sistem akan menggunakan branch default "${result.resolved_branch}" sebagai fallback.`,
+            });
+          }
+          if (!result.docker_compose_exists) {
+            warnings.push({
+              repo: repo.name,
+              message: `docker-compose.yml tidak ditemukan di branch "${result.resolved_branch}". File ini opsional, namun direkomendasikan untuk orchestrasi container di server.`,
+            });
+          }
+        });
+
+        const allOk = errors.length === 0 && warnings.length === 0;
+
+        return (
+          <div className="mt-4 rounded-xl border overflow-hidden animate-fade-in">
+            {/* Banner Header */}
+            <div className={`flex items-center gap-3 px-4 py-3 ${
+              errors.length > 0
+                ? 'bg-ccd-danger/10 border-b border-ccd-danger/20'
+                : warnings.length > 0
+                  ? 'bg-ccd-warning/10 border-b border-ccd-warning/20'
+                  : 'bg-ccd-success/10 border-b border-ccd-success/20'
+            }`}>
+              {errors.length > 0 ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-ccd-danger shrink-0">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              ) : warnings.length > 0 ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-ccd-warning shrink-0">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4 text-ccd-success shrink-0">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-bold ${
+                  errors.length > 0 ? 'text-ccd-danger' : warnings.length > 0 ? 'text-ccd-warning' : 'text-ccd-success'
+                }`}>
+                  {errors.length > 0
+                    ? `Validasi Gagal — ${errors.length} error wajib diperbaiki sebelum bisa melanjutkan`
+                    : warnings.length > 0
+                      ? `Validasi Selesai — ${warnings.length} peringatan (tidak memblokir, tapi perlu diperhatikan)`
+                      : `Validasi Sukses — Semua repositori kompatibel dan siap dideploy`
+                  }
+                </p>
+                <p className="text-[10px] text-ccd-text-muted mt-0.5">
+                  {data.repositories.length} repositori diperiksa ·{' '}
+                  {errors.length > 0 ? `${errors.length} error, ` : ''}{warnings.length} peringatan
+                </p>
+              </div>
+            </div>
+
+            {/* Error Items */}
+            {errors.length > 0 && (
+              <div className="divide-y divide-ccd-danger/10 bg-ccd-danger/5">
+                {errors.map((e, i) => (
+                  <div key={i} className="flex gap-3 px-4 py-3">
+                    <div className="mt-0.5 w-4 h-4 rounded-full bg-ccd-danger/20 flex items-center justify-center shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-2.5 h-2.5 text-ccd-danger">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-bold text-ccd-danger">{e.repo}</span>
+                        <span className="text-[9px] uppercase tracking-wider font-bold bg-ccd-danger text-white px-1.5 py-0.5 rounded">Error · Wajib</span>
+                      </div>
+                      <p className="text-[11px] text-ccd-text-muted leading-relaxed">{e.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Warning Items */}
+            {warnings.length > 0 && (
+              <div className="divide-y divide-ccd-warning/10 bg-ccd-warning/5">
+                {warnings.map((w, i) => (
+                  <div key={i} className="flex gap-3 px-4 py-3">
+                    <div className="mt-0.5 w-4 h-4 rounded-full bg-ccd-warning/20 flex items-center justify-center shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-2.5 h-2.5 text-ccd-warning">
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-bold text-ccd-warning">{w.repo}</span>
+                        <span className="text-[9px] uppercase tracking-wider font-bold bg-ccd-warning/70 text-ccd-bg px-1.5 py-0.5 rounded">Peringatan · Opsional</span>
+                      </div>
+                      <p className="text-[11px] text-ccd-text-muted leading-relaxed">{w.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* All OK footer */}
+            {allOk && (
+              <div className="px-4 py-3 bg-ccd-success/5">
+                <p className="text-[11px] text-ccd-success/80 leading-relaxed">
+                  ✓ Semua repositori memiliki Dockerfile dan branch target yang valid. Kamu bisa melanjutkan ke langkah berikutnya.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Popup Modal for Repository Selection */}
       {showPopup && (
