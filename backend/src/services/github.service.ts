@@ -259,4 +259,42 @@ export class GitHubService {
       return false;
     }
   }
+
+  /**
+   * Search for a file in multiple candidate paths (root first, then common subdirs).
+   * Returns the path where the file was found, or null if not found anywhere.
+   */
+  static async findFile(
+    accessToken: string | null,
+    owner: string,
+    repo: string,
+    filename: string,
+    ref: string,
+    extraPaths: string[] = [],
+  ): Promise<string | null> {
+    const token   = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
+
+    // Common locations to search (in priority order)
+    const candidates = [
+      filename,                      // root
+      `.docker/${filename}`,
+      `docker/${filename}`,
+      `deploy/${filename}`,
+      `deployment/${filename}`,
+      `infra/${filename}`,
+      `config/${filename}`,
+      ...extraPaths,
+    ];
+
+    for (const path of candidates) {
+      try {
+        await octokit.repos.getContent({ owner, repo, path, ref });
+        return path; // found!
+      } catch {
+        // not at this path, continue
+      }
+    }
+    return null;
+  }
 }

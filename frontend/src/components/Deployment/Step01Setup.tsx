@@ -8,7 +8,9 @@ interface ValidationResult {
   exists: boolean;
   fallback_used: boolean;
   dockerfile_exists: boolean;
+  dockerfile_path: string | null;
   docker_compose_exists: boolean;
+  docker_compose_path: string | null;
 }
 
 interface Step01SetupProps {
@@ -449,32 +451,35 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                       </svg>
                     )}
                     <span className={`text-xs font-bold ${hasDockerfileError ? 'text-ccd-danger' : 'text-ccd-success'}`}>
-                      Dockerfile {hasDockerfileError ? '— Tidak Ditemukan' : '— Ditemukan'}
+                      Dockerfile {hasDockerfileError ? '\u2014 Tidak Ditemukan' : '\u2014 Ditemukan'}
                     </span>
                     <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
                       hasDockerfileError
                         ? 'bg-ccd-danger text-white'
                         : 'bg-ccd-success/20 text-ccd-success'
                     }`}>
-                      {hasDockerfileError ? 'Error · Wajib' : 'OK'}
+                      {hasDockerfileError ? 'Error \u00b7 Wajib' : 'OK'}
                     </span>
                   </div>
                   {hasDockerfileError ? (
                     <p className="text-[11px] text-ccd-text-muted leading-relaxed pt-1 border-t border-ccd-danger/15">
                       File <code className="font-mono text-ccd-danger bg-ccd-danger/10 px-1 rounded">Dockerfile</code> tidak ditemukan
-                      di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>.
+                      di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong> — dicari di:{' '}
+                      <code className="font-mono text-[10px] bg-ccd-muted/20 px-1 rounded">root, .docker/, docker/, deploy/, infra/, config/</code>
                       <br /><br />
                       File ini <strong className="text-ccd-danger">wajib ada</strong> karena pipeline deployment akan mem-build Docker image dari repositori ini
                       menggunakan perintah <code className="font-mono bg-ccd-muted/30 px-1 rounded text-[10px]">docker build</code>.
                       Tanpa Dockerfile, proses build akan gagal dan deployment tidak dapat dilanjutkan.
                       <br /><br />
                       <strong className="text-ccd-text">Cara memperbaiki:</strong> Buat file <code className="font-mono text-ccd-accent bg-ccd-accent/10 px-1 rounded">Dockerfile</code>{' '}
-                      di root direktori repositori di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>, lalu validasi ulang.
+                      di salah satu lokasi yang didukung (misal: root repo atau folder <code className="font-mono">.docker/</code>)
+                      di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>, lalu klik Validate ulang.
                     </p>
                   ) : (
                     <p className="text-[11px] text-ccd-text-muted leading-relaxed pt-1 border-t border-ccd-success/15">
                       File <code className="font-mono text-ccd-success bg-ccd-success/10 px-1 rounded">Dockerfile</code> ditemukan
-                      di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>.
+                      di <code className="font-mono text-ccd-cyan bg-ccd-muted/20 px-1 rounded">{result?.dockerfile_path}</code>{' '}
+                      (branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>).
                       Pipeline deployment dapat mem-build Docker image dari repositori ini.
                     </p>
                   )}
@@ -497,20 +502,21 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                       </svg>
                     )}
                     <span className={`text-xs font-bold ${hasNoCompose ? 'text-ccd-warning' : 'text-ccd-success'}`}>
-                      docker-compose.yml {hasNoCompose ? '— Tidak Ditemukan' : '— Ditemukan'}
+                      docker-compose.yml {hasNoCompose ? '\u2014 Tidak Ditemukan' : '\u2014 Ditemukan'}
                     </span>
                     <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
                       hasNoCompose
                         ? 'bg-ccd-warning/20 text-ccd-warning'
                         : 'bg-ccd-success/20 text-ccd-success'
                     }`}>
-                      {hasNoCompose ? 'Peringatan · Opsional' : 'OK'}
+                      {hasNoCompose ? 'Peringatan \u00b7 Opsional' : 'OK'}
                     </span>
                   </div>
                   {hasNoCompose ? (
                     <p className="text-[11px] text-ccd-text-muted leading-relaxed pt-1 border-t border-ccd-warning/15">
                       File <code className="font-mono text-ccd-warning bg-ccd-warning/10 px-1 rounded">docker-compose.yml</code> tidak ditemukan
-                      di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>.
+                      di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong> — dicari di:{' '}
+                      <code className="font-mono text-[10px] bg-ccd-muted/20 px-1 rounded">root, .docker/, docker/, deploy/, infra/, config/</code>
                       <br /><br />
                       File ini <strong className="text-ccd-warning">opsional</strong> dan tidak akan memblokir proses deployment.
                       Namun, jika strategi deployment yang dipilih di Step 02 adalah <em>Docker Compose</em>,
@@ -521,7 +527,8 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                   ) : (
                     <p className="text-[11px] text-ccd-text-muted leading-relaxed pt-1 border-t border-ccd-success/15">
                       File <code className="font-mono text-ccd-success bg-ccd-success/10 px-1 rounded">docker-compose.yml</code> ditemukan
-                      di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>.
+                      di <code className="font-mono text-ccd-cyan bg-ccd-muted/20 px-1 rounded">{result?.docker_compose_path}</code>{' '}
+                      (branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong>).
                       Repositori siap menggunakan strategi deployment Docker Compose.
                     </p>
                   )}

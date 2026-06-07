@@ -801,7 +801,9 @@ export default function Deployment() {
     exists: boolean;
     fallback_used: boolean;
     dockerfile_exists: boolean;
+    dockerfile_path: string | null;
     docker_compose_exists: boolean;
+    docker_compose_path: string | null;
   }>>(() => {
     const saved = localStorage.getItem('ccd_wizard_validation_results')
     if (saved) {
@@ -997,7 +999,9 @@ export default function Deployment() {
         exists: boolean;
         fallback_used: boolean;
         dockerfile_exists: boolean;
+        dockerfile_path: string | null;
         docker_compose_exists: boolean;
+        docker_compose_path: string | null;
       }> = {}
       let hasError = false;
       let hasMissingDockerfile = false;
@@ -1009,7 +1013,9 @@ export default function Deployment() {
           exists:                item.exists,
           fallback_used:         item.fallback_used,
           dockerfile_exists:      item.dockerfile_exists,
+          dockerfile_path:        item.dockerfile_path ?? null,
           docker_compose_exists:  item.docker_compose_exists,
+          docker_compose_path:    item.docker_compose_path ?? null,
         }
         if (item.fallback_used) {
           hasError = true
