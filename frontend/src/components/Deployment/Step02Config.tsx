@@ -177,16 +177,23 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     if (!hasStrategy || !hasTag) {
       const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
       const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
-      const hasCompose = validationMap[repo.id]?.docker_compose_exists || false
+      const result = validationMap[repo.id]
+      const hasCompose = result?.docker_compose_exists || false
+      
+      const newRepoConfig: Record<string, string> = {
+        ...currentRepoConfig,
+        'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
+        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
+      }
+
+      if (hasCompose && currentRepoConfig['COMPOSE_FILE'] === undefined && result?.docker_compose_path) {
+        newRepoConfig['COMPOSE_FILE'] = result.docker_compose_path
+      }
       
       onChange({
         config: {
           ...config,
-          [repo.name]: {
-            ...currentRepoConfig,
-            'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-            'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
-          },
+          [repo.name]: newRepoConfig,
         },
       })
     }
@@ -542,6 +549,20 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                           className="ccd-input font-mono text-xs w-full"
                         />
                       </div>
+
+                      {/* Docker Compose File Path */}
+                      {strategy === 'docker-compose' && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-ccd-text-muted">Docker Compose File Path (relative to repo root)</label>
+                          <input
+                            type="text"
+                            value={getSpecialVal(repo.name, 'COMPOSE_FILE', 'docker-compose.yml')}
+                            onChange={e => setSpecialVal(repo.name, 'COMPOSE_FILE', e.target.value)}
+                            placeholder="docker-compose.yml"
+                            className="ccd-input font-mono text-xs w-full"
+                          />
+                        </div>
+                      )}
 
                       {/* Pre-Deploy Commands */}
                       <div className="space-y-1">

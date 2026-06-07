@@ -1077,6 +1077,9 @@ export default function Deployment() {
           if (currentRepoConfig['VERSION_TAG'] === undefined) {
             currentRepoConfig['VERSION_TAG'] = result.docker_compose_exists ? '' : 'v2'
           }
+          if (result.docker_compose_exists && result.docker_compose_path) {
+            currentRepoConfig['COMPOSE_FILE'] = result.docker_compose_path
+          }
           updatedConfig[repo.name] = currentRepoConfig
         }
       })
@@ -1133,7 +1136,10 @@ export default function Deployment() {
                 
                 const defaults: Record<string, string> = {
                   'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+                }
+                if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
+                  defaults['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
                 }
                 keys.forEach((k: string) => {
                   defaults[k] = ''
@@ -1144,6 +1150,9 @@ export default function Deployment() {
                   'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
                   'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
                 }
+                if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
+                  defaults['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
+                }
                 newConfig[repo.name] = defaults
               }
             } else {
@@ -1153,6 +1162,9 @@ export default function Deployment() {
               }
               if (mergedConfig['VERSION_TAG'] === undefined) {
                 mergedConfig['VERSION_TAG'] = hasCompose ? '' : 'v2'
+              }
+              if (hasCompose && mergedConfig['COMPOSE_FILE'] === undefined && validationMap[repo.id]?.docker_compose_path) {
+                mergedConfig['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
               }
               newConfig[repo.name] = mergedConfig
             }
