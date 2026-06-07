@@ -66,6 +66,7 @@ services:
       GITHUB_CENTRAL_OWNER: ${GITHUB_CENTRAL_OWNER}
       GITHUB_CENTRAL_REPO: ${GITHUB_CENTRAL_REPO:-control-center-deployments}
       GITHUB_CENTRAL_WORKFLOW: ${GITHUB_CENTRAL_WORKFLOW:-central-deploy.yml}
+      GITHUB_CENTRAL_REF: ${GITHUB_CENTRAL_REF:-main}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       BACKEND_PORT: ${BACKEND_PORT:-5000}
     ports:
