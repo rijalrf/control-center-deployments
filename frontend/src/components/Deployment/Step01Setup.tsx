@@ -189,31 +189,8 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                         </span>
                       )}
                     </div>
-                    {repo.description && (
-                      <p className="text-xs text-ccd-text-muted truncate mt-0.5">{repo.description}</p>
-                    )}
-                    <div className="mt-2.5 flex flex-col gap-1.5 max-w-md">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-semibold text-ccd-text-muted shrink-0 uppercase tracking-wider">
-                          Docker Image Name:
-                        </span>
-                        <input
-                          type="text"
-                          placeholder={`${repo.name}:latest (default)`}
-                          value={repo.docker_image_name || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const updated = data.repositories.map(r => r.id === repo.id ? { ...r, docker_image_name: val } : r);
-                            onChange({ repositories: updated });
-                          }}
-                          className="bg-[#0b0f19]/30 border border-ccd-border/40 text-ccd-text placeholder-ccd-text-muted/40 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-ccd-accent flex-1 transition-all"
-                        />
-                      </div>
-                      <p className="text-[10px] text-ccd-warning/70 leading-normal pl-[118px]">
-                        ⚠️ Penting: Harus sesuai dengan nama image yang tertulis di file <code>docker-compose.yml</code> server target.
-                      </p>
-                    </div>
                   </div>
+
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="flex flex-col items-end gap-1.5">
                       {/* Branch validation status */}

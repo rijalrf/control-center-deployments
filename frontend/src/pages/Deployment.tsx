@@ -800,6 +800,8 @@ export default function Deployment() {
     desired_branch: string;
     exists: boolean;
     fallback_used: boolean;
+    dockerfile_exists: boolean;
+    docker_compose_exists: boolean;
   }>>(() => {
     const saved = localStorage.getItem('ccd_wizard_validation_results')
     if (saved) {
@@ -969,9 +971,16 @@ export default function Deployment() {
   }, [activeDeployment?.id, selectedDeployment])
 
   const canNext = () => {
-    if (currentStep === 1) return formData.environment_id !== null && formData.repositories.length > 0
-    if (currentStep === 2) return true
-    return false
+    if (currentStep === 1) {
+      if (formData.environment_id === null || formData.repositories.length === 0) return false;
+      if (!isValidated) return false;
+      return formData.repositories.every(repo => {
+        const result = validationResults?.[repo.id];
+        return result && result.dockerfile_exists;
+      });
+    }
+    if (currentStep === 2) return true;
+    return false;
   }
 
   const handleValidate = async () => {
@@ -987,18 +996,26 @@ export default function Deployment() {
         desired_branch: string;
         exists: boolean;
         fallback_used: boolean;
+        dockerfile_exists: boolean;
+        docker_compose_exists: boolean;
       }> = {}
-      let hasError = false
+      let hasError = false;
+      let hasMissingDockerfile = false;
 
       res.data.results.forEach((item: any) => {
         resultsMap[item.repository_id] = {
-          resolved_branch: item.resolved_branch,
-          desired_branch: item.desired_branch,
-          exists:          item.exists,
-          fallback_used:   item.fallback_used
+          resolved_branch:       item.resolved_branch,
+          desired_branch:        item.desired_branch,
+          exists:                item.exists,
+          fallback_used:         item.fallback_used,
+          dockerfile_exists:      item.dockerfile_exists,
+          docker_compose_exists:  item.docker_compose_exists,
         }
         if (item.fallback_used) {
           hasError = true
+        }
+        if (!item.dockerfile_exists) {
+          hasMissingDockerfile = true
         }
       })
 
@@ -1019,10 +1036,12 @@ export default function Deployment() {
         repositories: updatedRepositories
       }));
 
-      if (hasError) {
+      if (hasMissingDockerfile) {
+        showToast('Validasi gagal: Terdapat repositori yang tidak memiliki Dockerfile (wajib).', 'error')
+      } else if (hasError) {
         showToast('Beberapa repositori tidak memiliki branch target. Sistem akan menggunakan branch default.', 'warning')
       } else {
-        showToast('Validasi sukses! Semua branch target ditemukan.', 'success')
+        showToast('Validasi sukses! Semua repositori kompatibel.', 'success')
       }
     } catch (err: unknown) {
       showToast(getApiErrorMessage(err, 'Gagal memvalidasi branch target'), 'error')
@@ -1261,14 +1280,27 @@ export default function Deployment() {
                   ) : (
                     <button
                       onClick={handleNext}
-                      disabled={loadingKeys}
-                      className="ccd-btn-primary flex items-center gap-2"
+                      disabled={!canNext() || loadingKeys}
+                      title={!canNext() ? 'Perbaiki error validasi terlebih dahulu sebelum melanjutkan' : ''}
+                      className={`flex items-center gap-2 ${
+                        !canNext()
+                          ? 'ccd-btn-secondary opacity-50 cursor-not-allowed'
+                          : 'ccd-btn-primary'
+                      }`}
                       id="next-wizard-btn"
                     >
                       {loadingKeys ? (
                         <>
                           <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
                           Loading variables...
+                        </>
+                      ) : !canNext() ? (
+                        <>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0110 0v4" />
+                          </svg>
+                          Blocked
                         </>
                       ) : (
                         <>Next →</>
