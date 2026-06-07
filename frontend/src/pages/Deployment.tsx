@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import Step01Setup from '../components/Deployment/Step01Setup'
@@ -345,7 +345,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh }: ActiveDepl
             </span>
           </div>
           <p className="text-xs text-ccd-text-muted mt-1.5 font-mono">
-            Triggered at: {new Date(deployment.created_at).toLocaleString()}
+            Triggered at: {deployment.created_at || deployment.createdAt ? new Date(deployment.created_at || deployment.createdAt || '').toLocaleString() : '—'}
           </p>
         </div>
         <button
@@ -768,6 +768,62 @@ export default function Deployment() {
   const { showToast }                         = useToast()
   const [loadingKeys, setLoadingKeys]         = useState(false)
   
+  const [environments, setEnvironments] = useState<Environment[]>([])
+  const [filterEnv, setFilterEnv] = useState<string>('')
+  const [filterStatus, setFilterStatus] = useState<string>('')
+  const [filterStartDate, setFilterStartDate] = useState<string>('')
+  const [filterEndDate, setFilterEndDate] = useState<string>('')
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const pageSize = 10
+
+  // Fetch environments on mount for list filters
+  useEffect(() => {
+    api.get('/environments')
+      .then(res => setEnvironments(res.data))
+      .catch(() => {})
+  }, [])
+
+  // Filter logic
+  const filteredDeployments = useMemo(() => {
+    return deployments.filter(d => {
+      if (filterEnv && (!d.environment_id || String(d.environment_id) !== filterEnv)) {
+        return false
+      }
+      if (filterStatus && d.status !== filterStatus) {
+        return false
+      }
+      const dateVal = d.created_at || d.createdAt
+      if (filterStartDate && dateVal) {
+        const start = new Date(filterStartDate)
+        start.setHours(0, 0, 0, 0)
+        const dDate = new Date(dateVal)
+        if (dDate < start) return false
+      }
+      if (filterEndDate && dateVal) {
+        const end = new Date(filterEndDate)
+        end.setHours(23, 59, 59, 999)
+        const dDate = new Date(dateVal)
+        if (dDate > end) return false
+      }
+      return true
+    })
+  }, [deployments, filterEnv, filterStatus, filterStartDate, filterEndDate])
+
+  const totalItems = filteredDeployments.length
+  const totalPages = Math.ceil(totalItems / pageSize) || 1
+
+  // Handle current page out of bounds when filters change
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [totalPages, currentPage])
+
+  const paginatedDeployments = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    return filteredDeployments.slice(startIndex, startIndex + pageSize)
+  }, [filteredDeployments, currentPage, pageSize])
+
   // Confirmation Modal State
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ type: 'wizard' | 'draft'; draftId?: number } | null>(null)
@@ -1095,6 +1151,84 @@ export default function Deployment() {
             </button>
           </div>
 
+          {/* Filters Bar */}
+          <div className="bg-ccd-surface/30 p-4 rounded-xl border border-ccd-border/50 flex flex-col md:flex-row md:items-end gap-3 text-xs">
+            {/* Environment Filter */}
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] font-semibold text-ccd-text-muted uppercase tracking-wider">Environment</label>
+              <select
+                value={filterEnv}
+                onChange={e => { setFilterEnv(e.target.value); setCurrentPage(1); }}
+                className="ccd-input bg-ccd-bg border-ccd-border focus:border-ccd-accent text-xs h-9 w-full"
+              >
+                <option value="">All Environments</option>
+                {environments.map(env => (
+                  <option key={env.id} value={String(env.id)}>{env.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] font-semibold text-ccd-text-muted uppercase tracking-wider">Status</label>
+              <select
+                value={filterStatus}
+                onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                className="ccd-input bg-ccd-bg border-ccd-border focus:border-ccd-accent text-xs h-9 w-full"
+              >
+                <option value="">All Statuses</option>
+                <option value="draft">DRAFT</option>
+                <option value="pending">PENDING</option>
+                <option value="running">RUNNING</option>
+                <option value="success">SUCCESS</option>
+                <option value="failed">FAILED</option>
+                <option value="cancelled">CANCELLED</option>
+              </select>
+            </div>
+
+            {/* Start Date */}
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] font-semibold text-ccd-text-muted uppercase tracking-wider">Start Date</label>
+              <input
+                type="date"
+                value={filterStartDate}
+                onChange={e => { setFilterStartDate(e.target.value); setCurrentPage(1); }}
+                className="ccd-input bg-ccd-bg border-ccd-border focus:border-ccd-accent text-xs h-9 w-full"
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] font-semibold text-ccd-text-muted uppercase tracking-wider">End Date</label>
+              <input
+                type="date"
+                value={filterEndDate}
+                onChange={e => { setFilterEndDate(e.target.value); setCurrentPage(1); }}
+                className="ccd-input bg-ccd-bg border-ccd-border focus:border-ccd-accent text-xs h-9 w-full"
+              />
+            </div>
+
+            {/* Reset Button */}
+            {(filterEnv || filterStatus || filterStartDate || filterEndDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterEnv('');
+                  setFilterStatus('');
+                  setFilterStartDate('');
+                  setFilterEndDate('');
+                  setCurrentPage(1);
+                }}
+                className="px-3 h-9 rounded-lg bg-ccd-muted/20 hover:bg-ccd-muted/30 text-ccd-text hover:text-ccd-danger transition-colors font-medium border border-ccd-border/30 flex items-center gap-1.5 shrink-0"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+                Reset
+              </button>
+            )}
+          </div>
+
           {loadingDeployments ? (
             <div className="ccd-card p-20 flex justify-center items-center">
               <div className="flex flex-col items-center gap-3">
@@ -1121,133 +1255,179 @@ export default function Deployment() {
               </button>
             </div>
           ) : (
-            <div className="ccd-card overflow-hidden">
-              <table className="ccd-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Environment</th>
-                    <th>Applications</th>
-                    <th>Notes</th>
-                    <th>Triggered By</th>
-                    <th>Executed At</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {deployments.map(d => {
-                    const reposList = d.repositories || []
-                    return (
-                      <tr key={d.id}>
-                        <td>
-                          <span className="font-mono text-xs font-bold text-ccd-text">#{d.id}</span>
-                        </td>
-                        <td>
-                          {d.environment ? (
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{ backgroundColor: d.environment.color }}
-                              />
-                              <span className="text-xs font-semibold">{d.environment.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-ccd-text-muted">—</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="flex flex-wrap gap-1.5 max-w-[280px]">
-                            {reposList.map((repo: any) => (
-                              <span
-                                key={repo.github_id || repo.name}
-                                className="badge-muted text-[10px] font-mono py-0.5 px-2"
-                              >
-                                {repo.name}{' '}
-                                {repo.branch && (
-                                  <span className="text-ccd-accent">{repo.branch}</span>
-                                )}
-                              </span>
-                            ))}
-                            {reposList.length === 0 && (
-                              <span className="text-xs text-ccd-text-muted">—</span>
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="text-xs text-ccd-text-muted truncate max-w-[150px] block" title={d.notes || ''}>
-                            {d.notes || '—'}
-                          </span>
-                        </td>
-                        <td>
-                          {d.user ? (
-                            <div className="flex items-center gap-2">
-                              {d.user.avatar_url && (
-                                <img
-                                  src={d.user.avatar_url}
-                                  alt={d.user.login}
-                                  className="w-5 h-5 rounded-full border border-ccd-border"
-                                />
-                              )}
-                              <span className="text-xs">{d.user.name || d.user.login}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-ccd-text-muted">—</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className="text-xs text-ccd-text-muted font-mono">
-                            {new Date(d.created_at).toLocaleString()}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`${listStatusColors[d.status] || 'badge-muted'} uppercase text-[9px] font-bold px-2 py-0.5 border`}>
-                            {d.status}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="flex gap-2">
-                            {d.status === 'draft' ? (
-                              <>
-                                <button
-                                  onClick={() => handleExecuteDraft(d.id)}
-                                  className="ccd-btn bg-ccd-success/15 hover:bg-ccd-success/25 text-ccd-success border border-ccd-success/20 text-[11px] py-1 px-2.5 rounded flex items-center gap-1"
-                                >
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3">
-                                    <polygon points="5 3 19 12 5 21 5 3" />
-                                  </svg>
-                                  Execute
-                                </button>
-                                <button
-                                  onClick={() => setSelectedDeployment(d)}
-                                  className="ccd-btn-ghost text-[11px] py-1 px-2 border border-ccd-border/40 hover:bg-ccd-muted/30"
-                                >
-                                  Details
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => setSelectedDeployment(d)}
-                                className="ccd-btn-ghost text-[11px] py-1 px-2.5 border border-ccd-border/40 hover:bg-ccd-muted/30 flex items-center gap-1"
-                              >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-ccd-text-muted">
-                                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                                  <polyline points="14 2 14 8 20 8" />
-                                  <line x1="16" y1="13" x2="8" y2="13" />
-                                  <line x1="16" y1="17" x2="8" y2="17" />
-                                  <polyline points="10 9 9 9 8 9" />
-                                </svg>
-                                View Logs
-                              </button>
-                            )}
-                          </div>
+            <>
+              <div className="ccd-card overflow-hidden">
+                <table className="ccd-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Environment</th>
+                      <th>Applications</th>
+                      <th>Notes</th>
+                      <th>Triggered By</th>
+                      <th>Executed At</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedDeployments.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-12 text-ccd-text-muted text-xs italic">
+                          No deployments found matching the current filters.
                         </td>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      paginatedDeployments.map(d => {
+                        const reposList = d.repositories || []
+                        return (
+                          <tr key={d.id}>
+                            <td>
+                              <span className="font-mono text-xs font-bold text-ccd-text">#{d.id}</span>
+                            </td>
+                            <td>
+                              {d.environment ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full"
+                                    style={{ backgroundColor: d.environment.color }}
+                                  />
+                                  <span className="text-xs font-semibold">{d.environment.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-ccd-text-muted">—</span>
+                              )}
+                            </td>
+                            <td>
+                              <div className="flex flex-wrap gap-1.5 max-w-[280px]">
+                                {reposList.map((repo: any) => (
+                                  <span
+                                    key={repo.github_id || repo.name}
+                                    className="badge-muted text-[10px] font-mono py-0.5 px-2 inline-flex items-center gap-1.5"
+                                  >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 text-ccd-text-muted">
+                                      <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+                                    </svg>
+                                    <span>{repo.name}</span>
+                                    {repo.branch && (
+                                      <span className="text-ccd-accent">({repo.branch})</span>
+                                    )}
+                                  </span>
+                                ))}
+                                {reposList.length === 0 && (
+                                  <span className="text-xs text-ccd-text-muted">—</span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <span className="text-xs text-ccd-text-muted truncate max-w-[150px] block" title={d.notes || ''}>
+                                {d.notes || '—'}
+                              </span>
+                            </td>
+                            <td>
+                              {d.user ? (
+                                <div className="flex items-center gap-2">
+                                  {d.user.avatar_url && (
+                                    <img
+                                      src={d.user.avatar_url}
+                                      alt={d.user.login}
+                                      className="w-5 h-5 rounded-full border border-ccd-border"
+                                    />
+                                  )}
+                                  <span className="text-xs">{d.user.name || d.user.login}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-ccd-text-muted">—</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className="text-xs text-ccd-text-muted font-mono">
+                                {d.created_at || d.createdAt ? new Date(d.created_at || d.createdAt || '').toLocaleString() : '—'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`${listStatusColors[d.status] || 'badge-muted'} uppercase text-[9px] font-bold px-2 py-0.5 border`}>
+                                {d.status}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="flex gap-2">
+                                {d.status === 'draft' ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleExecuteDraft(d.id)}
+                                      className="ccd-btn bg-ccd-success/15 hover:bg-ccd-success/25 text-ccd-success border border-ccd-success/20 text-[11px] py-1 px-2.5 rounded flex items-center gap-1"
+                                    >
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
+                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                      </svg>
+                                      Execute
+                                    </button>
+                                    <button
+                                      onClick={() => setSelectedDeployment(d)}
+                                      className="ccd-btn-ghost text-[11px] py-1 px-2 border border-ccd-border/40 hover:bg-ccd-muted/30"
+                                    >
+                                      Details
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => setSelectedDeployment(d)}
+                                    className="ccd-btn-ghost text-[11px] py-1 px-2.5 border border-ccd-border/40 hover:bg-ccd-muted/30 flex items-center gap-1"
+                                  >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-ccd-text-muted">
+                                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                                      <polyline points="14 2 14 8 20 8" />
+                                      <line x1="16" y1="13" x2="8" y2="13" />
+                                      <line x1="16" y1="17" x2="8" y2="17" />
+                                      <polyline points="10 9 9 9 8 9" />
+                                    </svg>
+                                    View Logs
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 bg-ccd-surface/10 p-3 rounded-xl border border-ccd-border/40 text-xs text-ccd-text-muted font-mono">
+                  <div>
+                    Showing <span className="text-ccd-text font-bold">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                    <span className="text-ccd-text font-bold">
+                      {Math.min(currentPage * pageSize, totalItems)}
+                    </span>{' '}
+                    of <span className="text-ccd-text font-bold">{totalItems}</span> deployments
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg bg-ccd-surface border border-ccd-border hover:border-ccd-muted disabled:opacity-40 disabled:hover:border-ccd-border text-ccd-text transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-ccd-text-dim text-xs">
+                      Page <span className="text-ccd-cyan font-bold">{currentPage}</span> of{' '}
+                      <span className="text-ccd-text font-bold">{totalPages}</span>
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg bg-ccd-surface border border-ccd-border hover:border-ccd-muted disabled:opacity-40 disabled:hover:border-ccd-border text-ccd-text transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
