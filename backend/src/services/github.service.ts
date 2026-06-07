@@ -205,7 +205,7 @@ export class GitHubService {
   }
 
   static async getRepoEnvKeys(
-    accessToken: string,
+    accessToken: string | null,
     owner: string,
     repo: string,
   ): Promise<string[]> {

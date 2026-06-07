@@ -782,7 +782,9 @@ export default function Deployment() {
   const [submitting, setSubmitting]           = useState(false)
   const [activeDeployment, setActiveDeployment] = useState<DeploymentType | null>(null)
   const [selectedDeployment, setSelectedDeployment] = useState<DeploymentType | null>(null)
-  const [showWizard, setShowWizard]           = useState(false)
+  const [showWizard, setShowWizard]           = useState<boolean>(() => {
+    return localStorage.getItem('ccd_show_wizard') === 'true'
+  })
   const [deployments, setDeployments]         = useState<DeploymentType[]>([])
   const [loadingDeployments, setLoadingDeployments] = useState(false)
   const { showToast }                         = useToast()
@@ -877,6 +879,10 @@ export default function Deployment() {
   useEffect(() => {
     localStorage.setItem('ccd_wizard_form_data', JSON.stringify(formData))
   }, [formData])
+
+  useEffect(() => {
+    localStorage.setItem('ccd_show_wizard', String(showWizard))
+  }, [showWizard])
 
   // Fetch all deployments
   const fetchDeployments = useCallback(async () => {
@@ -987,6 +993,7 @@ export default function Deployment() {
         // Reset wizard
         localStorage.removeItem('ccd_wizard_step')
         localStorage.removeItem('ccd_wizard_form_data')
+        localStorage.removeItem('ccd_show_wizard')
         setFormData(INIT_DATA)
         setCurrentStep(1)
         setShowWizard(false)
@@ -1022,6 +1029,7 @@ export default function Deployment() {
       showToast('Deployment plan saved successfully!', 'success')
       localStorage.removeItem('ccd_wizard_step')
       localStorage.removeItem('ccd_wizard_form_data')
+      localStorage.removeItem('ccd_show_wizard')
       setFormData(INIT_DATA)
       setCurrentStep(1)
       setShowWizard(false)
