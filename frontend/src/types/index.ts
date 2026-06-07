@@ -34,6 +34,7 @@ export interface Environment {
   slug: string;
   description: string | null;
   color: string;
+  target_branch?: string | null;
   servers?: Server[];
   created_at?: string;
   updated_at?: string;

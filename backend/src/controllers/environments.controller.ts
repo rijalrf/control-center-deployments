@@ -10,6 +10,7 @@ export const STATIC_ENVIRONMENTS = [
     slug: 'non-production-1',
     description: 'Environment Non-Production 1',
     color: '#3b82f6',
+    target_branch: 'dev',
   },
   {
     id: 2,
@@ -17,6 +18,7 @@ export const STATIC_ENVIRONMENTS = [
     slug: 'non-production-2',
     description: 'Environment Non-Production 2',
     color: '#06b6d4',
+    target_branch: 'staging',
   },
   {
     id: 3,
@@ -24,6 +26,7 @@ export const STATIC_ENVIRONMENTS = [
     slug: 'production',
     description: 'Environment Production',
     color: '#ef4444',
+    target_branch: 'main',
   }
 ];
 
@@ -40,10 +43,15 @@ export class EnvironmentsController {
   static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const servers = await Server.findAll();
-      const envs = STATIC_ENVIRONMENTS.map(env => ({
-        ...env,
-        servers: servers.filter(s => s.environment_id === env.id).map(s => s.get({ plain: true }))
-      }));
+      const dbEnvs = await Environment.findAll();
+      
+      const envs = dbEnvs.map(env => {
+        const plain = env.get({ plain: true });
+        return {
+          ...plain,
+          servers: servers.filter(s => s.environment_id === plain.id).map(s => s.get({ plain: true }))
+        };
+      });
 
       envs.sort((a, b) => getEnvSortPriority(a.slug) - getEnvSortPriority(b.slug));
       res.json(envs);
@@ -57,7 +65,22 @@ export class EnvironmentsController {
   }
 
   static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    res.status(400).json({ error: 'Environments are static and cannot be modified' });
+    try {
+      const env = await Environment.findByPk(req.params.id);
+      if (!env) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+      const { description, color, target_branch } = req.body as {
+        description?: string;
+        color?: string;
+        target_branch?: string;
+      };
+      await env.update({ description, color, target_branch });
+      res.json(env);
+    } catch (err) {
+      next(err);
+    }
   }
 
   static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {

@@ -8,6 +8,7 @@ export class Environment extends Model<EnvironmentAttributes, Omit<EnvironmentAt
   public slug!: string;
   public description!: string | null;
   public color!: string;
+  public target_branch!: string | null;
 
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
@@ -19,6 +20,7 @@ Environment.init({
   slug: { type: DataTypes.STRING(100), allowNull: false, unique: true },
   description: { type: DataTypes.TEXT, allowNull: true },
   color: { type: DataTypes.STRING(20), defaultValue: '#06b6d4' },
+  target_branch: { type: DataTypes.STRING(100), allowNull: true, defaultValue: 'main' },
 }, {
   sequelize,
   tableName: 'environments',

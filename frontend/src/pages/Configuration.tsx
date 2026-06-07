@@ -60,10 +60,9 @@ function ConfirmModal({ message, onConfirm, onCancel }: ConfirmModalProps) {
 function EnvironmentsSection() {
   const [envs, setEnvs]           = useState<Environment[]>([])
   const [loading, setLoading]     = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [delTarget, setDelTarget] = useState<Environment | null>(null)
+  const [editTarget, setEditTarget] = useState<Environment | null>(null)
   const [saving, setSaving]       = useState(false)
-  const [form, setForm]           = useState({ name: '', slug: '', description: '', color: '#06b6d4' })
+  const [form, setForm]           = useState({ name: '', slug: '', description: '', color: '#06b6d4', target_branch: '' })
   const [error, setError]         = useState('')
   const { showToast }             = useToast()
 
@@ -76,18 +75,29 @@ function EnvironmentsSection() {
 
   useEffect(() => { fetch() }, [])
 
+  const startEdit = (env: Environment) => {
+    setEditTarget(env)
+    setForm({
+      name: env.name,
+      slug: env.slug,
+      description: env.description || '',
+      color: env.color,
+      target_branch: env.target_branch || 'main'
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!editTarget) return
     setError('')
     setSaving(true)
     try {
-      await api.post('/environments', form)
-      showToast(`Environment "${form.name}" created successfully!`, 'success')
-      setForm({ name: '', slug: '', description: '', color: '#06b6d4' })
-      setShowModal(false)
+      await api.put(`/environments/${editTarget.id}`, form)
+      showToast(`Environment "${form.name}" updated successfully!`, 'success')
+      setEditTarget(null)
       fetch()
     } catch (err: unknown) {
-      const errMsg = getApiErrorMessage(err, 'Failed to create environment')
+      const errMsg = getApiErrorMessage(err, 'Failed to update environment')
       setError(errMsg)
       showToast(errMsg, 'error')
     } finally {
@@ -95,56 +105,44 @@ function EnvironmentsSection() {
     }
   }
 
-  const handleDelete = async () => {
-    if (!delTarget) return
-    try {
-      await api.delete(`/environments/${delTarget.id}`)
-      showToast(`Environment "${delTarget.name}" deleted successfully.`, 'success')
-      setDelTarget(null)
-      fetch()
-    } catch (e: unknown) {
-      showToast(getApiErrorMessage(e, 'Failed to delete environment'), 'error')
-    }
-  }
-
-  const autoSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-
   const PRESET_COLORS = ['#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#3b82f6', '#ec4899']
 
   return (
     <div>
-      {delTarget && (
-        <ConfirmModal
-          message={`Delete environment "${delTarget.name}"? This cannot be undone.`}
-          onConfirm={handleDelete}
-          onCancel={() => setDelTarget(null)}
-        />
-      )}
-
-      {showModal && (
-        <Modal title="Add Environment" onClose={() => setShowModal(false)}>
+      {editTarget && (
+        <Modal title={`Edit Environment: ${editTarget.name}`} onClose={() => setEditTarget(null)}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-ccd-text-muted mb-1.5">Name *</label>
+              <label className="block text-xs font-medium text-ccd-text-muted mb-1.5">Name (Static)</label>
               <input
                 type="text"
                 value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: autoSlug(e.target.value) }))}
-                className="ccd-input"
-                placeholder="Production"
-                required
+                className="ccd-input bg-ccd-muted/30 cursor-not-allowed opacity-60 font-medium"
+                disabled
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ccd-text-muted mb-1.5">Slug *</label>
+              <label className="block text-xs font-medium text-ccd-text-muted mb-1.5">Slug (Static)</label>
               <input
                 type="text"
                 value={form.slug}
-                onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
+                className="ccd-input bg-ccd-muted/30 cursor-not-allowed opacity-60 font-mono"
+                disabled
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ccd-text-muted mb-1.5">Target Branch to Deploy *</label>
+              <input
+                type="text"
+                value={form.target_branch}
+                onChange={e => setForm(f => ({ ...f, target_branch: e.target.value }))}
                 className="ccd-input font-mono"
-                placeholder="production"
+                placeholder="e.g. staging, main, dev"
                 required
               />
+              <span className="text-[10px] text-ccd-text-muted mt-1 block">
+                Branch asal repositori target yang akan digunakan saat memicu deployment.
+              </span>
             </div>
             <div>
               <label className="block text-xs font-medium text-ccd-text-muted mb-1.5">Description</label>
@@ -179,9 +177,9 @@ function EnvironmentsSection() {
             </div>
             {error && <div className="text-xs text-ccd-danger">{error}</div>}
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setShowModal(false)} className="ccd-btn-secondary flex-1">Cancel</button>
+              <button type="button" onClick={() => setEditTarget(null)} className="ccd-btn-secondary flex-1">Cancel</button>
               <button type="submit" disabled={saving} className="ccd-btn-primary flex-1">
-                {saving ? <><div className="spinner w-4 h-4" />Saving...</> : 'Add Environment'}
+                {saving ? <><div className="spinner w-4 h-4" />Saving...</> : 'Save Changes'}
               </button>
             </div>
           </form>
@@ -192,7 +190,7 @@ function EnvironmentsSection() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-ccd-border">
           <div>
             <div className="text-sm font-semibold text-ccd-text">Environments</div>
-            <div className="text-xs text-ccd-text-muted mt-0.5">Sistem menggunakan environment statis</div>
+            <div className="text-xs text-ccd-text-muted mt-0.5">Sistem menggunakan environment statis dengan target branch khusus</div>
           </div>
           <span className="badge-muted text-xs px-2 py-0.5">Static</span>
         </div>
@@ -204,7 +202,7 @@ function EnvironmentsSection() {
         ) : (
           <table className="ccd-table">
             <thead>
-              <tr><th>Name</th><th>Slug</th><th>Servers</th><th>Description</th></tr>
+              <tr><th>Name</th><th>Slug</th><th>Target Branch</th><th>Servers</th><th>Description</th><th className="w-12"></th></tr>
             </thead>
             <tbody>
               {envs.map(env => (
@@ -216,8 +214,17 @@ function EnvironmentsSection() {
                     </div>
                   </td>
                   <td><span className="font-mono text-xs badge-muted">{env.slug}</span></td>
+                  <td><span className="font-mono text-xs badge-accent">{env.target_branch || 'main'}</span></td>
                   <td><span className="text-xs text-ccd-text-muted">{env.servers?.length || 0}</span></td>
                   <td><span className="text-xs text-ccd-text-muted truncate max-w-[180px] block">{env.description || '—'}</span></td>
+                  <td>
+                    <button onClick={() => startEdit(env)} className="ccd-btn-ghost p-1.5" title="Edit branch & config">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-accent">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

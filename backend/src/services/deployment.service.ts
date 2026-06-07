@@ -157,13 +157,21 @@ export class DeploymentService {
         const [repoOwner, repoNameOnly] = r.full_name.split('/');
 
         let targetRef = r.default_branch ?? 'main';
+        const configuredBranch = envObj?.target_branch;
 
-        if (envName.toLowerCase() === 'production') {
-          const hasMain = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'main');
-          if (hasMain) targetRef = 'main';
+        if (configuredBranch && configuredBranch.trim() !== '') {
+          const hasConfiguredBranch = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, configuredBranch);
+          if (hasConfiguredBranch) {
+            targetRef = configuredBranch;
+          }
         } else {
-          const hasStaging = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'staging');
-          if (hasStaging) targetRef = 'staging';
+          if (envName.toLowerCase() === 'production') {
+            const hasMain = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'main');
+            if (hasMain) targetRef = 'main';
+          } else {
+            const hasStaging = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'staging');
+            if (hasStaging) targetRef = 'staging';
+          }
         }
 
         const targetInputs: Record<string, string> = {
