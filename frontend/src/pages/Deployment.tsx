@@ -884,6 +884,29 @@ export default function Deployment() {
 
   const updateData = (patch: Partial<FormData>) => setFormData(prev => ({ ...prev, ...patch }))
 
+  const handleAbort = () => {
+    const ok = window.confirm(
+      "Apakah Anda yakin ingin membatalkan rencana deployment ini?\nSemua konfigurasi langkah yang sudah diisi akan dihapus secara permanen."
+    )
+    if (!ok) return
+
+    // Reset wizard states
+    setCurrentStep(1)
+    setFormData(INIT_DATA)
+    setIsValidated(false)
+    setValidationResults({})
+    setShowWizard(false)
+
+    // Clear localStorage values
+    localStorage.removeItem('ccd_wizard_step')
+    localStorage.removeItem('ccd_wizard_form_data')
+    localStorage.removeItem('ccd_show_wizard')
+    localStorage.removeItem('ccd_wizard_is_validated')
+    localStorage.removeItem('ccd_wizard_validation_results')
+
+    showToast('Rencana deployment telah dibatalkan.', 'info')
+  }
+
   // Restore active deployment on mount
   useEffect(() => {
     const savedActiveId = localStorage.getItem('ccd_active_deployment_id')
@@ -1254,12 +1277,22 @@ export default function Deployment() {
                   <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowWizard(false)}
-                className="ccd-btn-secondary text-xs py-1.5 px-3 border border-ccd-border/50"
-              >
-                Cancel
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAbort}
+                  className="ccd-btn-danger text-xs py-1.5 px-3"
+                  title="Batalkan rencana deployment ini dan hapus draf konfigurasi"
+                >
+                  Abort Plan
+                </button>
+                <button
+                  onClick={() => setShowWizard(false)}
+                  className="ccd-btn-secondary text-xs py-1.5 px-3 border border-ccd-border/50"
+                  title="Tutup wizard sementara tanpa menghapus konfigurasi"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             {currentStep === 1 && (
