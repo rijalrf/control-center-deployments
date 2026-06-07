@@ -789,13 +789,23 @@ export default function Deployment() {
   const [loadingDeployments, setLoadingDeployments] = useState(false)
   const { showToast }                         = useToast()
   const [loadingKeys, setLoadingKeys]         = useState(false)
-  const [isValidated, setIsValidated]         = useState<boolean>(false)
+  const [isValidated, setIsValidated]         = useState<boolean>(() => {
+    return localStorage.getItem('ccd_wizard_is_validated') === 'true'
+  })
   const [validationResults, setValidationResults] = useState<Record<number, {
     resolved_branch: string;
     desired_branch: string;
     exists: boolean;
     fallback_used: boolean;
-  }>>({})
+  }>>(() => {
+    const saved = localStorage.getItem('ccd_wizard_validation_results')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {}
+    }
+    return {}
+  })
   const [validating, setValidating]           = useState(false)
   
   const [environments, setEnvironments] = useState<Environment[]>([])
@@ -892,10 +902,24 @@ export default function Deployment() {
     localStorage.setItem('ccd_show_wizard', String(showWizard))
   }, [showWizard])
 
+  const repoIdsKey = useMemo(() => {
+    return (formData.repositories || []).map(r => r.id).sort().join(',')
+  }, [formData.repositories])
+
   useEffect(() => {
     setIsValidated(false)
     setValidationResults({})
-  }, [formData.environment_id, formData.repositories])
+    localStorage.removeItem('ccd_wizard_is_validated')
+    localStorage.removeItem('ccd_wizard_validation_results')
+  }, [formData.environment_id, repoIdsKey])
+
+  useEffect(() => {
+    localStorage.setItem('ccd_wizard_is_validated', String(isValidated))
+  }, [isValidated])
+
+  useEffect(() => {
+    localStorage.setItem('ccd_wizard_validation_results', JSON.stringify(validationResults))
+  }, [validationResults])
 
   // Fetch all deployments
   const fetchDeployments = useCallback(async () => {
@@ -970,6 +994,20 @@ export default function Deployment() {
 
       setValidationResults(resultsMap)
       setIsValidated(true)
+
+      const updatedRepositories = formData.repositories.map(repo => {
+        const result = resultsMap[repo.id];
+        return {
+          ...repo,
+          branch: result ? result.resolved_branch : repo.default_branch,
+          fallback_used: result ? result.fallback_used : false
+        };
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        repositories: updatedRepositories
+      }));
 
       if (hasError) {
         showToast('Beberapa repositori tidak memiliki branch target. Sistem akan menggunakan branch default.', 'warning')
@@ -1050,6 +1088,8 @@ export default function Deployment() {
         localStorage.removeItem('ccd_wizard_step')
         localStorage.removeItem('ccd_wizard_form_data')
         localStorage.removeItem('ccd_show_wizard')
+        localStorage.removeItem('ccd_wizard_is_validated')
+        localStorage.removeItem('ccd_wizard_validation_results')
         setFormData(INIT_DATA)
         setCurrentStep(1)
         setShowWizard(false)
@@ -1086,6 +1126,8 @@ export default function Deployment() {
       localStorage.removeItem('ccd_wizard_step')
       localStorage.removeItem('ccd_wizard_form_data')
       localStorage.removeItem('ccd_show_wizard')
+      localStorage.removeItem('ccd_wizard_is_validated')
+      localStorage.removeItem('ccd_wizard_validation_results')
       setFormData(INIT_DATA)
       setCurrentStep(1)
       setShowWizard(false)

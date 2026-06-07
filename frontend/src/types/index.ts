@@ -53,6 +53,8 @@ export interface Repository {
   default_branch: string;
   visibility: string;
   synced_at: string | null;
+  branch?: string;
+  fallback_used?: boolean;
 }
 
 export interface DeploymentRepository {
