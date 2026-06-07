@@ -7,8 +7,7 @@ const PORT = env.PORT || 5000;
 async function start() {
   try {
     await sequelize.authenticate();
-    console.log('✅ Database connected');
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('✅ Models synchronized');
 
     app.listen(PORT, '0.0.0.0', () => {
