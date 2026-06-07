@@ -1112,14 +1112,28 @@ export default function Deployment() {
             const validationMap = validationResults || {}
             const hasCompose = validationMap[repo.id]?.docker_compose_exists || false
 
-            if (!newConfig[repo.name] || Object.keys(newConfig[repo.name]).length === 0) {
+            const SPECIAL_KEYS = [
+              'DEPLOY_STRATEGY',
+              'DEPLOY_DIR',
+              'COMPOSE_FILE',
+              'PRE_DEPLOY_COMMANDS',
+              'POST_DEPLOY_COMMANDS',
+              'DOCKERFILE_PATH',
+              'TARGET_COMPOSE_SERVICE',
+              'VERSION_TAG',
+              'RELEASE_NOTES'
+            ];
+            const currentRepoConfig = newConfig[repo.name] || {}
+            const hasEnvVars = Object.keys(currentRepoConfig).some(key => !SPECIAL_KEYS.includes(key))
+
+            if (!hasEnvVars) {
               try {
                 const res = await api.get(`/repos/${repo.id}/env-keys`)
                 const keys = res.data.keys && res.data.keys.length > 0 ? res.data.keys : []
                 
                 const defaults: Record<string, string> = {
-                  'DEPLOY_STRATEGY': hasCompose ? 'docker-compose' : 'standard',
-                  'VERSION_TAG': hasCompose ? '' : 'v2'
+                  'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
                 }
                 keys.forEach((k: string) => {
                   defaults[k] = ''
@@ -1127,20 +1141,20 @@ export default function Deployment() {
                 newConfig[repo.name] = defaults
               } catch (err) {
                 const defaults: Record<string, string> = {
-                  'DEPLOY_STRATEGY': hasCompose ? 'docker-compose' : 'standard',
-                  'VERSION_TAG': hasCompose ? '' : 'v2'
+                  'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
                 }
                 newConfig[repo.name] = defaults
               }
             } else {
-              const currentRepoConfig = { ...newConfig[repo.name] }
-              if (currentRepoConfig['DEPLOY_STRATEGY'] === undefined) {
-                currentRepoConfig['DEPLOY_STRATEGY'] = hasCompose ? 'docker-compose' : 'standard'
+              const mergedConfig = { ...currentRepoConfig }
+              if (mergedConfig['DEPLOY_STRATEGY'] === undefined) {
+                mergedConfig['DEPLOY_STRATEGY'] = hasCompose ? 'docker-compose' : 'standard'
               }
-              if (currentRepoConfig['VERSION_TAG'] === undefined) {
-                currentRepoConfig['VERSION_TAG'] = hasCompose ? '' : 'v2'
+              if (mergedConfig['VERSION_TAG'] === undefined) {
+                mergedConfig['VERSION_TAG'] = hasCompose ? '' : 'v2'
               }
-              newConfig[repo.name] = currentRepoConfig
+              newConfig[repo.name] = mergedConfig
             }
           })
         )
