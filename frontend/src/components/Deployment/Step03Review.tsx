@@ -58,23 +58,48 @@ export default function Step03Review({ data, validationResults = {} }: Step03Rev
         {repositories.length === 0 ? (
           <div className="text-sm text-ccd-danger">No applications selected</div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {repositories.map(repo => {
               const result = validationResults[repo.id];
               const validatedBranch = result?.resolved_branch || repo.default_branch;
               const fallbackUsed = result?.fallback_used;
               return (
-                <div key={repo.id} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-ccd-muted/30">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5 text-ccd-text-muted shrink-0">
-                    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-                  </svg>
-                  <span className="font-mono text-xs text-ccd-text-dim">{repo.full_name || repo.name}</span>
-                  <div className="ml-auto flex items-center gap-2">
-                    <span className={`text-[10px] font-mono ${fallbackUsed ? 'badge-danger' : 'badge-success'}`}>
+                <div key={repo.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 rounded-xl bg-ccd-muted/20 border border-ccd-border/30 hover:border-ccd-border/80 transition-all duration-150">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-text-muted mt-0.5 shrink-0">
+                      <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+                    </svg>
+                    <div className="min-w-0">
+                      <div className="font-mono text-xs font-semibold text-ccd-text truncate">{repo.name}</div>
+                      <div className="text-[10px] text-ccd-text-muted truncate mt-0.5">{repo.full_name}</div>
+                      
+                      {/* Image name details */}
+                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[9px] font-semibold text-ccd-text-muted uppercase tracking-wider">Image:</span>
+                        {repo.docker_image_name ? (
+                          <span className="text-[10px] font-mono text-ccd-accent bg-ccd-accent/10 py-0.5 px-2 rounded font-semibold border border-ccd-accent/20">
+                            {repo.docker_image_name}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-ccd-text-muted italic bg-ccd-muted/10 py-0.5 px-2 rounded">
+                            {`<DOCKERHUB_USERNAME>/${repo.name}:latest (default)`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 sm:ml-auto shrink-0">
+                    <span className="text-[9px] font-semibold text-ccd-text-muted uppercase tracking-wider">Branch:</span>
+                    <span className={`text-[10px] font-mono py-0.5 px-2 rounded font-semibold border ${
+                      fallbackUsed 
+                        ? 'bg-ccd-danger/10 text-ccd-danger border-ccd-danger/25' 
+                        : 'bg-ccd-success/10 text-ccd-success border-ccd-success/25'
+                    }`}>
                       {validatedBranch}
                     </span>
                     {fallbackUsed && (
-                      <span className="text-[10px] text-ccd-danger font-semibold">
+                      <span className="text-[9px] font-bold text-ccd-danger uppercase tracking-wider animate-pulse">
                         fallback
                       </span>
                     )}

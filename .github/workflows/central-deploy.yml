@@ -35,6 +35,10 @@ on:
         description: 'Target Branch/Ref to Checkout'
         required: true
         default: 'main'
+      docker_image_name:
+        description: 'Nama Custom Docker Image (opsional)'
+        required: false
+        default: ''
 
 jobs:
   deploy:
@@ -49,8 +53,15 @@ jobs:
 
       - name: Building Application Container Image
         run: |
-          echo "Membangun image docker untuk ${{ github.event.inputs.target_repo_name }}..."
-          docker build -f ${{ github.event.inputs.dockerfile_path }} -t ${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ github.event.inputs.target_repo_name }}:latest .
+          CUSTOM_IMAGE="${{ github.event.inputs.docker_image_name }}"
+          if [ -z "$CUSTOM_IMAGE" ]; then
+            IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ github.event.inputs.target_repo_name }}:latest"
+          else
+            IMAGE_NAME="$CUSTOM_IMAGE"
+          fi
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "Membangun image docker $IMAGE_NAME untuk ${{ github.event.inputs.target_repo_name }}..."
+          docker build -f ${{ github.event.inputs.dockerfile_path }} -t $IMAGE_NAME .
 
       - name: Uploading Image to Docker Hub Registry
         if: env.DOCKERHUB_USERNAME != ''
@@ -58,7 +69,7 @@ jobs:
           echo "Login ke Docker Hub..."
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           echo "Pushing image ke Docker Hub..."
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.target_repo_name }}:latest
+          docker push ${{ env.IMAGE_NAME }}
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
@@ -95,7 +106,7 @@ jobs:
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
           port: 22
-          envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,CONFIG_JSON
+          envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,CONFIG_JSON,DOCKER_IMAGE_NAME
           script: |
             # 1. Parse config JSON using Python directly from environment
             STRATEGY=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_STRATEGY', 'standard'))")
@@ -110,10 +121,15 @@ jobs:
             cd "$DEPLOY_DIR"
 
             # 2. Login Docker Hub
-            IMAGE_NAME="${DOCKERHUB_USERNAME}/${TARGET_REPO_NAME}:latest"
+            IMAGE_NAME="$DOCKER_IMAGE_NAME"
+            if [ -z "$IMAGE_NAME" ]; then
+              IMAGE_NAME="${DOCKERHUB_USERNAME}/${TARGET_REPO_NAME}:latest"
+              if [ -z "$DOCKERHUB_USERNAME" ]; then
+                IMAGE_NAME="${TARGET_REPO_NAME}:latest"
+              fi
+            fi
             if [ -z "$DOCKERHUB_USERNAME" ]; then
               echo "DOCKERHUB_USERNAME tidak diset, menggunakan image lokal..."
-              IMAGE_NAME="${TARGET_REPO_NAME}:latest"
             else
               echo "Login ke Docker Hub di server..."
               echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
@@ -185,3 +201,4 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           CONFIG_JSON: ${{ github.event.inputs.config }}
+          DOCKER_IMAGE_NAME: ${{ github.event.inputs.docker_image_name }}
