@@ -1,7 +1,8 @@
 import app from './app';
 import { env } from './config/env';
-import { sequelize, Environment } from './models';
+import { sequelize, Environment, User } from './models';
 import { Op } from 'sequelize';
+import crypto from 'crypto';
 
 const PORT = env.PORT || 5000;
 
@@ -27,8 +28,71 @@ async function start() {
       console.warn('⚠️ Could not check/add target_branch column:', err instanceof Error ? err.message : String(err));
     }
 
+    // Safely add column password to users if it does not exist
+    try {
+      const [results] = await sequelize.query(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+          AND TABLE_NAME = 'users' 
+          AND COLUMN_NAME = 'password'
+      `);
+      if (Array.isArray(results) && results.length === 0) {
+        console.log('Adding password column to users table...');
+        await sequelize.query('ALTER TABLE users ADD COLUMN password VARCHAR(255) NULL');
+        console.log('✅ password column added successfully');
+      }
+    } catch (err: unknown) {
+      console.warn('⚠️ Could not check/add password column:', err instanceof Error ? err.message : String(err));
+    }
+
     await sequelize.sync();
     console.log('✅ Models synchronized');
+
+    // Seed default users if they don't exist
+    try {
+      const defaultPasswordHash = crypto.createHash('sha256').update('admin').digest('hex');
+      
+      // Ensure admin exists
+      const [adminUser, adminCreated] = await User.findOrCreate({
+        where: { login: 'admin' },
+        defaults: {
+          github_id: 'admin_local',
+          login: 'admin',
+          name: 'Administrator',
+          email: 'admin@local.com',
+          password: defaultPasswordHash,
+          avatar_url: 'https://avatars.githubusercontent.com/u/9919?v=4'
+        }
+      });
+      if (adminCreated) {
+        console.log('✅ Default user admin seeded (pass: admin)');
+      } else if (!adminUser.password) {
+        await adminUser.update({ password: defaultPasswordHash });
+        console.log('✅ Default user admin updated with password');
+      }
+
+      // Ensure rijal exists
+      const [rijalUser, rijalCreated] = await User.findOrCreate({
+        where: { login: 'rijal' },
+        defaults: {
+          github_id: 'rijal_local',
+          login: 'rijal',
+          name: 'Rijal',
+          email: 'rijal@local.com',
+          password: defaultPasswordHash,
+          avatar_url: 'https://avatars.githubusercontent.com/u/10660468?v=4'
+        }
+      });
+      if (rijalCreated) {
+        console.log('✅ Default user rijal seeded (pass: admin)');
+      } else if (!rijalUser.password) {
+        await rijalUser.update({ password: defaultPasswordHash });
+        console.log('✅ Default user rijal updated with password');
+      }
+    } catch (err: unknown) {
+      console.error('⚠️ Failed to seed default users:', err instanceof Error ? err.message : String(err));
+    }
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 CCD Backend running on port ${PORT} in ${env.NODE_ENV} mode`);

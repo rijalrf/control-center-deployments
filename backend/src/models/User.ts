@@ -10,6 +10,7 @@ export class User extends Model<UserAttributes, Omit<UserAttributes, 'id'>> impl
   public email!: string | null;
   public avatar_url!: string | null;
   public access_token!: string | null;
+  public password!: string | null;
 
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
@@ -23,6 +24,7 @@ User.init({
   email: { type: DataTypes.STRING(200), allowNull: true },
   avatar_url: { type: DataTypes.TEXT, allowNull: true },
   access_token: { type: DataTypes.TEXT, allowNull: true },
+  password: { type: DataTypes.STRING(255), allowNull: true },
 }, {
   sequelize,
   tableName: 'users',

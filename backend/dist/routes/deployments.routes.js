@@ -9,6 +9,7 @@ router.get('/', deployments_controller_1.DeploymentsController.list);
 router.get('/:id', deployments_controller_1.DeploymentsController.getById);
 router.post('/', deployments_controller_1.DeploymentsController.create);
 router.post('/:id/execute', deployments_controller_1.DeploymentsController.executeDraft);
+router.post('/:id/retry', deployments_controller_1.DeploymentsController.retry);
 router.patch('/:id/status', deployments_controller_1.DeploymentsController.updateStatus);
 router.patch('/:id/steps/:stepNumber', deployments_controller_1.DeploymentsController.updateStep);
 exports.default = router;

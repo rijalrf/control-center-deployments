@@ -9,21 +9,26 @@ const User_1 = require("../models/User");
 const env_1 = require("../config/env");
 const authMiddleware = async (req, res, next) => {
     try {
-        const token = req.cookies?.ccd_token || req.headers.authorization?.replace('Bearer ', '');
+        const token = req.cookies?.ccd_token ||
+            req.headers.authorization?.replace('Bearer ', '');
         if (!token) {
-            return res.status(401).json({ error: 'Unauthorized: No token provided' });
+            res.status(401).json({ error: 'Unauthorized: No token provided' });
+            return;
         }
         const decoded = jsonwebtoken_1.default.verify(token, env_1.env.JWT_SECRET);
         const user = await User_1.User.findByPk(decoded.id);
         if (!user) {
-            return res.status(401).json({ error: 'Unauthorized: User not found' });
+            res.status(401).json({ error: 'Unauthorized: User not found' });
+            return;
         }
         req.user = user.toJSON();
         next();
     }
     catch (err) {
-        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-            return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+        if (err instanceof Error &&
+            (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError')) {
+            res.status(401).json({ error: 'Unauthorized: Invalid token' });
+            return;
         }
         next(err);
     }

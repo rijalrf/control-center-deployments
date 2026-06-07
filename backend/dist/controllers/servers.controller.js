@@ -4,7 +4,7 @@ exports.ServersController = void 0;
 const Server_1 = require("../models/Server");
 const Environment_1 = require("../models/Environment");
 class ServersController {
-    static async list(req, res, next) {
+    static async list(_req, res, next) {
         try {
             const servers = await Server_1.Server.findAll({
                 include: [{ model: Environment_1.Environment, as: 'environment', attributes: ['id', 'name', 'slug', 'color'] }],
@@ -20,9 +20,10 @@ class ServersController {
         try {
             const { name, host, port, username, environment_id } = req.body;
             if (!name || !host) {
-                return res.status(400).json({ error: 'name and host are required' });
+                res.status(400).json({ error: 'name and host are required' });
+                return;
             }
-            const server = await Server_1.Server.create({ name, host, port: port || 22, username, environment_id });
+            const server = await Server_1.Server.create({ name, host, port: port ?? 22, username, environment_id });
             const result = await Server_1.Server.findByPk(server.id, {
                 include: [{ model: Environment_1.Environment, as: 'environment' }],
             });
@@ -36,7 +37,8 @@ class ServersController {
         try {
             const server = await Server_1.Server.findByPk(req.params.id);
             if (!server) {
-                return res.status(404).json({ error: 'Not found' });
+                res.status(404).json({ error: 'Not found' });
+                return;
             }
             const { name, host, port, username, environment_id, status } = req.body;
             await server.update({ name, host, port, username, environment_id, status });
@@ -50,7 +52,8 @@ class ServersController {
         try {
             const server = await Server_1.Server.findByPk(req.params.id);
             if (!server) {
-                return res.status(404).json({ error: 'Not found' });
+                res.status(404).json({ error: 'Not found' });
+                return;
             }
             await server.destroy();
             res.json({ message: 'Deleted' });

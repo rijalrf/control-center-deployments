@@ -3,23 +3,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EnvironmentsController = void 0;
 const Environment_1 = require("../models/Environment");
 const Server_1 = require("../models/Server");
+// Sorts environments: dev → qa/staging → prod → others
+function getEnvSortPriority(slug) {
+    const s = slug.toLowerCase();
+    if (s.includes('dev'))
+        return 1;
+    if (s.includes('qa') || s.includes('staging') || s.includes('test'))
+        return 2;
+    if (s.includes('prod') || s.includes('production'))
+        return 3;
+    return 99;
+}
 class EnvironmentsController {
     static async list(req, res, next) {
         try {
             const envs = await Environment_1.Environment.findAll({
                 include: [{ model: Server_1.Server, as: 'servers' }],
             });
-            const getEnvPriority = (slug) => {
-                const s = slug.toLowerCase();
-                if (s.includes('dev'))
-                    return 1;
-                if (s.includes('qa') || s.includes('staging') || s.includes('test'))
-                    return 2;
-                if (s.includes('prod') || s.includes('production'))
-                    return 3;
-                return 99;
-            };
-            envs.sort((a, b) => getEnvPriority(a.slug) - getEnvPriority(b.slug));
+            envs.sort((a, b) => getEnvSortPriority(a.slug) - getEnvSortPriority(b.slug));
             res.json(envs);
         }
         catch (err) {
@@ -28,16 +29,24 @@ class EnvironmentsController {
     }
     static async create(req, res, next) {
         try {
-            const { name, slug, description, color } = req.body;
+            const { name, slug, description, color, target_branch } = req.body;
             if (!name || !slug) {
-                return res.status(400).json({ error: 'name and slug are required' });
+                res.status(400).json({ error: 'name and slug are required' });
+                return;
             }
-            const env = await Environment_1.Environment.create({ name, slug, description, color });
+            const env = await Environment_1.Environment.create({
+                name,
+                slug,
+                description: description ?? null,
+                color: color ?? '#06b6d4',
+                target_branch: target_branch ?? 'main',
+            });
             res.status(201).json(env);
         }
         catch (err) {
-            if (err.name === 'SequelizeUniqueConstraintError') {
-                return res.status(409).json({ error: 'Slug already exists' });
+            if (err instanceof Error && err.name === 'SequelizeUniqueConstraintError') {
+                res.status(409).json({ error: 'Slug already exists' });
+                return;
             }
             next(err);
         }
@@ -46,10 +55,11 @@ class EnvironmentsController {
         try {
             const env = await Environment_1.Environment.findByPk(req.params.id);
             if (!env) {
-                return res.status(404).json({ error: 'Not found' });
+                res.status(404).json({ error: 'Not found' });
+                return;
             }
-            const { name, slug, description, color } = req.body;
-            await env.update({ name, slug, description, color });
+            const { name, slug, description, color, target_branch } = req.body;
+            await env.update({ name, slug, description, color, target_branch });
             res.json(env);
         }
         catch (err) {
@@ -60,7 +70,8 @@ class EnvironmentsController {
         try {
             const env = await Environment_1.Environment.findByPk(req.params.id);
             if (!env) {
-                return res.status(404).json({ error: 'Not found' });
+                res.status(404).json({ error: 'Not found' });
+                return;
             }
             await env.destroy();
             res.json({ message: 'Deleted' });
