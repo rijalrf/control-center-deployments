@@ -81,17 +81,30 @@ export class DeploymentService {
       const envSuffix = envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
       const runsInfo: any[] = [];
 
-      // Hardcode ref based on environment
-      const workflowRef = envName.toLowerCase() === 'production' ? 'main' : 'staging';
-
       for (const r of data.repositories) {
         const repoConfig = data.config[r.name] || {};
         const dockerfilePath = repoConfig.DOCKERFILE_PATH || 'Dockerfile';
+
+        const [repoOwner, repoNameOnly] = r.full_name.split('/');
+        let targetRef = r.default_branch || 'main';
+
+        if (envName.toLowerCase() === 'production') {
+          const hasMain = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'main');
+          if (hasMain) {
+            targetRef = 'main';
+          }
+        } else {
+          const hasStaging = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'staging');
+          if (hasStaging) {
+            targetRef = 'staging';
+          }
+        }
 
         const targetInputs = {
           target_repo_url: r.clone_url || `https://github.com/${r.full_name}.git`,
           target_repo_name: r.name,
           target_repo_path: r.full_name || r.name,
+          target_ref: targetRef,
           environment: envName,
           environment_secret_suffix: envSuffix,
           config: JSON.stringify(repoConfig),
@@ -100,7 +113,7 @@ export class DeploymentService {
           dockerfile_path: dockerfilePath,
         };
 
-        const runInfo = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, workflowRef);
+        const runInfo = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, 'main');
         runsInfo.push({ ...runInfo, repoName: r.name });
       }
 
