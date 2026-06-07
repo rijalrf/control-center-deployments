@@ -8,7 +8,6 @@ import Dashboard from './pages/Dashboard'
 import Repos from './pages/Repos'
 import Deployment from './pages/Deployment'
 import Configuration from './pages/Configuration'
-import EnvVars from './pages/EnvVars'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -43,7 +42,6 @@ export default function App() {
               <Route path="dashboard"     element={<Dashboard />} />
               <Route path="repos"         element={<Repos />} />
               <Route path="deployment"    element={<Deployment />} />
-              <Route path="env-vars"      element={<EnvVars />} />
               <Route path="configuration" element={<Configuration />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

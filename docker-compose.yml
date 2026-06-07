@@ -76,7 +76,6 @@ services:
     volumes:
       - ./backend:/app
       - ccd-backend-node-modules:/app/node_modules
-      - ./.env:/app/.env
     networks:
       - center-deployment-network
     healthcheck:
