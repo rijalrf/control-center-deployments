@@ -65,13 +65,12 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   }
 
   const setSpecialVal = (repoName: string, key: string, val: string) => {
-    const trimmed = val.trim()
-    if (trimmed === '') {
+    if (val === '') {
       const updated = { ...(config[repoName] || {}) }
       delete updated[key]
       onChange({ config: { ...config, [repoName]: updated } })
     } else {
-      updateVar(repoName, key, trimmed)
+      updateVar(repoName, key, val)
     }
   }
 
