@@ -129,7 +129,8 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
     }
   }, [logsToDisplay, deployment.status, autoScroll])
 
-  const overallStatus = deployment.status || 'pending'
+  const hasFailedStep = steps.some(s => s.status === 'failed')
+  const overallStatus = hasFailedStep ? 'failed' : (deployment.status || 'pending')
   const statusColors: Record<string, string> = {
     pending:   'bg-ccd-warning/15 text-ccd-warning border-ccd-warning/30',
     running:   'bg-ccd-accent/15 text-ccd-accent border-ccd-accent/30 animate-pulse',
@@ -516,7 +517,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {repoStatus === 'failed' && (
                 <line x1="60" y1="70" x2="200" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {repoStatus === 'running' && (
+              {repoStatus === 'running' && overallStatus !== 'failed' && (
                 <>
                   <line x1="60" y1="70" x2="200" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="60" y1="70" x2="200" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -532,7 +533,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {registryStatus === 'failed' && (
                 <line x1="200" y1="70" x2="200" y2="170" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {registryStatus === 'running' && (
+              {registryStatus === 'running' && overallStatus !== 'failed' && (
                 <>
                   <line x1="200" y1="70" x2="200" y2="170" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="70" x2="200" y2="170" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -548,7 +549,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {s6 === 'failed' && (
                 <line x1="200" y1="170" x2="340" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {s6 === 'running' && (
+              {s6 === 'running' && overallStatus !== 'failed' && (
                 <>
                   <line x1="200" y1="170" x2="340" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="170" x2="340" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -564,7 +565,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {s5 === 'failed' && (
                 <line x1="200" y1="70" x2="340" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {s5 === 'running' && (
+              {s5 === 'running' && overallStatus !== 'failed' && (
                 <>
                   <line x1="200" y1="70" x2="340" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="70" x2="340" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
