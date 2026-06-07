@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
 import { Repository } from '../types'
-
 import { useToast } from '../context/ToastContext'
+import { getApiErrorMessage } from '../utils/errors'
 
 const LANG_COLORS: Record<string, string> = {
   JavaScript: '#f7df1e', TypeScript: '#3178c6', Python: '#3776ab',
@@ -33,8 +33,8 @@ export default function Repos() {
       const res = await api.post('/repos/sync')
       showToast(`Synced ${res.data.synced} repositories from GitHub`, 'success')
       fetchRepos()
-    } catch (err: any) {
-      showToast(err.response?.data?.error || 'Sync failed', 'error')
+    } catch (err: unknown) {
+      showToast(getApiErrorMessage(err, 'Sync failed'), 'error')
     } finally {
       setSyncing(false)
     }

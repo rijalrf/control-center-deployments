@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import api from '../services/api'
 import { Environment, Server } from '../types'
 import { useToast } from '../context/ToastContext'
+import { getApiErrorMessage } from '../utils/errors'
 
 interface ModalProps {
   title: string;
@@ -85,8 +86,8 @@ function EnvironmentsSection() {
       setForm({ name: '', slug: '', description: '', color: '#06b6d4' })
       setShowModal(false)
       fetch()
-    } catch (err: any) {
-      const errMsg = err.response?.data?.error || 'Failed to create environment'
+    } catch (err: unknown) {
+      const errMsg = getApiErrorMessage(err, 'Failed to create environment')
       setError(errMsg)
       showToast(errMsg, 'error')
     } finally {
@@ -101,8 +102,8 @@ function EnvironmentsSection() {
       showToast(`Environment "${delTarget.name}" deleted successfully.`, 'success')
       setDelTarget(null)
       fetch()
-    } catch (e: any) {
-      showToast(e.response?.data?.error || 'Failed to delete environment', 'error')
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Failed to delete environment'), 'error')
     }
   }
 
@@ -267,8 +268,8 @@ function ServersSection() {
       setForm({ name: '', host: '', port: '22', username: '', environment_id: '' })
       setShowModal(false)
       fetch()
-    } catch (err: any) {
-      const errMsg = err.response?.data?.error || 'Failed to add server'
+    } catch (err: unknown) {
+      const errMsg = getApiErrorMessage(err, 'Failed to add server')
       setError(errMsg)
       showToast(errMsg, 'error')
     } finally {
@@ -283,8 +284,8 @@ function ServersSection() {
       showToast(`Server "${delTarget.name}" deleted successfully.`, 'success')
       setDelTarget(null)
       fetch()
-    } catch (e: any) {
-      showToast(e.response?.data?.error || 'Failed to delete server', 'error')
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Failed to delete server'), 'error')
     }
   }
 

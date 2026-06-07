@@ -2,10 +2,59 @@ import { Octokit } from '@octokit/rest';
 import { env } from '../config/env';
 import { Repository } from '../models/Repository';
 
+// ── Internal GitHub API types ─────────────────────────────────────────────────
+
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  html_url: string;
+  clone_url: string;
+  language: string | null;
+  default_branch: string;
+  visibility?: string;
+}
+
+interface WorkflowRun {
+  id: number;
+  status: string | null;
+  conclusion: string | null;
+  created_at: string;
+  html_url: string;
+}
+
+interface WorkflowJob {
+  id: number;
+  html_url: string | null;
+  steps?: WorkflowStep[];
+}
+
+interface WorkflowStep {
+  name: string;
+  number: number;
+  status: string | null;
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+interface GitHubEmail {
+  email: string;
+  primary: boolean;
+}
+
+// ── Service ───────────────────────────────────────────────────────────────────
+
 export class GitHubService {
   private static getEffectiveToken(accessToken: string | null): string {
-    if (env.github.token && env.github.token !== 'your_github_personal_access_token' && env.github.token.trim() !== '') {
-      return env.github.token;
+    const configToken = env.github.token;
+    if (
+      configToken &&
+      configToken !== 'your_github_personal_access_token' &&
+      configToken.trim() !== ''
+    ) {
+      return configToken;
     }
     if (!accessToken) {
       throw new Error('GitHub access token is required.');
@@ -13,65 +62,63 @@ export class GitHubService {
     return accessToken;
   }
 
-  static async syncRepositories(accessToken: string | null) {
-    const token = this.getEffectiveToken(accessToken);
-    const org = env.github.org && env.github.org !== 'your_github_org_or_username' ? env.github.org : null;
+  static async syncRepositories(accessToken: string | null): Promise<Repository[]> {
+    const token    = this.getEffectiveToken(accessToken);
+    const org      = env.github.org && env.github.org !== 'your_github_org_or_username'
+      ? env.github.org
+      : null;
+    const octokit  = new Octokit({ auth: token });
 
-    const octokit = new Octokit({ auth: token });
-    let ghRepos: any[] = [];
+    let ghRepos: GitHubRepo[] = [];
 
     if (org) {
-      const { data } = await octokit.repos.listForOrg({
-        org,
-        type: 'all',
-        per_page: 100,
-      });
-      ghRepos = data;
+      const { data } = await octokit.repos.listForOrg({ org, type: 'all', per_page: 100 });
+      ghRepos = data as GitHubRepo[];
     } else {
-      const { data } = await octokit.repos.listForAuthenticatedUser({
-        visibility: 'all',
-        per_page: 100,
-      });
-      ghRepos = data;
+      const { data } = await octokit.repos.listForAuthenticatedUser({ visibility: 'all', per_page: 100 });
+      ghRepos = data as GitHubRepo[];
     }
 
-    const now = new Date();
+    const now     = new Date();
     const results = await Promise.all(
-      ghRepos.map(async (r: any) => {
+      ghRepos.map(async (r) => {
         const [repo] = await Repository.upsert({
-          github_id: String(r.id),
-          name: r.name,
-          full_name: r.full_name,
-          description: r.description,
-          url: r.html_url,
-          clone_url: r.clone_url,
-          language: r.language,
+          github_id:      String(r.id),
+          name:           r.name,
+          full_name:      r.full_name,
+          description:    r.description,
+          url:            r.html_url,
+          clone_url:      r.clone_url,
+          language:       r.language,
           default_branch: r.default_branch,
-          visibility: r.visibility || 'private',
-          synced_at: now,
+          visibility:     r.visibility ?? 'private',
+          synced_at:      now,
         });
         return repo;
-      })
+      }),
     );
 
     return results;
   }
 
-  static async dispatchCentralWorkflow(accessToken: string, targetInputs: Record<string, string>, ref: string = 'main') {
-    const token = this.getEffectiveToken(accessToken);
+  static async dispatchCentralWorkflow(
+    accessToken: string,
+    targetInputs: Record<string, string>,
+    ref = 'main',
+  ): Promise<{ owner: string; repo: string; workflowId: string; dispatchTime: Date }> {
+    const token   = this.getEffectiveToken(accessToken);
     const octokit = new Octokit({ auth: token });
-    
+
     let owner = env.central.owner;
     if (!owner) {
       const { data: user } = await octokit.users.getAuthenticated();
       owner = user.login;
     }
-    
-    const repo = env.central.repo || 'control-center-deployments';
-    const workflowId = env.central.workflow || 'central-deploy.yml';
 
+    const repo       = env.central.repo || 'control-center-deployments';
+    const workflowId = env.central.workflow || 'central-deploy.yml';
     const dispatchTime = new Date();
-    
+
     await octokit.actions.createWorkflowDispatch({
       owner,
       repo,
@@ -83,8 +130,14 @@ export class GitHubService {
     return { owner, repo, workflowId, dispatchTime };
   }
 
-  static async findWorkflowRun(accessToken: string, owner: string, repo: string, workflowId: string, afterTime: Date) {
-    const token = this.getEffectiveToken(accessToken);
+  static async findWorkflowRun(
+    accessToken: string,
+    owner: string,
+    repo: string,
+    workflowId: string,
+    afterTime: Date,
+  ): Promise<WorkflowRun | null> {
+    const token   = this.getEffectiveToken(accessToken);
     const octokit = new Octokit({ auth: token });
     const { data } = await octokit.actions.listWorkflowRuns({
       owner,
@@ -93,93 +146,92 @@ export class GitHubService {
       event: 'workflow_dispatch',
       per_page: 5,
     });
-    
-    const run = data.workflow_runs.find((r: any) => {
+
+    const run = data.workflow_runs.find((r) => {
       const runTime = new Date(r.created_at);
       // Allow a 30s buffer for potential clock differences
-      return runTime.getTime() > afterTime.getTime() - 30000;
+      return runTime.getTime() > afterTime.getTime() - 30_000;
     });
-    
-    return run || null;
+
+    return (run as WorkflowRun | undefined) ?? null;
   }
 
-  static async getWorkflowRunStatus(accessToken: string, owner: string, repo: string, runId: number) {
-    const token = this.getEffectiveToken(accessToken);
-    const octokit = new Octokit({ auth: token });
-    const { data } = await octokit.actions.getWorkflowRun({
-      owner,
-      repo,
-      run_id: runId,
-    });
+  static async getWorkflowRunStatus(
+    accessToken: string,
+    owner: string,
+    repo: string,
+    runId: number,
+  ): Promise<{ status: string | null; conclusion: string | null; html_url: string }> {
+    const token    = this.getEffectiveToken(accessToken);
+    const octokit  = new Octokit({ auth: token });
+    const { data } = await octokit.actions.getWorkflowRun({ owner, repo, run_id: runId });
     return {
-      status: data.status, // queued, in_progress, completed
-      conclusion: data.conclusion, // success, failure, cancelled, timed_out
-      html_url: data.html_url,
+      status:     data.status,
+      conclusion: data.conclusion,
+      html_url:   data.html_url,
     };
   }
 
-  static async getWorkflowRunJobs(accessToken: string, owner: string, repo: string, runId: number) {
-    const token = this.getEffectiveToken(accessToken);
-    const octokit = new Octokit({ auth: token });
-    const { data } = await octokit.actions.listJobsForWorkflowRun({
-      owner,
-      repo,
-      run_id: runId,
-    });
-    return data.jobs;
+  static async getWorkflowRunJobs(
+    accessToken: string,
+    owner: string,
+    repo: string,
+    runId: number,
+  ): Promise<WorkflowJob[]> {
+    const token    = this.getEffectiveToken(accessToken);
+    const octokit  = new Octokit({ auth: token });
+    const { data } = await octokit.actions.listJobsForWorkflowRun({ owner, repo, run_id: runId });
+    return data.jobs as WorkflowJob[];
   }
 
-  static async getJobLogs(accessToken: string, owner: string, repo: string, jobId: number) {
+  static async getJobLogs(
+    accessToken: string,
+    owner: string,
+    repo: string,
+    jobId: number,
+  ): Promise<string> {
     try {
-      const token = this.getEffectiveToken(accessToken);
-      const octokit = new Octokit({ auth: token });
+      const token    = this.getEffectiveToken(accessToken);
+      const octokit  = new Octokit({ auth: token });
       const { data } = await octokit.actions.downloadJobLogsForWorkflowRun({
         owner,
         repo,
         job_id: jobId,
       });
       return typeof data === 'string' ? data : JSON.stringify(data);
-    } catch (e: any) {
-      return `Tidak dapat mengambil log dari GitHub API: ${e.message}`;
+    } catch (e: unknown) {
+      return `Tidak dapat mengambil log dari GitHub API: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
 
-  static async getRepoEnvKeys(accessToken: string, owner: string, repo: string) {
-    const token = this.getEffectiveToken(accessToken);
+  static async getRepoEnvKeys(
+    accessToken: string,
+    owner: string,
+    repo: string,
+  ): Promise<string[]> {
+    const token   = this.getEffectiveToken(accessToken);
     const octokit = new Octokit({ auth: token });
-    let content = '';
+    let content   = '';
 
-    try {
-      const { data } = await octokit.repos.getContent({
-        owner,
-        repo,
-        path: '.env.example',
-      });
-      
-      if (data && 'content' in data) {
-        content = Buffer.from(data.content, 'base64').toString('utf-8');
-      }
-    } catch (e: any) {
+    // Try .env.example first, fall back to .env
+    for (const path of ['.env.example', '.env']) {
       try {
-        const { data } = await octokit.repos.getContent({
-          owner,
-          repo,
-          path: '.env',
-        });
+        const { data } = await octokit.repos.getContent({ owner, repo, path });
         if (data && 'content' in data) {
           content = Buffer.from(data.content, 'base64').toString('utf-8');
+          break;
         }
-      } catch (err: any) {
-        return [];
+      } catch {
+        // continue to next path
       }
     }
 
-    const lines = content.split(/\r?\n/);
+    if (!content) return [];
+
     const keys: string[] = [];
-    for (const line of lines) {
+    for (const line of content.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) continue;
-
       const match = trimmed.match(/^([^=]+)/);
       if (match) {
         const key = match[1].trim();
@@ -192,17 +244,18 @@ export class GitHubService {
     return keys;
   }
 
-  static async checkBranchExists(accessToken: string, owner: string, repo: string, branch: string): Promise<boolean> {
-    const token = this.getEffectiveToken(accessToken);
+  static async checkBranchExists(
+    accessToken: string,
+    owner: string,
+    repo: string,
+    branch: string,
+  ): Promise<boolean> {
+    const token   = this.getEffectiveToken(accessToken);
     const octokit = new Octokit({ auth: token });
     try {
-      await octokit.repos.getBranch({
-        owner,
-        repo,
-        branch,
-      });
+      await octokit.repos.getBranch({ owner, repo, branch });
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   }
