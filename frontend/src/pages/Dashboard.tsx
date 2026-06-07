@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { Deployment } from '../types'
+import { getApiErrorMessage } from '../utils/errors'
 
 const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   draft:     { cls: 'badge-muted',    label: 'Draft' },
@@ -47,8 +48,8 @@ export default function Dashboard() {
       await api.post(`/deployments/${id}/execute`)
       localStorage.setItem('ccd_active_deployment_id', String(id))
       navigate('/deployment')
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to execute deployment')
+    } catch (err: unknown) {
+      alert(getApiErrorMessage(err, 'Failed to execute deployment'))
     } finally {
       setExecutingId(null)
     }

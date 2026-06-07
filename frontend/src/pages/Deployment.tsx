@@ -4,8 +4,9 @@ import api from '../services/api'
 import Step01Setup from '../components/Deployment/Step01Setup'
 import Step02Config from '../components/Deployment/Step02Config'
 import Step03Review from '../components/Deployment/Step03Review'
-import { Environment, Repository, Deployment as DeploymentType } from '../types'
+import { Environment, Repository, Deployment as DeploymentType, DeploymentRepository } from '../types'
 import { useToast } from '../context/ToastContext'
+import { getApiErrorMessage } from '../utils/errors'
 
 interface Step {
   number: number;
@@ -989,8 +990,8 @@ export default function Deployment() {
         setFormData(INIT_DATA)
         setCurrentStep(1)
         setShowWizard(false)
-      } catch (err: any) {
-        showToast(err.response?.data?.error || 'Deployment failed', 'error')
+      } catch (err: unknown) {
+        showToast(getApiErrorMessage(err, 'Deployment failed'), 'error')
       } finally {
         setSubmitting(false)
         setConfirmAction(null)
@@ -1001,8 +1002,8 @@ export default function Deployment() {
         setActiveDeployment(res.data)
         localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
         showToast('Deployment triggered successfully!', 'success')
-      } catch (err: any) {
-        showToast(err.response?.data?.error || 'Failed to execute draft', 'error')
+      } catch (err: unknown) {
+        showToast(getApiErrorMessage(err, 'Failed to execute draft'), 'error')
       } finally {
         setConfirmAction(null)
       }
@@ -1025,8 +1026,8 @@ export default function Deployment() {
       setCurrentStep(1)
       setShowWizard(false)
       fetchDeployments()
-    } catch (err: any) {
-      showToast(err.response?.data?.error || 'Failed to save plan', 'error')
+    } catch (err: unknown) {
+      showToast(getApiErrorMessage(err, 'Failed to save plan'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -1042,8 +1043,8 @@ export default function Deployment() {
         localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
       }
       showToast('Deployment retried successfully!', 'success')
-    } catch (err: any) {
-      showToast(err.response?.data?.error || 'Failed to retry deployment', 'error')
+    } catch (err: unknown) {
+      showToast(getApiErrorMessage(err, 'Failed to retry deployment'), 'error')
     }
   }
 
@@ -1335,7 +1336,7 @@ export default function Deployment() {
                             </td>
                             <td>
                               <div className="flex flex-wrap gap-1.5 max-w-[280px]">
-                                {reposList.map((repo: any) => (
+                                {reposList.map((repo: DeploymentRepository) => (
                                   <span
                                     key={repo.github_id || repo.name}
                                     className="badge-muted text-[10px] font-mono py-0.5 px-2 inline-flex items-center gap-1.5"

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Deployment, DeploymentStep } from '../../types'
+import { Deployment, DeploymentStep, DeploymentRepository } from '../../types'
+import type { StepDetail } from '../../types'
 
 const STATUS_CONFIG = {
   pending: {
@@ -63,7 +64,7 @@ const STATUS_CONFIG = {
 }
 
 function StepDetail({ step }: { step: DeploymentStep }) {
-  const detail = step.detail || {}
+  const detail: StepDetail = step.detail ?? {}
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -90,30 +91,30 @@ function StepDetail({ step }: { step: DeploymentStep }) {
       {/* Step 1 — Setup Detail */}
       {step.step_number === 1 && (
         <div className="space-y-3">
-          {detail.environment_id && (
+          {detail.environment_id != null && (
             <div className="ccd-card p-4">
               <div className="text-xs font-semibold text-ccd-text-muted uppercase tracking-wider mb-2">
                 Target Environment
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-ccd-accent" />
-                <span className="text-sm text-ccd-text font-medium">Environment ID: {detail.environment_id}</span>
+                <span className="text-sm text-ccd-text font-medium">Environment ID: {Number(detail.environment_id)}</span>
               </div>
             </div>
           )}
-          {detail.repositories?.length > 0 && (
+          {(detail.repositories?.length ?? 0) > 0 && (
             <div className="ccd-card p-4">
               <div className="text-xs font-semibold text-ccd-text-muted uppercase tracking-wider mb-3">
-                Selected Repositories ({detail.repositories.length})
+              Selected Repositories ({detail.repositories?.length ?? 0})
               </div>
               <div className="space-y-2">
-                {detail.repositories.map((repo: any, i: number) => (
+                {detail.repositories?.map((repo: DeploymentRepository, i: number) => (
                   <div key={i} className="flex items-center gap-3 py-1.5 px-3 rounded-lg bg-ccd-muted/30">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5 text-ccd-text-muted shrink-0">
                       <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
                     </svg>
                     <span className="font-mono text-xs text-ccd-text-dim">
-                      {repo.full_name || repo.name || repo}
+                      {repo.full_name || repo.name}
                     </span>
                   </div>
                 ))}
@@ -129,17 +130,17 @@ function StepDetail({ step }: { step: DeploymentStep }) {
           <div className="text-xs font-semibold text-ccd-text-muted uppercase tracking-wider mb-3">
             Configuration Variables
           </div>
-          {Object.keys(detail.config).length === 0 ? (
+          {Object.keys(detail.config ?? {}).length === 0 ? (
             <div className="text-xs text-ccd-text-muted italic">No configuration variables set</div>
           ) : (
-            Object.entries(detail.config).map(([repoName, vars]: [string, any]) => (
+            Object.entries(detail.config ?? {}).map(([repoName, vars]: [string, Record<string, string>]) => (
               <div key={repoName} className="mb-4 last:mb-0">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-ccd-cyan" />
                   <span className="text-xs font-semibold text-ccd-cyan font-mono">{repoName}</span>
                 </div>
                 <div className="bg-ccd-bg rounded-lg border border-ccd-border overflow-hidden">
-                  {vars && Object.entries(vars).map(([key, val]: [string, any], i) => (
+                  {vars && Object.entries(vars).map(([key, val]: [string, string], i) => (
                     <div key={key} className={`flex items-start gap-0 text-xs font-mono ${i < Object.entries(vars).length - 1 ? 'border-b border-ccd-border/50' : ''}`}>
                       <span className="px-3 py-2 text-ccd-warning min-w-[160px] bg-ccd-muted/20 border-r border-ccd-border/50">{key}</span>
                       <span className="px-3 py-2 text-ccd-text-dim break-all">{val || <em className="opacity-40">empty</em>}</span>

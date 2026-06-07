@@ -1,3 +1,30 @@
+// ── Shared domain types ──────────────────────────────────────────────────────
+
+export interface DeploymentRepository {
+  github_id: string;
+  name: string;
+  full_name: string;
+  branch: string;
+  clone_url?: string | null;
+  default_branch?: string;
+}
+
+export type DeploymentConfig = Record<string, Record<string, string>>;
+
+export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+export type DeploymentStatus = 'draft' | 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+
+export interface StepDetailInit {
+  environment_id?: number;
+  repositories?: DeploymentRepository[];
+  github_step_number?: number;
+  run_url?: string;
+}
+
+export type StepDetail = StepDetailInit;
+
+// ── Model attribute interfaces ───────────────────────────────────────────────
+
 export interface UserAttributes {
   id: number;
   github_id: string;
@@ -52,9 +79,9 @@ export interface DeploymentAttributes {
   id: number;
   environment_id: number | null;
   user_id: number | null;
-  repositories: any;
-  config: any;
-  status?: 'draft' | 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+  repositories: DeploymentRepository[];
+  config: DeploymentConfig;
+  status?: DeploymentStatus;
   notes: string | null;
   deployed_at: Date | null;
   log?: string | null;
@@ -67,12 +94,14 @@ export interface DeploymentStepAttributes {
   deployment_id: number;
   step_number: number;
   step_name: string;
-  status?: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
-  detail: any;
+  status?: StepStatus;
+  detail: StepDetail;
   log: string | null;
   started_at: Date | null;
   completed_at: Date | null;
 }
+
+// ── Express augmentation ─────────────────────────────────────────────────────
 
 declare global {
   namespace Express {
