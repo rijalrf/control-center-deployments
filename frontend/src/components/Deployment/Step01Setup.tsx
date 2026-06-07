@@ -465,7 +465,8 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                     <p className="text-[11px] text-ccd-text-muted leading-relaxed pt-1 border-t border-ccd-danger/15">
                       File <code className="font-mono text-ccd-danger bg-ccd-danger/10 px-1 rounded">Dockerfile</code> tidak ditemukan
                       di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong> — dicari di:{' '}
-                      <code className="font-mono text-[10px] bg-ccd-muted/20 px-1 rounded">root, .docker/, docker/, deploy/, infra/, config/</code>
+                      <code className="font-mono text-[10px] bg-ccd-muted/20 px-1 rounded">root, .docker/, docker/, deploy/, infra/, config/</code>{' '}
+                      (case-insensitive: <code className="font-mono text-[10px]">Dockerfile</code> dan <code className="font-mono text-[10px]">dockerfile</code> keduanya dicek)
                       <br /><br />
                       File ini <strong className="text-ccd-danger">wajib ada</strong> karena pipeline deployment akan mem-build Docker image dari repositori ini
                       menggunakan perintah <code className="font-mono bg-ccd-muted/30 px-1 rounded text-[10px]">docker build</code>.
@@ -516,7 +517,8 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                     <p className="text-[11px] text-ccd-text-muted leading-relaxed pt-1 border-t border-ccd-warning/15">
                       File <code className="font-mono text-ccd-warning bg-ccd-warning/10 px-1 rounded">docker-compose.yml</code> tidak ditemukan
                       di branch <strong className="text-ccd-text">"{result?.resolved_branch}"</strong> — dicari di:{' '}
-                      <code className="font-mono text-[10px] bg-ccd-muted/20 px-1 rounded">root, .docker/, docker/, deploy/, infra/, config/</code>
+                      <code className="font-mono text-[10px] bg-ccd-muted/20 px-1 rounded">root, .docker/, docker/, deploy/, infra/, config/</code>{' '}
+                      (case-insensitive: <code className="font-mono text-[10px]">docker-compose.yml</code> dan <code className="font-mono text-[10px]">docker-compose.yaml</code> keduanya dicek)
                       <br /><br />
                       File ini <strong className="text-ccd-warning">opsional</strong> dan tidak akan memblokir proses deployment.
                       Namun, jika strategi deployment yang dipilih di Step 02 adalah <em>Docker Compose</em>,

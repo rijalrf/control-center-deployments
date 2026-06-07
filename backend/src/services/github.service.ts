@@ -275,17 +275,18 @@ export class GitHubService {
     const token   = this.getEffectiveToken(accessToken);
     const octokit = new Octokit({ auth: token });
 
-    // Common locations to search (in priority order)
-    const candidates = [
-      filename,                      // root
-      `.docker/${filename}`,
-      `docker/${filename}`,
-      `deploy/${filename}`,
-      `deployment/${filename}`,
-      `infra/${filename}`,
-      `config/${filename}`,
-      ...extraPaths,
-    ];
+    const lower = filename.toLowerCase();
+
+    // Build candidate paths: each directory tried with original case AND lowercase
+    const dirs = ['', '.docker/', 'docker/', 'deploy/', 'deployment/', 'infra/', 'config/'];
+    const candidates: string[] = [];
+    for (const dir of dirs) {
+      candidates.push(`${dir}${filename}`);           // e.g. Dockerfile, .docker/Dockerfile
+      if (lower !== filename) {
+        candidates.push(`${dir}${lower}`);            // e.g. dockerfile, .docker/dockerfile
+      }
+    }
+    candidates.push(...extraPaths);
 
     for (const path of candidates) {
       try {
