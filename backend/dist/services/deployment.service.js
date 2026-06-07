@@ -196,6 +196,8 @@ class DeploymentService {
                     if (!stepsInitialized) {
                         stepsInitialized = true;
                         await Deployment_1.Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
+                        // Mark step 1 as completed since we've initialized and found steps running
+                        await DeploymentStep_1.DeploymentStep.update({ status: 'completed', completed_at: new Date() }, { where: { deployment_id: deploymentId, step_number: 1 } });
                     }
                     for (const ghStep of ghSteps) {
                         const newStatus = mapStepStatus(ghStep.status, ghStep.conclusion);
@@ -241,11 +243,13 @@ class DeploymentService {
                         console.error('Failed to update step logs:', logErr instanceof Error ? logErr.message : logErr);
                     }
                 }
-                // 5. Check if any workflow failed
-                const anyFailed = runsMap.some((r) => r.conclusion === 'failure' || r.conclusion === 'cancelled' || r.conclusion === 'timed_out');
-                if (anyFailed) {
+                // 5. Check if any workflow failed or was cancelled
+                const isCancelled = runsMap.some((r) => r.conclusion === 'cancelled');
+                const isFailed = runsMap.some((r) => r.conclusion === 'failure' || r.conclusion === 'timed_out');
+                if (isCancelled || isFailed) {
                     clearInterval(timer);
-                    await Deployment_1.Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
+                    const finalStatus = isCancelled ? 'cancelled' : 'failed';
+                    await Deployment_1.Deployment.update({ status: finalStatus }, { where: { id: deploymentId } });
                     // Update all remaining non-completed steps of this deployment to failed
                     await DeploymentStep_1.DeploymentStep.update({ status: 'failed', completed_at: new Date() }, { where: { deployment_id: deploymentId, status: ['pending', 'running'] } });
                     return;
@@ -254,6 +258,8 @@ class DeploymentService {
                 if (allCompleted) {
                     clearInterval(timer);
                     await Deployment_1.Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
+                    // Update any remaining pending/running steps to completed
+                    await DeploymentStep_1.DeploymentStep.update({ status: 'completed', completed_at: new Date() }, { where: { deployment_id: deploymentId, status: ['pending', 'running'] } });
                 }
             }
             catch (err) {

@@ -290,6 +290,11 @@ export class DeploymentService {
           if (!stepsInitialized) {
             stepsInitialized = true;
             await Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
+            // Mark step 1 as completed since we've initialized and found steps running
+            await DeploymentStep.update(
+              { status: 'completed', completed_at: new Date() },
+              { where: { deployment_id: deploymentId, step_number: 1 } }
+            );
           }
 
           for (const ghStep of ghSteps) {
@@ -347,14 +352,14 @@ export class DeploymentService {
           }
         }
 
-        // 5. Check if any workflow failed
-        const anyFailed = runsMap.some(
-          (r) => r.conclusion === 'failure' || r.conclusion === 'cancelled' || r.conclusion === 'timed_out',
-        );
+        // 5. Check if any workflow failed or was cancelled
+        const isCancelled = runsMap.some((r) => r.conclusion === 'cancelled');
+        const isFailed = runsMap.some((r) => r.conclusion === 'failure' || r.conclusion === 'timed_out');
 
-        if (anyFailed) {
+        if (isCancelled || isFailed) {
           clearInterval(timer);
-          await Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
+          const finalStatus = isCancelled ? 'cancelled' : 'failed';
+          await Deployment.update({ status: finalStatus }, { where: { id: deploymentId } });
           // Update all remaining non-completed steps of this deployment to failed
           await DeploymentStep.update(
             { status: 'failed', completed_at: new Date() },
@@ -367,6 +372,11 @@ export class DeploymentService {
         if (allCompleted) {
           clearInterval(timer);
           await Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
+          // Update any remaining pending/running steps to completed
+          await DeploymentStep.update(
+            { status: 'completed', completed_at: new Date() },
+            { where: { deployment_id: deploymentId, status: ['pending', 'running'] } },
+          );
         }
       } catch (err: unknown) {
         console.error('Error saat polling deployment:', err instanceof Error ? err.message : err);
