@@ -1176,7 +1176,7 @@ export default function Deployment() {
               />
             )}
             {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
-            {currentStep === 3 && <Step03Review data={formData} />}
+            {currentStep === 3 && <Step03Review data={formData} validationResults={validationResults} />}
 
             {/* Navigation buttons */}
             <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
