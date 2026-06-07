@@ -191,4 +191,19 @@ export class GitHubService {
 
     return keys;
   }
+
+  static async checkBranchExists(accessToken: string, owner: string, repo: string, branch: string): Promise<boolean> {
+    const token = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
+    try {
+      await octokit.repos.getBranch({
+        owner,
+        repo,
+        branch,
+      });
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
 }
