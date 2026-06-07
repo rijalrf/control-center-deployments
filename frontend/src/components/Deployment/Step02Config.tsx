@@ -397,163 +397,147 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
             </div>
 
             {/* Variables Content */}
-            {bulkRepo === repo.name ? (
-              <div className="p-5 space-y-4">
-                <div className="text-xs text-ccd-text-muted">
-                  Paste your env file content here (Format: <code>KEY=VALUE</code>). Comments starting with <code>#</code> will be ignored.
-                </div>
-                <textarea
-                  value={bulkInput}
-                  onChange={e => setBulkInput(e.target.value)}
-                  className="ccd-input font-mono text-xs w-full h-40 resize-y"
-                  placeholder="PORT=8080&#10;IMAGE_TAG=latest&#10;DATABASE_URL=mysql://..."
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleBulkImport(repo.name)}
-                    className="px-3 py-1.5 rounded-lg bg-ccd-accent hover:bg-ccd-accent-light text-white text-xs font-semibold transition-all flex items-center gap-1.5"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                    Save & Import
-                  </button>
-                  <button
-                    onClick={() => { setBulkRepo(null); setBulkInput(''); }}
-                    className="px-3 py-1.5 rounded-lg bg-ccd-muted/30 text-ccd-text-dim text-xs font-semibold hover:bg-ccd-muted/50 transition-all"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="p-5 space-y-3">
-                {envEntries.map(([key, value]) => (
-                  <div key={key} className="flex items-center gap-2">
-                    {/* Key input */}
-                    <input
-                      type="text"
-                      defaultValue={key}
-                      onBlur={e => renameKey(repo.name, key, e.target.value.trim().toUpperCase())}
-                      className="ccd-input font-mono text-xs text-ccd-warning w-44 shrink-0"
-                      placeholder="VARIABLE_NAME"
-                    />
-                    <span className="text-ccd-text-muted text-sm shrink-0">=</span>
-                    {/* Value input */}
-                    <input
-                      type="text"
-                      value={value}
-                      onChange={e => updateVar(repo.name, key, e.target.value)}
-                      className="ccd-input font-mono text-xs flex-1"
-                      placeholder="value"
-                    />
-                    {/* Remove button */}
+            <div className="px-5 py-4 border-b border-ccd-border/30 space-y-4">
+              <h4 className="text-xs font-bold text-ccd-text uppercase tracking-wider">Environment Variables</h4>
+              {bulkRepo === repo.name ? (
+                <div className="space-y-4">
+                  <div className="text-xs text-ccd-text-muted">
+                    Paste your env file content here (Format: <code>KEY=VALUE</code>). Comments starting with <code>#</code> will be ignored.
+                  </div>
+                  <textarea
+                    value={bulkInput}
+                    onChange={e => setBulkInput(e.target.value)}
+                    className="ccd-input font-mono text-xs w-full h-40 resize-y"
+                    placeholder="PORT=8080&#10;IMAGE_TAG=latest&#10;DATABASE_URL=mysql://..."
+                  />
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => removeVar(repo.name, key)}
-                      className="shrink-0 p-1.5 rounded-lg text-ccd-text-muted hover:text-ccd-danger hover:bg-ccd-danger/10 transition-colors"
-                      title="Remove variable"
+                      onClick={() => handleBulkImport(repo.name)}
+                      className="px-3 py-1.5 rounded-lg bg-ccd-accent hover:bg-ccd-accent-light text-white text-xs font-semibold transition-all flex items-center gap-1.5"
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
-                        <path d="M18 6L6 18M6 6l12 12" />
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
+                        <path d="M20 6L9 17l-5-5" />
                       </svg>
+                      Save & Import
+                    </button>
+                    <button
+                      onClick={() => { setBulkRepo(null); setBulkInput(''); }}
+                      className="px-3 py-1.5 rounded-lg bg-ccd-muted/30 text-ccd-text-dim text-xs font-semibold hover:bg-ccd-muted/50 transition-all"
+                    >
+                      Cancel
                     </button>
                   </div>
-                ))}
-
-                {envEntries.length === 0 && (
-                  <div className="text-xs text-ccd-text-muted italic py-2">No variables configured</div>
-                )}
-
-                <div className="flex gap-4 items-center mt-2 pt-2 border-t border-ccd-border/30">
-                  {/* Add variable button */}
-                  <button
-                    onClick={() => addCustomVar(repo.name)}
-                    className="flex items-center gap-2 text-xs text-ccd-accent hover:text-ccd-accent-light transition-colors"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
-                      <circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" />
-                    </svg>
-                    Add Variable
-                  </button>
-
-                  {/* Bulk import button */}
-                  <button
-                    onClick={() => openBulkImport(repo.name)}
-                    className="flex items-center gap-2 text-xs text-ccd-cyan hover:text-ccd-cyan-light transition-colors"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
-                      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                    </svg>
-                    Bulk Import (.env)
-                  </button>
                 </div>
-              </div>
-            )}
-
-            {/* Advanced Settings Accordion */}
-            {bulkRepo !== repo.name && (
-              <div className="border-t border-ccd-border/30 bg-ccd-muted/5 px-5 py-3">
-                <button
-                  type="button"
-                  onClick={() => toggleAdvanced(repo.name)}
-                  className="flex items-center gap-2 text-xs font-semibold text-ccd-text-dim hover:text-ccd-cyan transition-colors"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    className={`w-4 h-4 transition-transform duration-200 ${expandedAdvanced[repo.name] ? 'rotate-90' : ''}`}
-                  >
-                    <path d="M9 5l7 7-7 7" />
-                  </svg>
-                  Advanced Deployment Settings
-                </button>
-
-                {expandedAdvanced[repo.name] && (
-                  <div className="mt-4 pt-3 border-t border-ccd-border/20 space-y-4 animate-slide-down">
-                    <div className="space-y-4">
-                      {/* Target Deployment Directory */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-ccd-text-muted">Target Directory in VPS</label>
-                        <input
-                          type="text"
-                          value={getSpecialVal(repo.name, 'DEPLOY_DIR', '')}
-                          onChange={e => setSpecialVal(repo.name, 'DEPLOY_DIR', e.target.value)}
-                          placeholder={`/app/${repo.name}`}
-                          className="ccd-input font-mono text-xs w-full"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Pre-Deploy Commands */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-ccd-text-muted block">
-                        Pre-Deploy Script (commands run before container start)
-                      </label>
-                      <textarea
-                        value={getSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', '')}
-                        onChange={e => setSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', e.target.value)}
-                        placeholder="e.g. docker volume rm my_volume || true"
-                        className="ccd-input font-mono text-xs w-full h-16 resize-y"
+              ) : (
+                <div className="space-y-3">
+                  {envEntries.map(([key, value]) => (
+                    <div key={key} className="flex items-center gap-2">
+                      {/* Key input */}
+                      <input
+                        type="text"
+                        defaultValue={key}
+                        onBlur={e => renameKey(repo.name, key, e.target.value.trim().toUpperCase())}
+                        className="ccd-input font-mono text-xs text-ccd-warning w-44 shrink-0"
+                        placeholder="VARIABLE_NAME"
                       />
-                    </div>
-
-                    {/* Post-Deploy Commands */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-ccd-text-muted block">
-                        Post-Deploy Script (commands run after container start)
-                      </label>
-                      <textarea
-                        value={getSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', '')}
-                        onChange={e => setSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', e.target.value)}
-                        placeholder="e.g. docker exec my_container php artisan migrate --force"
-                        className="ccd-input font-mono text-xs w-full h-16 resize-y"
+                      <span className="text-ccd-text-muted text-sm shrink-0">=</span>
+                      {/* Value input */}
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={e => updateVar(repo.name, key, e.target.value)}
+                        className="ccd-input font-mono text-xs flex-1"
+                        placeholder="value"
                       />
+                      {/* Remove button */}
+                      <button
+                        onClick={() => removeVar(repo.name, key)}
+                        className="shrink-0 p-1.5 rounded-lg text-ccd-text-muted hover:text-ccd-danger hover:bg-ccd-danger/10 transition-colors"
+                        title="Remove variable"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
+                  ))}
+
+                  {envEntries.length === 0 && (
+                    <div className="text-xs text-ccd-text-muted italic py-2">No variables configured</div>
+                  )}
+
+                  <div className="flex gap-4 items-center mt-2 pt-2 border-t border-ccd-border/30">
+                    {/* Add variable button */}
+                    <button
+                      onClick={() => addCustomVar(repo.name)}
+                      className="flex items-center gap-2 text-xs text-ccd-accent hover:text-ccd-accent-light transition-colors"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                        <circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" />
+                      </svg>
+                      Add Variable
+                    </button>
+
+                    {/* Bulk import button */}
+                    <button
+                      onClick={() => openBulkImport(repo.name)}
+                      className="flex items-center gap-2 text-xs text-ccd-cyan hover:text-ccd-cyan-light transition-colors"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                      </svg>
+                      Bulk Import (.env)
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+
+            {/* Advanced Settings */}
+            {bulkRepo !== repo.name && (
+              <div className="bg-ccd-muted/5 px-5 py-4 space-y-4">
+                <h4 className="text-xs font-bold text-ccd-text uppercase tracking-wider">Advanced Settings</h4>
+                
+                <div className="space-y-4">
+                  {/* Target Deployment Directory */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-ccd-text-muted">Target Directory in VPS</label>
+                    <input
+                      type="text"
+                      value={getSpecialVal(repo.name, 'DEPLOY_DIR', '')}
+                      onChange={e => setSpecialVal(repo.name, 'DEPLOY_DIR', e.target.value)}
+                      placeholder={`/app/${repo.name}`}
+                      className="ccd-input font-mono text-xs w-full"
+                    />
+                  </div>
+
+                  {/* Pre-Deploy Commands */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-ccd-text-muted block">
+                      Pre-Deploy Script (commands run before container start)
+                    </label>
+                    <textarea
+                      value={getSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', '')}
+                      onChange={e => setSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', e.target.value)}
+                      placeholder="e.g. docker volume rm my_volume || true"
+                      className="ccd-input font-mono text-xs w-full h-16 resize-y"
+                    />
+                  </div>
+
+                  {/* Post-Deploy Commands */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-ccd-text-muted block">
+                      Post-Deploy Script (commands run after container start)
+                    </label>
+                    <textarea
+                      value={getSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', '')}
+                      onChange={e => setSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', e.target.value)}
+                      placeholder="e.g. docker exec my_container php artisan migrate --force"
+                      className="ccd-input font-mono text-xs w-full h-16 resize-y"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
