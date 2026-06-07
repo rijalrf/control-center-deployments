@@ -181,7 +181,7 @@ jobs:
               echo "Menggunakan strategi Docker Compose dengan file: $COMPOSE_FILE"
               
               echo "Memproses replacement image untuk service di file $COMPOSE_FILE..."
-              COMPOSE_FILE="$COMPOSE_FILE" TARGET_REPO_NAME="$TARGET_REPO_NAME" DOCKERHUB_USERNAME="$DOCKERHUB_USERNAME" DOCKER_IMAGE_NAME="$DOCKER_IMAGE_NAME" CONFIG_JSON="$CONFIG_JSON" python3 -c '
+              COMPOSE_FILE="$COMPOSE_FILE" TARGET_REPO_NAME="$TARGET_REPO_NAME" DOCKERHUB_USERNAME="$DOCKERHUB_USERNAME" CONFIG_JSON="$CONFIG_JSON" python3 -c '
 import os, json
 
 compose_path = os.environ.get("COMPOSE_FILE", "docker-compose.yml")
@@ -189,21 +189,10 @@ config_str = os.environ.get("CONFIG_JSON", "{}")
 config = json.loads(config_str)
 db_user = os.environ.get("DOCKERHUB_USERNAME", "")
 repo_name = os.environ.get("TARGET_REPO_NAME", "")
-custom_image = os.environ.get("DOCKER_IMAGE_NAME", "")
+version_tag = config.get("VERSION_TAG", "")
 
-# Determine base image name
-if not custom_image:
-    if db_user:
-        base_image = f"{db_user}/{repo_name}"
-    else:
-        base_image = repo_name
-else:
-    if "/" not in custom_image and db_user:
-        base_image = f"{db_user}/{custom_image}"
-    else:
-        base_image = custom_image
-    if ":" in base_image:
-        base_image = base_image.split(":")[0]
+if not version_tag:
+    version_tag = "latest"
 
 # Load compose lines
 with open(compose_path, "r") as f:
@@ -246,11 +235,30 @@ for line in lines:
             current_service = None
             
         if current_service and stripped.startswith("image:"):
-            tag_key = f"COMPOSE_TAG_{current_service}"
-            target_tag = config.get(tag_key, "")
+            parts = stripped.split(":", 1)
+            image_val = parts[1].strip()
+            if len(image_val) > 1:
+                if image_val[0] == image_val[-1] and image_val[0] in ("\"", "\u0027"):
+                    image_val = image_val[1:-1]
             
-            if target_tag:
-                new_image = f"{base_image}:{target_tag}"
+            is_match = False
+            if db_user and db_user in image_val:
+                is_match = True
+            elif repo_name and repo_name in image_val:
+                is_match = True
+                
+            if is_match:
+                if ":" in image_val:
+                    last_colon_idx = image_val.rfind(":")
+                    last_slash_idx = image_val.rfind("/")
+                    if last_colon_idx > last_slash_idx:
+                        base_img_name = image_val[:last_colon_idx]
+                    else:
+                        base_img_name = image_val
+                else:
+                    base_img_name = image_val
+                
+                new_image = f"{base_img_name}:{version_tag}"
                 leading_whitespace = line[:len(line) - len(line.lstrip())]
                 line = f"{leading_whitespace}image: {new_image}\n"
                 replaced_count += 1
@@ -260,7 +268,7 @@ for line in lines:
 with open(compose_path, "w") as f:
     f.writelines(output)
 
-print(f"SUCCESS: Replaced image in {replaced_count} services in compose file.")
+print(f"SUCCESS: Replaced image in {replaced_count} services in compose file with tag {version_tag}.")
 '
 
               docker compose -f $COMPOSE_FILE pull
