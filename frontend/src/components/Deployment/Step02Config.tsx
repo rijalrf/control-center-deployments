@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Repository } from '../../types'
+import api from '../../services/api'
 
 interface Step02ConfigProps {
   data: {
@@ -15,7 +16,10 @@ const SPECIAL_KEYS = [
   'COMPOSE_FILE',
   'PRE_DEPLOY_COMMANDS',
   'POST_DEPLOY_COMMANDS',
-  'DOCKERFILE_PATH'
+  'DOCKERFILE_PATH',
+  'TARGET_COMPOSE_SERVICE',
+  'VERSION_TAG',
+  'RELEASE_NOTES'
 ]
 
 export default function Step02Config({ data, onChange }: Step02ConfigProps) {
@@ -23,6 +27,78 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   const [bulkRepo, setBulkRepo] = useState<string | null>(null)
   const [bulkInput, setBulkInput] = useState<string>('')
   const [expandedAdvanced, setExpandedAdvanced] = useState<Record<string, boolean>>({})
+
+  // Docker Compose services state
+  interface ComposeServiceInfo {
+    name: string;
+    image: string;
+    current_tag: string | null;
+    suggested_tag: string;
+  }
+  interface FetchResult {
+    compose_path: string;
+    services: ComposeServiceInfo[];
+  }
+  const [composeData, setComposeData] = useState<Record<number, {
+    loading: boolean;
+    error: string | null;
+    data: FetchResult | null;
+  }>>({})
+
+  const fetchComposeServices = async (repo: Repository) => {
+    setComposeData(prev => ({
+      ...prev,
+      [repo.id]: { loading: true, error: null, data: prev[repo.id]?.data || null }
+    }))
+    try {
+      const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
+      const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
+      const resolvedBranch = validationMap[repo.id]?.resolved_branch || repo.default_branch || 'main'
+      const composePath = validationMap[repo.id]?.docker_compose_path || ''
+
+      const res = await api.get(`/repos/${repo.id}/compose-services`, {
+        params: { branch: resolvedBranch, path: composePath }
+      })
+
+      setComposeData(prev => ({
+        ...prev,
+        [repo.id]: { loading: false, error: null, data: res.data }
+      }))
+
+      // Auto-select first service if TARGET_COMPOSE_SERVICE is not set yet
+      const currentConfig = config[repo.name] || {}
+      if (!currentConfig['TARGET_COMPOSE_SERVICE'] && res.data.services?.length > 0) {
+        const firstService = res.data.services[0]
+        onChange({
+          config: {
+            ...config,
+            [repo.name]: {
+              ...currentConfig,
+              'TARGET_COMPOSE_SERVICE': firstService.name,
+              'VERSION_TAG': firstService.suggested_tag,
+            }
+          }
+        })
+      }
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || err.message || 'Failed to fetch compose file'
+      setComposeData(prev => ({
+        ...prev,
+        [repo.id]: { loading: false, error: errMsg, data: null }
+      }))
+    }
+  }
+
+  useEffect(() => {
+    repositories.forEach(repo => {
+      const strategy = config[repo.name]?.['DEPLOY_STRATEGY']
+      if (strategy === 'docker-compose') {
+        if (!composeData[repo.id]) {
+          fetchComposeServices(repo)
+        }
+      }
+    })
+  }, [repositories, config])
 
   const toggleAdvanced = (repoName: string) => {
     setExpandedAdvanced(prev => ({ ...prev, [repoName]: !prev[repoName] }))
@@ -74,13 +150,19 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     }
   }
 
-  // Initialize default vars for repos that have none (default to empty object)
+  // Initialize default vars for repos that have none
   const ensureDefaults = (repo: Repository) => {
     if (!config[repo.name]) {
+      const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
+      const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
+      const hasCompose = validationMap[repo.id]?.docker_compose_exists || false
+      
       onChange({
         config: {
           ...config,
-          [repo.name]: {},
+          [repo.name]: {
+            'DEPLOY_STRATEGY': hasCompose ? 'docker-compose' : 'standard',
+          },
         },
       })
     }
@@ -223,6 +305,139 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                 )}
               </div>
             </div>
+
+            {/* Docker Compose configuration section */}
+            {getSpecialVal(repo.name, 'DEPLOY_STRATEGY') === 'docker-compose' && (
+              <div className="px-5 pb-4 border-b border-ccd-border/30">
+                <div className="bg-ccd-muted/10 border border-ccd-border/50 rounded-xl p-4 space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-ccd-border/30">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                    </svg>
+                    <h4 className="text-xs font-bold text-ccd-cyan uppercase tracking-wider">Docker Compose Deployment Options</h4>
+                  </div>
+
+                  {composeData[repo.id]?.loading && (
+                    <div className="flex items-center gap-2 py-2 text-xs text-ccd-text-muted">
+                      <div className="spinner w-3.5 h-3.5 border-t-transparent border-ccd-cyan animate-spin" />
+                      <span>Scanning docker-compose.yml from GitHub...</span>
+                    </div>
+                  )}
+
+                  {composeData[repo.id]?.error && (
+                    <div className="space-y-2 py-1">
+                      <div className="text-xs text-ccd-danger bg-ccd-danger/10 border border-ccd-danger/25 rounded-lg p-2.5">
+                        Failed to fetch Compose config: {composeData[repo.id].error}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => fetchComposeServices(repo)}
+                        className="px-2.5 py-1 text-[11px] font-semibold bg-ccd-muted/30 hover:bg-ccd-muted/50 text-ccd-text rounded-md transition-all border border-ccd-border/40"
+                      >
+                        Retry Scan
+                      </button>
+                    </div>
+                  )}
+
+                  {composeData[repo.id]?.data && (
+                    <div className="space-y-4">
+                      {/* Service Dropdown */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-ccd-text-muted block">
+                          Pilih Service yang akan di-deploy
+                        </label>
+                        <select
+                          value={getSpecialVal(repo.name, 'TARGET_COMPOSE_SERVICE')}
+                          onChange={(e) => {
+                            const selectedService = e.target.value
+                            const serviceDetails = composeData[repo.id]?.data?.services.find(s => s.name === selectedService)
+                            
+                            onChange({
+                              config: {
+                                ...config,
+                                [repo.name]: {
+                                  ...(config[repo.name] || {}),
+                                  'TARGET_COMPOSE_SERVICE': selectedService,
+                                  'VERSION_TAG': serviceDetails?.suggested_tag || 'v1',
+                                }
+                              }
+                            })
+                          }}
+                          className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan"
+                        >
+                          <option value="">-- Pilih Service --</option>
+                          {composeData[repo.id].data?.services.map(s => (
+                            <option key={s.name} value={s.name}>
+                              {s.name} ({s.image})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Version Tag Input */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-ccd-text-muted block">
+                          Version Tag
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={getSpecialVal(repo.name, 'VERSION_TAG')}
+                            onChange={(e) => setSpecialVal(repo.name, 'VERSION_TAG', e.target.value)}
+                            placeholder="e.g. v3, v1.2.4, or v3-hotfix"
+                            className="ccd-input font-mono text-xs flex-1"
+                          />
+                        </div>
+
+                        {/* Suggestion Pills */}
+                        {(() => {
+                          const currentService = getSpecialVal(repo.name, 'TARGET_COMPOSE_SERVICE')
+                          const serviceDetails = composeData[repo.id]?.data?.services.find(s => s.name === currentService)
+                          if (!serviceDetails) return null
+
+                          return (
+                            <div className="flex flex-wrap gap-2 pt-1 items-center">
+                              <span className="text-[10px] text-ccd-text-muted">Saran:</span>
+                              
+                              <button
+                                type="button"
+                                onClick={() => setSpecialVal(repo.name, 'VERSION_TAG', serviceDetails.suggested_tag)}
+                                className="px-2 py-0.5 rounded bg-ccd-cyan/10 hover:bg-ccd-cyan/20 border border-ccd-cyan/30 text-ccd-cyan text-[10px] transition-colors font-mono"
+                              >
+                                {serviceDetails.suggested_tag} (Auto-increment +1)
+                              </button>
+
+                              {serviceDetails.current_tag && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSpecialVal(repo.name, 'VERSION_TAG', serviceDetails.current_tag!)}
+                                  className="px-2 py-0.5 rounded bg-ccd-muted/30 hover:bg-ccd-muted/50 border border-ccd-border text-ccd-text-dim text-[10px] transition-colors font-mono"
+                                >
+                                  {serviceDetails.current_tag} (Saat ini)
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </div>
+
+                      {/* Release Notes */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-ccd-text-muted block">
+                          Release Notes / Catatan Deployment
+                        </label>
+                        <textarea
+                          value={getSpecialVal(repo.name, 'RELEASE_NOTES')}
+                          onChange={(e) => setSpecialVal(repo.name, 'RELEASE_NOTES', e.target.value)}
+                          placeholder="Tuliskan catatan rilis untuk tracking histori (misal: fixing bug auth, update UI dashboard, dsb.)"
+                          className="ccd-input text-xs w-full h-20 resize-y"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Variables Content */}
             {bulkRepo === repo.name ? (

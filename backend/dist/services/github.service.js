@@ -164,6 +164,15 @@ class GitHubService {
             return false;
         }
     }
+    static async getFileContent(accessToken, owner, repo, path, ref) {
+        const token = this.getEffectiveToken(accessToken);
+        const octokit = new rest_1.Octokit({ auth: token });
+        const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
+        if (data && 'content' in data && typeof data.content === 'string') {
+            return Buffer.from(data.content, 'base64').toString('utf-8');
+        }
+        throw new Error('File has no content or is a directory');
+    }
     /**
      * Search for a file in multiple candidate paths (root first, then common subdirs).
      * Accepts one filename or multiple variants (e.g. ['docker-compose.yml', 'docker-compose.yaml']).

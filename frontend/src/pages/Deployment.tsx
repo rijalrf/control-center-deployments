@@ -1111,10 +1111,19 @@ export default function Deployment() {
     if (confirmAction.type === 'wizard') {
       setSubmitting(true)
       try {
+        const notesList = formData.repositories
+          .map(r => {
+            const note = formData.config[r.name]?.['RELEASE_NOTES']?.trim()
+            return note ? `[${r.name}] ${note}` : ''
+          })
+          .filter(Boolean)
+        const combinedNotes = notesList.join('\n\n') || null
+
         const res = await api.post('/deployments', {
           environment_id: formData.environment_id,
           repositories:   formData.repositories,
           config:         formData.config,
+          notes:          combinedNotes,
         })
         setActiveDeployment(res.data)
         localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
@@ -1151,11 +1160,20 @@ export default function Deployment() {
   const handleSavePlan = async () => {
     setSubmitting(true)
     try {
+      const notesList = formData.repositories
+        .map(r => {
+          const note = formData.config[r.name]?.['RELEASE_NOTES']?.trim()
+          return note ? `[${r.name}] ${note}` : ''
+        })
+        .filter(Boolean)
+      const combinedNotes = notesList.join('\n\n') || null
+
       await api.post('/deployments', {
         environment_id: formData.environment_id,
         repositories:   formData.repositories,
         config:         formData.config,
         status:         'draft',
+        notes:          combinedNotes,
       })
       showToast('Deployment plan saved successfully!', 'success')
       localStorage.removeItem('ccd_wizard_step')
