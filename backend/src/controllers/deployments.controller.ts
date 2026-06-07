@@ -130,4 +130,24 @@ export class DeploymentsController {
       next(err);
     }
   }
+
+  static async retry(req: Request, res: Response, next: NextFunction) {
+    try {
+      const deploymentId = parseInt(req.params.id, 10);
+      const userToken = (req.user as any).access_token || '';
+
+      const deployment = await DeploymentService.retryDeployment(deploymentId, userToken);
+      
+      const result = await Deployment.findByPk(deployment.id, {
+        include: [
+          { model: Environment, as: 'environment' },
+          { model: DeploymentStep, as: 'steps' },
+        ],
+      });
+
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

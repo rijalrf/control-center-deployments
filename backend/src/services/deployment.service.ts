@@ -322,6 +322,49 @@ export class DeploymentService {
     return deployment;
   }
 
+  static async retryDeployment(deploymentId: number, accessToken: string) {
+    const deployment = await Deployment.findByPk(deploymentId, {
+      include: [{ model: DeploymentStep, as: 'steps' }]
+    });
+
+    if (!deployment) throw new Error('Deployment not found');
+    if (deployment.status !== 'failed' && deployment.status !== 'cancelled') {
+      throw new Error('Deployment is not in a failed or cancelled state and cannot be retried');
+    }
+
+    await deployment.update({ status: 'pending', deployed_at: null, log: '' });
+
+    // Hapus semua step lama dan buat ulang steps standard
+    await DeploymentStep.destroy({ where: { deployment_id: deploymentId } });
+    
+    const standardSteps = [
+      { step_number: 1, step_name: 'Initializing Deployment Pipeline', status: 'running' as any, log: 'Preparing deployment and triggering GitHub Actions workflow...' },
+      { step_number: 2, step_name: 'Fetching Source Code from Repository', status: 'pending' as any },
+      { step_number: 3, step_name: 'Building Application Container Image', status: 'pending' as any },
+      { step_number: 4, step_name: 'Uploading Image to Docker Hub Registry', status: 'pending' as any },
+      { step_number: 5, step_name: 'Configuring Server Environment & Assets', status: 'pending' as any },
+      { step_number: 6, step_name: 'Deploying Container & Verifying Service', status: 'pending' as any },
+    ];
+
+    await DeploymentStep.bulkCreate(
+      standardSteps.map(s => ({
+        ...s,
+        deployment_id: deploymentId,
+        started_at: s.status === 'running' ? new Date() : null,
+        detail: s.step_number === 1 ? { environment_id: deployment.environment_id, repositories: deployment.repositories } : {},
+      })) as any
+    );
+
+    const data = {
+      environment_id: deployment.environment_id as number,
+      repositories: (deployment.repositories as any[]) || [],
+      config: deployment.config || {},
+    };
+
+    this.startGitHubActionsDeployment(deployment.id, accessToken, data);
+    return deployment;
+  }
+
   private static parseGithubLogs(logs: string): Record<string, string> {
     const stepsLogs: Record<string, string[]> = {};
     let currentStepName: string | null = null;

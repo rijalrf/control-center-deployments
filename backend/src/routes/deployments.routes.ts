@@ -10,6 +10,7 @@ router.get('/', DeploymentsController.list);
 router.get('/:id', DeploymentsController.getById);
 router.post('/', DeploymentsController.create);
 router.post('/:id/execute', DeploymentsController.executeDraft);
+router.post('/:id/retry', DeploymentsController.retry);
 router.patch('/:id/status', DeploymentsController.updateStatus);
 router.patch('/:id/steps/:stepNumber', DeploymentsController.updateStep);
 

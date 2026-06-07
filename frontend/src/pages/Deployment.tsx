@@ -85,9 +85,10 @@ interface ActiveDeploymentDashboardProps {
   deployment: DeploymentType;
   onBack: () => void;
   onRefresh: () => void;
+  onRetry?: (id: number) => void;
 }
 
-function ActiveDeploymentDashboard({ deployment, onBack, onRefresh }: ActiveDeploymentDashboardProps) {
+function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: ActiveDeploymentDashboardProps) {
   const steps = deployment.steps || []
   const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number)
   const logsContainerRef = useRef<HTMLDivElement>(null)
@@ -350,12 +351,28 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh }: ActiveDepl
             Triggered at: {deployment.created_at || deployment.createdAt ? new Date(deployment.created_at || deployment.createdAt || '').toLocaleString() : '—'}
           </p>
         </div>
-        <button
-          onClick={onBack}
-          className="ccd-btn-secondary text-xs py-2 px-4 ml-auto sm:ml-0 border border-ccd-border/50"
-        >
-          ← Back to List
-        </button>
+        <div className="flex items-center gap-3 ml-auto sm:ml-0">
+          {(overallStatus === 'failed' || overallStatus === 'cancelled') && onRetry && (
+            <button
+              onClick={() => onRetry(deployment.id)}
+              className="ccd-btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M16 3h5v5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M8 21H3v-5" />
+              </svg>
+              Try Again
+            </button>
+          )}
+          <button
+            onClick={onBack}
+            className="ccd-btn-secondary text-xs py-2 px-4 border border-ccd-border/50"
+          >
+            ← Back to List
+          </button>
+        </div>
       </div>
 
       {/* Two Columns: Left Step Progress | Right Animation */}
@@ -1015,6 +1032,21 @@ export default function Deployment() {
     }
   }
 
+  const handleRetry = async (id: number) => {
+    try {
+      const res = await api.post(`/deployments/${id}/retry`)
+      if (selectedDeployment) {
+        setSelectedDeployment(res.data)
+      } else {
+        setActiveDeployment(res.data)
+        localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
+      }
+      showToast('Deployment retried successfully!', 'success')
+    } catch (err: any) {
+      showToast(err.response?.data?.error || 'Failed to retry deployment', 'error')
+    }
+  }
+
   const handleBackToList = () => {
     setActiveDeployment(null)
     setSelectedDeployment(null)
@@ -1040,6 +1072,7 @@ export default function Deployment() {
           deployment={viewingDeployment}
           onBack={handleBackToList}
           onRefresh={refreshViewingDeployment}
+          onRetry={handleRetry}
         />
       ) : showWizard ? (
         /* Form Panel / Stepper Wizard */
