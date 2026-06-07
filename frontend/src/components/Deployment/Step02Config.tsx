@@ -241,6 +241,9 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
         const vars = config[repo.name] || {}
         const envEntries = Object.entries(vars).filter(([key]) => !SPECIAL_KEYS.includes(key) && !key.startsWith('COMPOSE_TAG_'))
 
+        const strategy = getSpecialVal(repo.name, 'DEPLOY_STRATEGY', 'standard')
+        const currentVersionTag = getSpecialVal(repo.name, 'VERSION_TAG', 'latest')
+
         return (
           <div key={repo.id} className="ccd-card overflow-hidden">
             {/* Repo header */}
@@ -252,68 +255,35 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
               <span className="ml-auto text-xs text-ccd-text-muted">{envEntries.length} variable{envEntries.length !== 1 ? 's' : ''}</span>
             </div>
 
-            {/* Docker Image Name Section */}
-            <div className="px-5 pt-4 pb-0">
-              {/* Info Card */}
-              <div className="flex gap-3 p-3 rounded-xl bg-ccd-warning/8 border border-ccd-warning/25 mb-4">
-                <div className="mt-0.5 shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-ccd-warning">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-ccd-warning mb-0.5">Penting: Nama Docker Image</p>
-                  <p className="text-[11px] text-ccd-text-muted leading-relaxed">
-                    Nama image <strong className="text-ccd-text">harus sama persis</strong> dengan yang tertulis di{' '}
-                    <code className="font-mono text-ccd-cyan bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">docker-compose.yml</code>{' '}
-                    server target sebagai referensi image yang akan di-pull.
-                    <br />
-                    Kamu bisa isi hanya nama image-nya saja (misal:{' '}
-                    <code className="font-mono text-ccd-accent bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">lms-app:latest</code>),
-                    username Docker Hub dari secret <code className="font-mono text-ccd-cyan bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">DOCKERHUB_USERNAME</code>{' '}
-                    akan otomatis ditambahkan di depannya oleh workflow.
-                  </p>
-                </div>
+            {/* Metadata / Info Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-5 py-4 border-b border-ccd-border/30 bg-ccd-surface/10">
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Deployment Strategy</span>
+                <span className="text-xs font-semibold text-ccd-text flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${strategy === 'docker-compose' ? 'bg-ccd-cyan' : 'bg-ccd-success'}`} />
+                  {strategy === 'docker-compose' ? 'Docker Compose' : 'Standard Container'}
+                </span>
               </div>
-
-              {/* Input */}
-              <div className="flex items-center gap-3 mb-4">
-                <label className="text-xs font-semibold text-ccd-text-muted uppercase tracking-wider shrink-0 w-32">
-                  Docker Image Name
-                </label>
-                <div className="flex-1 relative">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5 text-ccd-text-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M3 9h18M9 21V9" />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder={`${repo.name}:latest  (username otomatis dari secret)`}
-                    value={repo.docker_image_name || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const updatedRepos = data.repositories.map(r =>
-                        r.id === repo.id ? { ...r, docker_image_name: val } : r
-                      );
-                      onChange({ repositories: updatedRepos });
-                    }}
-                    className="ccd-input pl-8 font-mono text-xs w-full"
-                  />
-                </div>
-                {repo.docker_image_name ? (
-                  <span className="text-[10px] font-mono badge-success shrink-0 max-w-[120px] truncate" title={repo.docker_image_name}>
-                    {repo.docker_image_name}
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-ccd-text-muted shrink-0">default</span>
-                )}
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Target Branch</span>
+                <span className="text-xs font-mono font-semibold text-ccd-cyan bg-ccd-cyan/5 border border-ccd-cyan/15 px-2 py-0.5 rounded-md inline-block">
+                  {(() => {
+                    const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
+                    const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
+                    return validationMap[repo.id]?.resolved_branch || repo.default_branch || 'main'
+                  })()}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Target Image (Auto)</span>
+                <span className="text-xs font-mono text-ccd-text-dim break-all">
+                  [dockerhub-user]/{repo.name}:{currentVersionTag}
+                </span>
               </div>
             </div>
 
             {/* Docker Compose configuration section */}
-            {getSpecialVal(repo.name, 'DEPLOY_STRATEGY') === 'docker-compose' && (
+            {strategy === 'docker-compose' && (
               <div className="px-5 py-4 border-b border-ccd-border/30 space-y-4">
                 <div className="flex items-center gap-2 pb-1 border-b border-ccd-border/20">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan">
@@ -356,48 +326,93 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                         const tagKey = `COMPOSE_TAG_${s.name}`
                         const currentVal = getSpecialVal(repo.name, tagKey)
                         
+                        const isCustom = currentVal !== '' && currentVal !== s.suggested_tag && currentVal !== s.current_tag
+                        const selectVal = isCustom ? 'custom' : currentVal
+
                         return (
-                          <div key={s.name} className="flex flex-col sm:flex-row sm:items-center gap-3 py-1">
-                            <span className="font-mono text-xs font-bold text-ccd-cyan w-32 truncate shrink-0" title={s.name}>
-                              {s.name}
-                            </span>
-                            <span className="text-[10px] text-ccd-text-muted max-w-[200px] truncate shrink-0 hidden sm:inline" title={s.image}>
-                              {s.image}
-                            </span>
+                          <div key={s.name} className="flex flex-col sm:flex-row sm:items-start gap-3 py-2 border-b border-ccd-border/10 last:border-b-0">
+                            <div className="w-32 shrink-0 pt-1">
+                              <span className="font-mono text-xs font-bold text-ccd-cyan block truncate" title={s.name}>
+                                {s.name}
+                              </span>
+                              <span className="text-[10px] text-ccd-text-muted block truncate max-w-full" title={s.image}>
+                                {s.image}
+                              </span>
+                            </div>
                             
-                            <div className="flex-1 relative">
-                              <input
-                                type="text"
-                                list={`tags-${repo.id}-${s.name}`}
-                                value={currentVal}
+                            <div className="flex-1 space-y-2">
+                              {/* Standard select dropdown */}
+                              <select
+                                value={selectVal}
                                 onChange={(e) => {
-                                  const tag = e.target.value
-                                  const updatedConfig = {
-                                    ...(config[repo.name] || {}),
-                                    [tagKey]: tag
-                                  }
-                                  if (tag) {
-                                    updatedConfig['VERSION_TAG'] = tag
-                                  } else {
-                                    const otherTag = Object.keys(updatedConfig)
-                                      .find(k => k.startsWith('COMPOSE_TAG_') && updatedConfig[k])
-                                    updatedConfig['VERSION_TAG'] = otherTag ? updatedConfig[otherTag] : ''
-                                  }
-                                  
-                                  onChange({
-                                    config: {
-                                      ...config,
-                                      [repo.name]: updatedConfig
+                                  const val = e.target.value
+                                  if (val === 'custom') {
+                                    const updatedConfig = {
+                                      ...(config[repo.name] || {}),
+                                      [tagKey]: ''
                                     }
-                                  })
+                                    onChange({ config: { ...config, [repo.name]: updatedConfig } })
+                                  } else {
+                                    const updatedConfig = {
+                                      ...(config[repo.name] || {}),
+                                      [tagKey]: val
+                                    }
+                                    if (val) {
+                                      updatedConfig['VERSION_TAG'] = val
+                                    } else {
+                                      const otherTag = Object.keys(updatedConfig)
+                                        .find(k => k.startsWith('COMPOSE_TAG_') && updatedConfig[k])
+                                      updatedConfig['VERSION_TAG'] = otherTag ? updatedConfig[otherTag] : ''
+                                    }
+                                    
+                                    onChange({
+                                      config: {
+                                        ...config,
+                                        [repo.name]: updatedConfig
+                                      }
+                                    })
+                                  }
                                 }}
-                                placeholder="Select or type tag (e.g. v3)"
-                                className="ccd-input font-mono text-xs w-full"
-                              />
-                              <datalist id={`tags-${repo.id}-${s.name}`}>
-                                <option value={s.suggested_tag}>{s.suggested_tag} (Saran +1)</option>
-                                {s.current_tag && <option value={s.current_tag}>{s.current_tag} (Saat ini)</option>}
-                              </datalist>
+                                className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan cursor-pointer"
+                              >
+                                <option value="">-- Kosongkan (Jangan di-update) --</option>
+                                <option value={s.suggested_tag}>{s.suggested_tag} (Saran Auto-increment +1)</option>
+                                {s.current_tag && (
+                                  <option value={s.current_tag}>{s.current_tag} (Tag Saat ini di server)</option>
+                                )}
+                                <option value="custom">Ketik manual / Kustom...</option>
+                              </select>
+
+                              {/* Manual Input if Custom is selected */}
+                              {selectVal === 'custom' && (
+                                <input
+                                  type="text"
+                                  value={currentVal}
+                                  onChange={(e) => {
+                                    const tag = e.target.value
+                                    const updatedConfig = {
+                                      ...(config[repo.name] || {}),
+                                      [tagKey]: tag
+                                    }
+                                    if (tag) {
+                                      updatedConfig['VERSION_TAG'] = tag
+                                    } else {
+                                      const otherTag = Object.keys(updatedConfig)
+                                        .find(k => k.startsWith('COMPOSE_TAG_') && updatedConfig[k])
+                                      updatedConfig['VERSION_TAG'] = otherTag ? updatedConfig[otherTag] : ''
+                                    }
+                                    
+                                    onChange({
+                                      config: {
+                                        ...config,
+                                        [repo.name]: updatedConfig
+                                      }
+                                    })
+                                  }}
+                                  placeholder="Ketik tag kustom (contoh: v3-hotfix)"
+                                  className="ccd-input font-mono text-xs w-full animate-slide-down"
+                                />
+                              )}
                             </div>
                           </div>
                         )
