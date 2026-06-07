@@ -12,6 +12,7 @@ export interface User {
   name: string | null;
   email: string | null;
   avatar_url: string | null;
+  password?: string | null;
   created_at: string;
 }
 

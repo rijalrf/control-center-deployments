@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import { UserAttributes } from '../types';
+import { User } from '../models/User';
+import crypto from 'crypto';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -11,20 +13,48 @@ const COOKIE_OPTIONS = {
 };
 
 export class AuthController {
-  static githubCallback(req: Request, res: Response): void {
-    if (!req.user) {
-      res.redirect(`${env.FRONTEND_URL}/login?error=auth_failed`);
-      return;
+  static async login(req: Request, res: Response): Promise<void> {
+    try {
+      const { username, password } = req.body as { username?: string; password?: string };
+      if (!username || !password) {
+        res.status(400).json({ error: 'Username and password are required' });
+        return;
+      }
+
+      const user = await User.findOne({ where: { login: username } });
+      if (!user) {
+        res.status(401).json({ error: 'Invalid username or password' });
+        return;
+      }
+
+      const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+      if (user.password !== hashedPassword) {
+        res.status(401).json({ error: 'Invalid username or password' });
+        return;
+      }
+
+      const token = jwt.sign(
+        { id: user.id, login: user.login },
+        env.JWT_SECRET,
+        { expiresIn: env.JWT_EXPIRES_IN },
+      );
+
+      res.cookie('ccd_token', token, COOKIE_OPTIONS);
+      res.json({
+        message: 'Logged in successfully',
+        user: {
+          id: user.id,
+          github_id: user.github_id,
+          login: user.login,
+          name: user.name,
+          email: user.email,
+          avatar_url: user.avatar_url,
+          created_at: user.created_at
+        }
+      });
+    } catch (err: unknown) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
-
-    const token = jwt.sign(
-      { id: req.user.id, login: req.user.login },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN },
-    );
-
-    res.cookie('ccd_token', token, COOKIE_OPTIONS);
-    res.redirect(`${env.FRONTEND_URL}/dashboard`);
   }
 
   static getMe(req: Request, res: Response): void {

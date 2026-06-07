@@ -33,6 +33,7 @@ export interface UserAttributes {
   email: string | null;
   avatar_url: string | null;
   access_token: string | null;
+  password?: string | null;
   created_at?: Date;
   updated_at?: Date;
 }
