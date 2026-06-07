@@ -440,7 +440,7 @@ function ServersSection() {
                       </div>
                     ) : <span className="text-xs text-ccd-text-muted">—</span>}
                   </td>
-                  <td><span className={STATUS_COLORS[srv.status] || 'badge-muted'}>{srv.status}</span></td>
+                  <td><span className={STATUS_COLORS[srv.status || 'unknown'] || 'badge-muted'}>{srv.status || 'unknown'}</span></td>
                   <td>
                     <button onClick={() => setDelTarget(srv)} className="ccd-btn-ghost p-1.5">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-danger">

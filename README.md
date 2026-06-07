@@ -55,6 +55,7 @@ Browser ──► Frontend (React)  ──► Backend (Express API) ──► My
 ### Prerequisites
 
 Sebelum mulai, pastikan sudah tersedia:
+
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/)
 - GitHub account dengan akses ke repo yang ingin di-deploy
 
@@ -119,9 +120,9 @@ docker-compose up --build -d
 
 | Service | URL |
 |---|---|
-| 🖥️ Frontend | http://localhost:3000 |
-| ⚙️ Backend API | http://localhost:5000 |
-| 💚 Health Check | http://localhost:5000/api/health |
+| 🖥️ Frontend | <http://localhost:3000> |
+| ⚙️ Backend API | <http://localhost:5000> |
+| 💚 Health Check | <http://localhost:5000/api/health> |
 
 ---
 
