@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Repository } from '../models/Repository';
+import { Environment } from '../models/Environment';
 import { GitHubService } from '../services/github.service';
 import { getErrorMessage } from '../utils/errors';
 
@@ -67,6 +68,56 @@ export class ReposController {
 
       const keys = await GitHubService.getRepoEnvKeys(userToken, owner, repoName);
       res.json({ keys });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async validateBranches(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { environment_id, repositories } = req.body as {
+        environment_id: number;
+        repositories: { id: number; name: string; full_name: string; default_branch: string; clone_url: string }[];
+      };
+
+      if (!environment_id || !repositories?.length) {
+        res.status(400).json({ error: 'environment_id and repositories are required' });
+        return;
+      }
+
+      const envObj = await Environment.findByPk(environment_id);
+      const configuredBranch = envObj?.target_branch?.trim() || '';
+      const envName = envObj?.name ?? 'staging';
+
+      const userToken = req.user?.access_token ?? null;
+
+      const results = await Promise.all(
+        repositories.map(async (repo) => {
+          const [repoOwner, repoNameOnly] = repo.full_name.split('/');
+          
+          let desiredBranch = configuredBranch;
+          if (!desiredBranch) {
+            desiredBranch = envName.toLowerCase() === 'production' ? 'main' : 'staging';
+          }
+
+          let branchExists = false;
+          try {
+            branchExists = await GitHubService.checkBranchExists(userToken, repoOwner, repoNameOnly, desiredBranch);
+          } catch (err) {
+            // ignore
+          }
+
+          return {
+            repository_id: repo.id,
+            desired_branch: desiredBranch,
+            exists: branchExists,
+            resolved_branch: branchExists ? desiredBranch : repo.default_branch,
+            fallback_used: !branchExists,
+          };
+        })
+      );
+
+      res.json({ results });
     } catch (err) {
       next(err);
     }

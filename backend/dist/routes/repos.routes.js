@@ -9,4 +9,5 @@ router.get('/', repos_controller_1.ReposController.list);
 router.post('/sync', repos_controller_1.ReposController.sync);
 router.delete('/:id', repos_controller_1.ReposController.delete);
 router.get('/:id/env-keys', repos_controller_1.ReposController.getEnvKeys);
+router.post('/validate-branches', repos_controller_1.ReposController.validateBranches);
 exports.default = router;

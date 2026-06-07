@@ -9,9 +9,16 @@ interface Step01SetupProps {
     repositories: Repository[];
   };
   onChange: (update: Partial<Step01SetupProps['data']>) => void;
+  isValidated?: boolean;
+  validationResults?: Record<number, {
+    resolved_branch: string;
+    desired_branch: string;
+    exists: boolean;
+    fallback_used: boolean;
+  }>;
 }
 
-export default function Step01Setup({ data, onChange }: Step01SetupProps) {
+export default function Step01Setup({ data, onChange, isValidated = false, validationResults = {} }: Step01SetupProps) {
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [repos, setRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
@@ -179,16 +186,7 @@ export default function Step01Setup({ data, onChange }: Step01SetupProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    {data.environment?.target_branch ? (
-                      <div className="flex flex-col items-end">
-                        <span className="text-xs font-mono badge-accent">
-                          {data.environment.target_branch}
-                        </span>
-                        <span className="text-[10px] text-ccd-text-muted mt-0.5">
-                          via environment
-                        </span>
-                      </div>
-                    ) : (
+                    {!isValidated ? (
                       <div className="flex flex-col items-end">
                         <span className="text-xs font-mono badge-muted">
                           {repo.default_branch}
@@ -197,6 +195,33 @@ export default function Step01Setup({ data, onChange }: Step01SetupProps) {
                           default branch
                         </span>
                       </div>
+                    ) : (
+                      (() => {
+                        const result = validationResults?.[repo.id];
+                        if (result?.fallback_used) {
+                          return (
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs font-mono badge-danger">
+                                {repo.default_branch}
+                              </span>
+                              <span className="text-[10px] text-ccd-danger mt-0.5 font-semibold">
+                                Staging branch not found (Fallback)
+                              </span>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs font-mono badge-success">
+                                {result?.resolved_branch || repo.default_branch}
+                              </span>
+                              <span className="text-[10px] text-ccd-success mt-0.5 font-semibold">
+                                Branch validated
+                              </span>
+                            </div>
+                          );
+                        }
+                      })()
                     )}
                     <button
                       type="button"

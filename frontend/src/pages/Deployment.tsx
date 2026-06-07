@@ -789,6 +789,14 @@ export default function Deployment() {
   const [loadingDeployments, setLoadingDeployments] = useState(false)
   const { showToast }                         = useToast()
   const [loadingKeys, setLoadingKeys]         = useState(false)
+  const [isValidated, setIsValidated]         = useState<boolean>(false)
+  const [validationResults, setValidationResults] = useState<Record<number, {
+    resolved_branch: string;
+    desired_branch: string;
+    exists: boolean;
+    fallback_used: boolean;
+  }>>({})
+  const [validating, setValidating]           = useState(false)
   
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [filterEnv, setFilterEnv] = useState<string>('')
@@ -884,6 +892,11 @@ export default function Deployment() {
     localStorage.setItem('ccd_show_wizard', String(showWizard))
   }, [showWizard])
 
+  useEffect(() => {
+    setIsValidated(false)
+    setValidationResults({})
+  }, [formData.environment_id, formData.repositories])
+
   // Fetch all deployments
   const fetchDeployments = useCallback(async () => {
     setLoadingDeployments(true)
@@ -925,6 +938,49 @@ export default function Deployment() {
     if (currentStep === 1) return formData.environment_id !== null && formData.repositories.length > 0
     if (currentStep === 2) return true
     return false
+  }
+
+  const handleValidate = async () => {
+    setValidating(true)
+    try {
+      const res = await api.post('/repos/validate-branches', {
+        environment_id: formData.environment_id,
+        repositories:   formData.repositories
+      })
+
+      const resultsMap: Record<number, {
+        resolved_branch: string;
+        desired_branch: string;
+        exists: boolean;
+        fallback_used: boolean;
+      }> = {}
+      let hasError = false
+
+      res.data.results.forEach((item: any) => {
+        resultsMap[item.repository_id] = {
+          resolved_branch: item.resolved_branch,
+          desired_branch: item.desired_branch,
+          exists:          item.exists,
+          fallback_used:   item.fallback_used
+        }
+        if (item.fallback_used) {
+          hasError = true
+        }
+      })
+
+      setValidationResults(resultsMap)
+      setIsValidated(true)
+
+      if (hasError) {
+        showToast('Beberapa repositori tidak memiliki branch target. Sistem akan menggunakan branch default.', 'warning')
+      } else {
+        showToast('Validasi sukses! Semua branch target ditemukan.', 'success')
+      }
+    } catch (err: unknown) {
+      showToast(getApiErrorMessage(err, 'Gagal memvalidasi branch target'), 'error')
+    } finally {
+      setValidating(false)
+    }
   }
 
   const handleNext = async () => {
@@ -1111,7 +1167,14 @@ export default function Deployment() {
               </button>
             </div>
 
-            {currentStep === 1 && <Step01Setup data={formData} onChange={updateData} />}
+            {currentStep === 1 && (
+              <Step01Setup
+                data={formData}
+                onChange={updateData}
+                isValidated={isValidated}
+                validationResults={validationResults}
+              />
+            )}
             {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
             {currentStep === 3 && <Step03Review data={formData} />}
 
@@ -1126,7 +1189,41 @@ export default function Deployment() {
               </button>
 
               <div className="flex gap-3">
-                {currentStep < 3 ? (
+                {currentStep === 1 ? (
+                  !isValidated ? (
+                    <button
+                      onClick={handleValidate}
+                      disabled={formData.environment_id === null || formData.repositories.length === 0 || validating}
+                      className="ccd-btn-primary flex items-center gap-2"
+                      id="validate-wizard-btn"
+                    >
+                      {validating ? (
+                        <>
+                          <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                          Validating...
+                        </>
+                      ) : (
+                        <>Validate</>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleNext}
+                      disabled={loadingKeys}
+                      className="ccd-btn-primary flex items-center gap-2"
+                      id="next-wizard-btn"
+                    >
+                      {loadingKeys ? (
+                        <>
+                          <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                          Loading variables...
+                        </>
+                      ) : (
+                        <>Next →</>
+                      )}
+                    </button>
+                  )
+                ) : currentStep === 2 ? (
                   <button
                     onClick={handleNext}
                     disabled={!canNext() || loadingKeys}
