@@ -55,10 +55,6 @@ class ReposController {
                 return;
             }
             const userToken = req.user?.access_token ?? null;
-            if (!userToken) {
-                res.status(401).json({ error: 'GitHub access token not found' });
-                return;
-            }
             const [owner, repoName] = repo.full_name.split('/');
             if (!owner || !repoName) {
                 res.status(400).json({ error: 'Invalid repository name format' });
