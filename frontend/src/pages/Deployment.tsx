@@ -83,11 +83,11 @@ function StepIndicator({ current, steps }: StepIndicatorProps) {
 
 interface ActiveDeploymentDashboardProps {
   deployment: DeploymentType;
-  onReset: () => void;
+  onBack: () => void;
   onRefresh: () => void;
 }
 
-function ActiveDeploymentDashboard({ deployment, onReset, onRefresh }: ActiveDeploymentDashboardProps) {
+function ActiveDeploymentDashboard({ deployment, onBack, onRefresh }: ActiveDeploymentDashboardProps) {
   const steps = deployment.steps || []
   const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number)
   const terminalRef = useRef<HTMLPreElement>(null)
@@ -159,10 +159,10 @@ function ActiveDeploymentDashboard({ deployment, onReset, onRefresh }: ActiveDep
           </p>
         </div>
         <button
-          onClick={onReset}
+          onClick={onBack}
           className="ccd-btn-secondary text-xs py-2 px-4 ml-auto sm:ml-0 border border-ccd-border/50"
         >
-          ← New Deployment
+          ← Back to List
         </button>
       </div>
 
@@ -367,6 +367,10 @@ export default function Deployment() {
   })
   const [submitting, setSubmitting]           = useState(false)
   const [activeDeployment, setActiveDeployment] = useState<DeploymentType | null>(null)
+  const [selectedDeployment, setSelectedDeployment] = useState<DeploymentType | null>(null)
+  const [showWizard, setShowWizard]           = useState(false)
+  const [deployments, setDeployments]         = useState<DeploymentType[]>([])
+  const [loadingDeployments, setLoadingDeployments] = useState(false)
   const { showToast }                         = useToast()
   const [loadingKeys, setLoadingKeys]         = useState(false)
 
@@ -394,6 +398,39 @@ export default function Deployment() {
   useEffect(() => {
     localStorage.setItem('ccd_wizard_form_data', JSON.stringify(formData))
   }, [formData])
+
+  // Fetch all deployments
+  const fetchDeployments = useCallback(async () => {
+    setLoadingDeployments(true)
+    try {
+      const res = await api.get('/deployments')
+      setDeployments(res.data)
+    } catch (err) {
+      showToast('Failed to fetch deployments list', 'error')
+    } finally {
+      setLoadingDeployments(false)
+    }
+  }, [showToast])
+
+  useEffect(() => {
+    if (!activeDeployment && !selectedDeployment) {
+      fetchDeployments()
+    }
+  }, [activeDeployment, selectedDeployment, fetchDeployments])
+
+  // Refresh selected/viewed deployment details
+  const refreshViewingDeployment = useCallback(async () => {
+    const id = selectedDeployment?.id || activeDeployment?.id
+    if (!id) return
+    try {
+      const res = await api.get(`/deployments/${id}`)
+      if (selectedDeployment) {
+        setSelectedDeployment(res.data)
+      } else {
+        setActiveDeployment(res.data)
+      }
+    } catch (e) {}
+  }, [activeDeployment?.id, selectedDeployment])
 
   const canNext = () => {
     if (currentStep === 1) return formData.environment_id !== null && formData.repositories.length > 0
@@ -450,6 +487,12 @@ export default function Deployment() {
       setActiveDeployment(res.data)
       localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
       showToast('Deployment triggered successfully!', 'success')
+      // Reset wizard
+      localStorage.removeItem('ccd_wizard_step')
+      localStorage.removeItem('ccd_wizard_form_data')
+      setFormData(INIT_DATA)
+      setCurrentStep(1)
+      setShowWizard(false)
     } catch (err: any) {
       showToast(err.response?.data?.error || 'Deployment failed', 'error')
     } finally {
@@ -471,7 +514,8 @@ export default function Deployment() {
       localStorage.removeItem('ccd_wizard_form_data')
       setFormData(INIT_DATA)
       setCurrentStep(1)
-      navigate('/dashboard')
+      setShowWizard(false)
+      fetchDeployments()
     } catch (err: any) {
       showToast(err.response?.data?.error || 'Failed to save plan', 'error')
     } finally {
@@ -479,33 +523,45 @@ export default function Deployment() {
     }
   }
 
-  const refreshDeployment = useCallback(async () => {
-    if (!activeDeployment?.id) return
+  const handleExecuteDraft = async (id: number) => {
     try {
-      const res = await api.get(`/deployments/${activeDeployment.id}`)
+      const res = await api.post(`/deployments/${id}/execute`)
       setActiveDeployment(res.data)
-    } catch (e) { /* silent */ }
-  }, [activeDeployment?.id])
+      localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
+      showToast('Deployment triggered successfully!', 'success')
+    } catch (err: any) {
+      showToast(err.response?.data?.error || 'Failed to execute draft', 'error')
+    }
+  }
 
-  const handleReset = () => {
-    setFormData(INIT_DATA)
-    setCurrentStep(1)
+  const handleBackToList = () => {
     setActiveDeployment(null)
+    setSelectedDeployment(null)
     localStorage.removeItem('ccd_active_deployment_id')
-    localStorage.removeItem('ccd_wizard_step')
-    localStorage.removeItem('ccd_wizard_form_data')
+    fetchDeployments()
+  }
+
+  const viewingDeployment = selectedDeployment || activeDeployment
+
+  const listStatusColors: Record<string, string> = {
+    pending:   'badge-warning',
+    running:   'badge-accent animate-pulse',
+    success:   'badge-success',
+    failed:    'badge-danger',
+    cancelled: 'badge-muted',
+    draft:     'badge-muted',
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {activeDeployment ? (
+      {viewingDeployment ? (
         <ActiveDeploymentDashboard
-          deployment={activeDeployment}
-          onReset={handleReset}
-          onRefresh={refreshDeployment}
+          deployment={viewingDeployment}
+          onBack={handleBackToList}
+          onRefresh={refreshViewingDeployment}
         />
-      ) : (
-        /* Form Panel */
+      ) : showWizard ? (
+        /* Form Panel / Stepper Wizard */
         <div className="w-full">
           {/* Stepper header */}
           <div className="ccd-card p-5 mb-5">
@@ -514,14 +570,22 @@ export default function Deployment() {
 
           {/* Step content */}
           <div className="ccd-card p-6">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-ccd-border">
-              <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
-                0{currentStep}
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-ccd-border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
+                  0{currentStep}
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
+                  <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
-                <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
-              </div>
+              <button
+                onClick={() => setShowWizard(false)}
+                className="ccd-btn-secondary text-xs py-1.5 px-3 border border-ccd-border/50"
+              >
+                Cancel
+              </button>
             </div>
 
             {currentStep === 1 && <Step01Setup data={formData} onChange={updateData} />}
@@ -585,6 +649,183 @@ export default function Deployment() {
               </div>
             </div>
           </div>
+        </div>
+      ) : (
+        /* Deployments List Dashboard */
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-ccd-text">Deployments</h2>
+              <p className="text-sm text-ccd-text-muted mt-1">
+                Track and manage code deployments across your environment infrastructure.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowWizard(true)}
+              className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 shadow-lg shadow-ccd-accent/20 text-xs py-2.5 px-4 inline-flex items-center gap-2"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New Deployment
+            </button>
+          </div>
+
+          {loadingDeployments ? (
+            <div className="ccd-card p-20 flex justify-center items-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="spinner w-8 h-8" />
+                <p className="text-xs text-ccd-text-muted">Loading deployments...</p>
+              </div>
+            </div>
+          ) : deployments.length === 0 ? (
+            <div className="text-center py-20 bg-ccd-surface/10 border border-ccd-border rounded-xl">
+              <div className="w-16 h-16 rounded-full bg-ccd-accent/10 flex items-center justify-center mx-auto mb-4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-8 h-8 text-ccd-accent">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <h3 className="text-base font-bold text-ccd-text">No Deployments Found</h3>
+              <p className="text-xs text-ccd-text-muted mt-1 mb-6">Create your first deployment plan to get started.</p>
+              <button
+                onClick={() => setShowWizard(true)}
+                className="ccd-btn-primary text-xs py-2 px-4"
+              >
+                + Create Deployment
+              </button>
+            </div>
+          ) : (
+            <div className="ccd-card overflow-hidden">
+              <table className="ccd-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Environment</th>
+                    <th>Applications</th>
+                    <th>Notes</th>
+                    <th>Triggered By</th>
+                    <th>Executed At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deployments.map(d => {
+                    const reposList = d.repositories || []
+                    return (
+                      <tr key={d.id}>
+                        <td>
+                          <span className="font-mono text-xs font-bold text-ccd-text">#{d.id}</span>
+                        </td>
+                        <td>
+                          {d.environment ? (
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: d.environment.color }}
+                              />
+                              <span className="text-xs font-semibold">{d.environment.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-ccd-text-muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="flex flex-wrap gap-1.5 max-w-[280px]">
+                            {reposList.map((repo: any) => (
+                              <span
+                                key={repo.github_id || repo.name}
+                                className="badge-muted text-[10px] font-mono py-0.5 px-2"
+                              >
+                                {repo.name}{' '}
+                                {repo.branch && (
+                                  <span className="text-ccd-accent">{repo.branch}</span>
+                                )}
+                              </span>
+                            ))}
+                            {reposList.length === 0 && (
+                              <span className="text-xs text-ccd-text-muted">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="text-xs text-ccd-text-muted truncate max-w-[150px] block" title={d.notes || ''}>
+                            {d.notes || '—'}
+                          </span>
+                        </td>
+                        <td>
+                          {d.user ? (
+                            <div className="flex items-center gap-2">
+                              {d.user.avatar_url && (
+                                <img
+                                  src={d.user.avatar_url}
+                                  alt={d.user.login}
+                                  className="w-5 h-5 rounded-full border border-ccd-border"
+                                />
+                              )}
+                              <span className="text-xs">{d.user.name || d.user.login}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-ccd-text-muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="text-xs text-ccd-text-muted font-mono">
+                            {new Date(d.created_at).toLocaleString()}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`${listStatusColors[d.status] || 'badge-muted'} uppercase text-[9px] font-bold px-2 py-0.5 border`}>
+                            {d.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex gap-2">
+                            {d.status === 'draft' ? (
+                              <>
+                                <button
+                                  onClick={() => handleExecuteDraft(d.id)}
+                                  className="ccd-btn bg-ccd-success/15 hover:bg-ccd-success/25 text-ccd-success border border-ccd-success/20 text-[11px] py-1 px-2.5 rounded flex items-center gap-1"
+                                >
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3">
+                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                  </svg>
+                                  Execute
+                                </button>
+                                <button
+                                  onClick={() => setSelectedDeployment(d)}
+                                  className="ccd-btn-ghost text-[11px] py-1 px-2 border border-ccd-border/40 hover:bg-ccd-muted/30"
+                                >
+                                  Details
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => setSelectedDeployment(d)}
+                                className="ccd-btn-ghost text-[11px] py-1 px-2.5 border border-ccd-border/40 hover:bg-ccd-muted/30 flex items-center gap-1"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-ccd-text-muted">
+                                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <line x1="16" y1="13" x2="8" y2="13" />
+                                  <line x1="16" y1="17" x2="8" y2="17" />
+                                  <polyline points="10 9 9 9 8 9" />
+                                </svg>
+                                View Logs
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

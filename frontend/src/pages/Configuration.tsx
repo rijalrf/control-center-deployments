@@ -394,6 +394,127 @@ function ServersSection() {
   )
 }
 
+// ── System .env Editor Section ───────────────────────────────────
+function SystemEnvSection() {
+  const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const { showToast } = useToast()
+
+  const fetchEnv = async () => {
+    setLoading(true)
+    try {
+      const res = await api.get('/config/env')
+      setContent(res.data.content || '')
+    } catch (err) {
+      showToast('Failed to load system .env configuration', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEnv()
+  }, [])
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.post('/config/env', { content })
+      showToast('System .env configuration updated successfully!', 'success')
+    } catch (err: any) {
+      showToast(err.response?.data?.error || 'Failed to save configuration', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="ccd-card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-ccd-border">
+        <div className="text-sm font-semibold text-ccd-text">System Environment Variables (.env)</div>
+        <button
+          onClick={fetchEnv}
+          disabled={loading || saving}
+          className="ccd-btn-ghost text-xs px-2.5 py-1.5 border border-ccd-border/40 hover:bg-ccd-muted/30 flex items-center gap-1"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-ccd-text-muted">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 11-.57-8.38l5.67-5.67" />
+          </svg>
+          Reload
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        {/* Warning Alert */}
+        <div className="flex gap-3 p-4 rounded-xl bg-ccd-warning/10 border border-ccd-warning/20 text-ccd-warning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 shrink-0 mt-0.5">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" />
+          </svg>
+          <div className="text-xs space-y-1">
+            <span className="font-bold uppercase tracking-wide block">Warning</span>
+            <p>
+              Modifying the project's direct `.env` file changes the configuration of this Control Center application itself (including database hosts, ports, GitHub tokens, etc.). Make sure variables are correct. A manual restart of the Docker containers or Node processes might be required to apply these changes.
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <div className="spinner w-6 h-6" />
+              <p className="text-xs text-ccd-text-muted">Loading .env variables...</p>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="relative">
+              {/* Code Editor Styled Textarea */}
+              <div className="absolute top-3 left-4 flex gap-1.5 pointer-events-none">
+                <span className="w-2.5 h-2.5 rounded-full bg-ccd-danger/40" />
+                <span className="w-2.5 h-2.5 rounded-full bg-ccd-warning/40" />
+                <span className="w-2.5 h-2.5 rounded-full bg-ccd-success/40" />
+              </div>
+              <textarea
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                placeholder="# CCD System Environment Variables"
+                className="w-full min-h-[300px] h-[350px] bg-[#0d1117] border border-[#21262d] rounded-xl pt-10 pb-5 px-5 font-mono text-xs text-[#c9d1d9] focus:outline-none focus:ring-1 focus:ring-ccd-accent focus:border-ccd-accent whitespace-pre overflow-x-auto leading-relaxed scrollbar-thin scrollbar-thumb-[#21262d] scrollbar-track-transparent"
+                style={{ tabSize: 4 }}
+              />
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="ccd-btn-primary text-xs py-2 px-5 bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 shadow-lg shadow-ccd-accent/25"
+              >
+                {saving ? (
+                  <>
+                    <div className="spinner w-4 h-4 border-t-transparent animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                      <polyline points="17 21 17 13 7 13 7 21" />
+                      <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                    Save Configuration
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main Configuration Page ───────────────────────────────────
 export default function Configuration() {
   return (
@@ -404,6 +525,7 @@ export default function Configuration() {
       </div>
       <EnvironmentsSection />
       <ServersSection />
+      <SystemEnvSection />
     </div>
   )
 }
