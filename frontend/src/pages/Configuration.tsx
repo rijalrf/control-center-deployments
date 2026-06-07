@@ -312,7 +312,21 @@ function ServersSection() {
   const [saving, setSaving]       = useState(false)
   const [form, setForm]           = useState({ name: '', host: '', port: '22', username: '', environment_id: '' })
   const [error, setError]         = useState('')
+  const [pingingId, setPingingId] = useState<number | null>(null)
   const { showToast }             = useToast()
+
+  const testConnection = async (id: number) => {
+    setPingingId(id)
+    try {
+      const res = await api.post(`/servers/${id}/ping`)
+      showToast(res.data.message || 'Connection test completed', res.data.status === 'active' ? 'success' : 'error')
+      fetch()
+    } catch (err: unknown) {
+      showToast(getApiErrorMessage(err, 'Failed to test connection'), 'error')
+    } finally {
+      setPingingId(null)
+    }
+  }
 
   const fetch = () => {
     setLoading(true)
@@ -442,13 +456,29 @@ function ServersSection() {
                   </td>
                   <td><span className={STATUS_COLORS[srv.status || 'unknown'] || 'badge-muted'}>{srv.status || 'unknown'}</span></td>
                   <td>
-                    <button onClick={() => setDelTarget(srv)} className="ccd-btn-ghost p-1.5">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-danger">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                        <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                      </svg>
-                    </button>
+                    <div className="flex gap-1 justify-end">
+                      <button
+                        onClick={() => testConnection(srv.id)}
+                        disabled={pingingId !== null}
+                        className="ccd-btn-ghost p-1.5"
+                        title="Test connection"
+                      >
+                        {pingingId === srv.id ? (
+                          <div className="spinner w-4 h-4 border-t-transparent" />
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-accent">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                          </svg>
+                        )}
+                      </button>
+                      <button onClick={() => setDelTarget(srv)} className="ccd-btn-ghost p-1.5" title="Delete server">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-danger">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

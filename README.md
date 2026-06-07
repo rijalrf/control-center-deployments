@@ -1,5 +1,3 @@
-<div align="center">
-
 # 🚀 Control Center Deployment
 
 **Dashboard terpusat untuk mengelola deployment ke remote server via GitHub Actions.**
@@ -16,20 +14,20 @@
 
 ## ✨ Fitur
 
-| Fitur | Deskripsi |
-|---|---|
-| 🔐 **GitHub OAuth** | Login aman via GitHub |
-| 📦 **Repository Registry** | Sinkronisasi repo dari GitHub API |
-| 🚀 **Deployment Wizard** | Alur 3-step: Setup → Konfigurasi → Review & Eksekusi |
-| 📊 **Live Monitoring** | Pelacakan real-time status pipeline GitHub Actions |
-| ⚙️ **Infrastructure Config** | Manajemen Environment dan Server |
-| 📋 **Deployment History** | Riwayat lengkap semua deployment |
+| Fitur                        | Deskripsi                                            |
+| ---------------------------- | ---------------------------------------------------- |
+| 🔐 **GitHub OAuth**          | Login aman via GitHub                                |
+| 📦 **Repository Registry**   | Sinkronisasi repo dari GitHub API                    |
+| 🚀 **Deployment Wizard**     | Alur 3-step: Setup → Konfigurasi → Review & Eksekusi |
+| 📊 **Live Monitoring**       | Pelacakan real-time status pipeline GitHub Actions   |
+| ⚙️ **Infrastructure Config** | Manajemen Environment dan Server                     |
+| 📋 **Deployment History**    | Riwayat lengkap semua deployment                     |
 
 ---
 
 ## 🏗️ Arsitektur
 
-```
+```plain
 Browser ──► Frontend (React)  ──► Backend (Express API) ──► MySQL
                                         │
                                         └──► GitHub Actions (trigger & polling)
@@ -39,14 +37,14 @@ Browser ──► Frontend (React)  ──► Backend (Express API) ──► My
 
 ### Tech Stack
 
-| Layer | Teknologi |
-|---|---|
-| Frontend | React 18, Vite, Tailwind CSS, TypeScript |
-| Backend | Node.js, Express, Sequelize ORM, TypeScript |
-| Database | MySQL 8 |
-| Auth | GitHub OAuth 2.0 + JWT (httpOnly cookie) |
-| CI/CD | GitHub Actions (workflow dispatch) |
-| Infra | Docker + Docker Compose |
+| Layer    | Teknologi                                   |
+| -------- | ------------------------------------------- |
+| Frontend | React 18, Vite, Tailwind CSS, TypeScript    |
+| Backend  | Node.js, Express, Sequelize ORM, TypeScript |
+| Database | MySQL 8                                     |
+| Auth     | GitHub OAuth 2.0 + JWT (httpOnly cookie)    |
+| CI/CD    | GitHub Actions (workflow dispatch)          |
+| Infra    | Docker + Docker Compose                     |
 
 ---
 
@@ -72,13 +70,13 @@ cp .env.example .env
 
 Edit `.env` dan isi variabel berikut:
 
-| Variabel | Deskripsi |
-|---|---|
-| `GITHUB_CLIENT_ID` | Client ID dari GitHub OAuth App |
-| `GITHUB_CLIENT_SECRET` | Client Secret dari GitHub OAuth App |
-| `GITHUB_TOKEN` | Personal Access Token (scope: `repo`, `workflow`) |
-| `GITHUB_ORG` | Nama organisasi GitHub *(opsional, untuk sync repo org)* |
-| `JWT_SECRET` | String random panjang untuk signing JWT |
+| Variabel               | Deskripsi                                                |
+| ---------------------- | -------------------------------------------------------- |
+| `GITHUB_CLIENT_ID`     | Client ID dari GitHub OAuth App                          |
+| `GITHUB_CLIENT_SECRET` | Client Secret dari GitHub OAuth App                      |
+| `GITHUB_TOKEN`         | Personal Access Token (scope: `repo`, `workflow`)        |
+| `GITHUB_ORG`           | Nama organisasi GitHub _(opsional, untuk sync repo org)_ |
+| `JWT_SECRET`           | String random panjang untuk signing JWT                  |
 
 ---
 
@@ -98,13 +96,13 @@ Edit `.env` dan isi variabel berikut:
 Aplikasi ini menggunakan repository pusat (repo ini) untuk menjalankan GitHub Actions deployment.  
 Tambahkan secrets berikut di **Settings → Secrets and variables → Actions**:
 
-| Secret | Deskripsi |
-|---|---|
-| `GIT_TOKEN` | Personal Access Token (PAT) dengan scope `repo` & `workflow` |
-| `DOCKERHUB_USERNAME` | Username Docker Hub (untuk push/pull image) |
-| `DOCKERHUB_TOKEN` | Access Token Docker Hub |
-| `SSH_KEY_PRODUCTION` | SSH Private Key untuk server Production |
-| `SSH_KEY_STAGING` | SSH Private Key untuk server Staging |
+| Secret               | Deskripsi                                                    |
+| -------------------- | ------------------------------------------------------------ |
+| `GIT_TOKEN`          | Personal Access Token (PAT) dengan scope `repo` & `workflow` |
+| `DOCKERHUB_USERNAME` | Username Docker Hub (untuk push/pull image)                  |
+| `DOCKERHUB_TOKEN`    | Access Token Docker Hub                                      |
+| `SSH_KEY_PRODUCTION` | SSH Private Key untuk server Production                      |
+| `SSH_KEY_STAGING`    | SSH Private Key untuk server Staging                         |
 
 ---
 
@@ -118,17 +116,17 @@ docker-compose up --build -d
 
 ### 5. Akses aplikasi
 
-| Service | URL |
-|---|---|
-| 🖥️ Frontend | <http://localhost:3000> |
-| ⚙️ Backend API | <http://localhost:5000> |
+| Service         | URL                                |
+| --------------- | ---------------------------------- |
+| 🖥️ Frontend     | <http://localhost:3000>            |
+| ⚙️ Backend API  | <http://localhost:5000>            |
 | 💚 Health Check | <http://localhost:5000/api/health> |
 
 ---
 
 ## 📁 Struktur Project
 
-```
+```plan
 center-control-deployments/
 ├── docker-compose.yml
 ├── .env.example
@@ -158,13 +156,13 @@ center-control-deployments/
 
 ## 🐳 Docker Resources
 
-| Resource | Name |
-|---|---|
-| Network | `center-deployment-network` |
-| DB Volume | `ccd-mysql-data` |
-| Container: Frontend | `ccd-frontend` |
-| Container: Backend | `ccd-backend` |
-| Container: Database | `ccd-mysql` |
+| Resource            | Name                        |
+| ------------------- | --------------------------- |
+| Network             | `center-deployment-network` |
+| DB Volume           | `ccd-mysql-data`            |
+| Container: Frontend | `ccd-frontend`              |
+| Container: Backend  | `ccd-backend`               |
+| Container: Database | `ccd-mysql`                 |
 
 ---
 
