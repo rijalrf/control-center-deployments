@@ -87,9 +87,10 @@ interface ActiveDeploymentDashboardProps {
   onBack: () => void;
   onRefresh: () => void;
   onRetry?: (id: number) => void;
+  onEditPlan?: (d: DeploymentType) => void;
 }
 
-function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: ActiveDeploymentDashboardProps) {
+function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onEditPlan }: ActiveDeploymentDashboardProps) {
   const steps = deployment.steps || []
   const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number)
   const logsContainerRef = useRef<HTMLDivElement>(null)
@@ -366,6 +367,19 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
                 <path d="M8 21H3v-5" />
               </svg>
               Try Again
+            </button>
+          )}
+          {overallStatus !== 'running' && overallStatus !== 'pending' && onEditPlan && (
+            <button
+              onClick={() => onEditPlan(deployment)}
+              className="ccd-btn-secondary text-xs py-2 px-4 border border-ccd-border/50 flex items-center gap-1.5"
+              title="Muat konfigurasi ini ke Wizard untuk diedit dan dijalankan ulang"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit / Reuse Plan
             </button>
           )}
           <button
@@ -1189,6 +1203,40 @@ export default function Deployment() {
     }
   }
 
+  const handleEditPlan = (d: DeploymentType) => {
+    const reposForForm: Repository[] = (d.repositories || []).map(dr => ({
+      id: parseInt(dr.github_id) || 0,
+      github_id: dr.github_id,
+      name: dr.name,
+      full_name: dr.full_name,
+      description: '',
+      url: '',
+      clone_url: dr.clone_url || '',
+      language: '',
+      default_branch: dr.default_branch || 'main',
+      visibility: 'private',
+      synced_at: '',
+      branch: dr.branch,
+      docker_image_name: dr.docker_image_name || '',
+    }))
+
+    setFormData({
+      environment_id: d.environment_id,
+      environment: d.environment || null,
+      repositories: reposForForm,
+      config: d.config || {},
+    })
+
+    setIsValidated(false)
+    setValidationResults({})
+    setCurrentStep(1)
+    setShowWizard(true)
+    
+    setSelectedDeployment(null)
+    setActiveDeployment(null)
+    localStorage.removeItem('ccd_active_deployment_id')
+  }
+
   const handleBackToList = () => {
     setActiveDeployment(null)
     setSelectedDeployment(null)
@@ -1215,6 +1263,7 @@ export default function Deployment() {
           onBack={handleBackToList}
           onRefresh={refreshViewingDeployment}
           onRetry={handleRetry}
+          onEditPlan={handleEditPlan}
         />
       ) : showWizard ? (
         /* Form Panel / Stepper Wizard */
