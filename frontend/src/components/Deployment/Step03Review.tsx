@@ -61,8 +61,9 @@ export default function Step03Review({ data, validationResults = {} }: Step03Rev
           <div className="space-y-3">
             {repositories.map(repo => {
               const result = validationResults[repo.id];
-              const validatedBranch = result?.resolved_branch || repo.default_branch;
-              const fallbackUsed = result?.fallback_used;
+              const targetBranch = environment?.target_branch || (environment?.name?.toLowerCase() === 'production' ? 'main' : 'staging');
+              const validatedBranch = result?.resolved_branch || repo.branch || targetBranch || repo.default_branch;
+              const fallbackUsed = result?.fallback_used || repo.fallback_used;
               return (
                 <div key={repo.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 rounded-xl bg-ccd-muted/20 border border-ccd-border/30 hover:border-ccd-border/80 transition-all duration-150">
                   <div className="flex items-start gap-3 min-w-0">

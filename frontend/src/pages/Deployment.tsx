@@ -769,6 +769,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
 }
 export default function Deployment() {
   const navigate = useNavigate()
+  const isFirstRender = useRef(true)
   const [currentStep, setCurrentStep]         = useState<number>(() => {
     const saved = localStorage.getItem('ccd_wizard_step')
     return saved ? Number(saved) : 1
@@ -944,6 +945,10 @@ export default function Deployment() {
   }, [formData.repositories])
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
     setIsValidated(false)
     setValidationResults({})
     localStorage.removeItem('ccd_wizard_is_validated')
@@ -1760,7 +1765,9 @@ export default function Deployment() {
                       <div className="pl-3 border-l-2 border-ccd-accent/30 flex flex-col gap-2.5 text-[10px] text-ccd-text-dim max-h-40 overflow-y-auto pr-1">
                         {formData.repositories.map(repo => {
                           const result = validationResults[repo.id];
-                          const validatedBranch = result?.resolved_branch || repo.default_branch;
+                          const env = formData.environment;
+                          const targetBranch = env?.target_branch || (env?.name?.toLowerCase() === 'production' ? 'main' : 'staging');
+                          const validatedBranch = result?.resolved_branch || repo.branch || targetBranch || repo.default_branch;
                           const versionTag = formData.config[repo.name]?.['VERSION_TAG'] || 'latest';
                           
                           let displayImage = '';
