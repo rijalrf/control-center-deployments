@@ -15,6 +15,8 @@ interface Step01SetupProps {
     desired_branch: string;
     exists: boolean;
     fallback_used: boolean;
+    dockerfile_exists: boolean;
+    docker_compose_exists: boolean;
   }>;
 }
 
@@ -213,43 +215,98 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    {!isValidated ? (
-                      <div className="flex flex-col items-end">
-                        <span className="text-xs font-mono badge-muted">
-                          {repo.default_branch}
-                        </span>
-                        <span className="text-[10px] text-ccd-text-muted mt-0.5">
-                          default branch
-                        </span>
-                      </div>
-                    ) : (
-                      (() => {
+                    <div className="flex flex-col items-end gap-1.5">
+                      {/* Branch validation status */}
+                      {!isValidated ? (
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs font-mono badge-muted">
+                            {repo.default_branch}
+                          </span>
+                          <span className="text-[10px] text-ccd-text-muted mt-0.5">
+                            default branch
+                          </span>
+                        </div>
+                      ) : (
+                        (() => {
+                          const result = validationResults?.[repo.id];
+                          if (result?.fallback_used) {
+                            return (
+                              <div className="flex flex-col items-end">
+                                <span className="text-xs font-mono badge-danger">
+                                  {repo.default_branch}
+                                </span>
+                                <span className="text-[10px] text-ccd-danger mt-0.5 font-semibold">
+                                  Staging branch not found (Fallback)
+                                </span>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="flex flex-col items-end">
+                                <span className="text-xs font-mono badge-success">
+                                  {result?.resolved_branch || repo.default_branch}
+                                </span>
+                                <span className="text-[10px] text-ccd-success mt-0.5 font-semibold">
+                                  Branch validated
+                                </span>
+                              </div>
+                            );
+                          }
+                        })()
+                      )}
+
+                      {/* File validation indicators (shown only after validation) */}
+                      {isValidated && (() => {
                         const result = validationResults?.[repo.id];
-                        if (result?.fallback_used) {
-                          return (
-                            <div className="flex flex-col items-end">
-                              <span className="text-xs font-mono badge-danger">
-                                {repo.default_branch}
-                              </span>
-                              <span className="text-[10px] text-ccd-danger mt-0.5 font-semibold">
-                                Staging branch not found (Fallback)
-                              </span>
+                        if (!result) return null;
+                        return (
+                          <div className="flex flex-col gap-1 mt-0.5 items-end">
+                            {/* Dockerfile — REQUIRED */}
+                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                              result.dockerfile_exists
+                                ? 'bg-ccd-success/10 border-ccd-success/30 text-ccd-success'
+                                : 'bg-ccd-danger/10 border-ccd-danger/40 text-ccd-danger'
+                            }`}>
+                              {result.dockerfile_exists ? (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3 shrink-0">
+                                  <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3 shrink-0">
+                                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                              )}
+                              <span>Dockerfile {result.dockerfile_exists ? 'found' : 'MISSING'}</span>
+                              {!result.dockerfile_exists && (
+                                <span className="ml-0.5 bg-ccd-danger text-white text-[8px] px-1 py-0.5 rounded font-bold uppercase tracking-wider">Required</span>
+                              )}
                             </div>
-                          );
-                        } else {
-                          return (
-                            <div className="flex flex-col items-end">
-                              <span className="text-xs font-mono badge-success">
-                                {result?.resolved_branch || repo.default_branch}
-                              </span>
-                              <span className="text-[10px] text-ccd-success mt-0.5 font-semibold">
-                                Branch validated
-                              </span>
+
+                            {/* docker-compose.yml — OPTIONAL */}
+                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                              result.docker_compose_exists
+                                ? 'bg-ccd-success/10 border-ccd-success/30 text-ccd-success'
+                                : 'bg-ccd-warning/10 border-ccd-warning/30 text-ccd-warning'
+                            }`}>
+                              {result.docker_compose_exists ? (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3 shrink-0">
+                                  <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0">
+                                  <path d="M12 9v4M12 17h.01" />
+                                  <circle cx="12" cy="12" r="10" />
+                                </svg>
+                              )}
+                              <span>docker-compose.yml {result.docker_compose_exists ? 'found' : 'not found'}</span>
+                              {!result.docker_compose_exists && (
+                                <span className="ml-0.5 bg-ccd-warning/70 text-ccd-bg text-[8px] px-1 py-0.5 rounded font-bold uppercase tracking-wider">Optional</span>
+                              )}
                             </div>
-                          );
-                        }
-                      })()
-                    )}
+                          </div>
+                        );
+                      })()}
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeRepo(repo)}
