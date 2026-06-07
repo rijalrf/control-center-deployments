@@ -84,7 +84,8 @@ class DeploymentService {
             const server = await Server_1.Server.findOne({ where: { environment_id: data.environment_id } });
             const serverHost = server?.host ?? 'localhost';
             const serverUsername = server?.username ?? 'deploy';
-            const envSuffix = envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+            const targetBranch = envObj?.target_branch?.trim().toLowerCase() || (envName.toLowerCase() === 'production' ? 'main' : 'staging');
+            const envSuffix = targetBranch === 'main' ? 'PRODUCTION' : 'STAGING';
             const runsInfo = [];
             for (const r of data.repositories) {
                 const repoConfig = data.config[r.name] ?? {};
@@ -240,17 +241,19 @@ class DeploymentService {
                         console.error('Failed to update step logs:', logErr instanceof Error ? logErr.message : logErr);
                     }
                 }
-                // 5. Check if all workflows finished
-                const allCompleted = runsMap.every((r) => r.status === 'completed');
+                // 5. Check if any workflow failed
                 const anyFailed = runsMap.some((r) => r.conclusion === 'failure' || r.conclusion === 'cancelled' || r.conclusion === 'timed_out');
+                if (anyFailed) {
+                    clearInterval(timer);
+                    await Deployment_1.Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
+                    // Update all remaining non-completed steps of this deployment to failed
+                    await DeploymentStep_1.DeploymentStep.update({ status: 'failed', completed_at: new Date() }, { where: { deployment_id: deploymentId, status: ['pending', 'running'] } });
+                    return;
+                }
+                const allCompleted = runsMap.every((r) => r.status === 'completed');
                 if (allCompleted) {
                     clearInterval(timer);
-                    if (anyFailed) {
-                        await Deployment_1.Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
-                    }
-                    else {
-                        await Deployment_1.Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
-                    }
+                    await Deployment_1.Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
                 }
             }
             catch (err) {
