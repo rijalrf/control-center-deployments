@@ -143,23 +143,23 @@ services:
       <div className="flex flex-col md:flex-row gap-8">
         
         {/* Left Navigation Sidebar */}
-        <div className="w-full md:w-64 shrink-0">
-          <div className="sticky top-6 flex flex-col gap-2">
-            <h2 className="text-xs font-bold text-ccd-text-muted uppercase tracking-wider px-3 mb-2">
-              Dokumentasi Menu
+        <div className="w-full md:w-56 shrink-0">
+          <div className="sticky top-6 flex flex-col">
+            <h2 className="text-[11px] font-bold text-ccd-text-muted uppercase tracking-wider mb-3 px-3">
+              Dokumentasi
             </h2>
-            <div className="bg-ccd-card border border-ccd-border rounded-xl p-2 flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               {sections.map(section => (
                 <button
                   key={section.id}
                   onClick={() => setActiveTab(section.id)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 text-left ${
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-150 text-left ${
                     activeTab === section.id
-                      ? 'bg-ccd-accent/15 text-ccd-accent border border-ccd-accent/20'
-                      : 'text-ccd-text-muted hover:text-ccd-text hover:bg-ccd-muted/40'
+                      ? 'bg-ccd-accent/10 text-ccd-accent font-semibold'
+                      : 'text-ccd-text-dim hover:text-ccd-text hover:bg-ccd-muted/20 font-medium'
                   }`}
                 >
-                  <span className={activeTab === section.id ? 'text-ccd-accent' : 'text-ccd-text-muted'}>
+                  <span className={activeTab === section.id ? 'text-ccd-accent' : 'text-ccd-text-muted opacity-70'}>
                     {section.icon}
                   </span>
                   <span className="truncate">{section.title}</span>
@@ -170,7 +170,7 @@ services:
         </div>
 
         {/* Right Content Area */}
-        <div className="flex-1 min-w-0 bg-ccd-card border border-ccd-border rounded-xl p-6 md:p-8">
+        <div className="flex-1 min-w-0 md:pl-6 lg:pl-10 pt-1 pb-16">
           
           {/* Tab: Overview */}
           {activeTab === 'overview' && (
