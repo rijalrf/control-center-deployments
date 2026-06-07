@@ -262,28 +262,33 @@ export class GitHubService {
 
   /**
    * Search for a file in multiple candidate paths (root first, then common subdirs).
+   * Accepts one filename or multiple variants (e.g. ['docker-compose.yml', 'docker-compose.yaml']).
+   * Each variant is tried with its original case AND lowercase per directory.
    * Returns the path where the file was found, or null if not found anywhere.
    */
   static async findFile(
     accessToken: string | null,
     owner: string,
     repo: string,
-    filename: string,
+    filename: string | string[],
     ref: string,
     extraPaths: string[] = [],
   ): Promise<string | null> {
     const token   = this.getEffectiveToken(accessToken);
     const octokit = new Octokit({ auth: token });
 
-    const lower = filename.toLowerCase();
+    const names = Array.isArray(filename) ? filename : [filename];
+    const dirs  = ['', '.docker/', 'docker/', 'deploy/', 'deployment/', 'infra/', 'config/'];
 
-    // Build candidate paths: each directory tried with original case AND lowercase
-    const dirs = ['', '.docker/', 'docker/', 'deploy/', 'deployment/', 'infra/', 'config/'];
+    // Build candidate list: for each dir, try each name variant + its lowercase
     const candidates: string[] = [];
     for (const dir of dirs) {
-      candidates.push(`${dir}${filename}`);           // e.g. Dockerfile, .docker/Dockerfile
-      if (lower !== filename) {
-        candidates.push(`${dir}${lower}`);            // e.g. dockerfile, .docker/dockerfile
+      for (const name of names) {
+        candidates.push(`${dir}${name}`);
+        const lower = name.toLowerCase();
+        if (lower !== name) {
+          candidates.push(`${dir}${lower}`);
+        }
       }
     }
     candidates.push(...extraPaths);

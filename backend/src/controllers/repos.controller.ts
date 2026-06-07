@@ -117,14 +117,14 @@ export class ReposController {
             // ignore
           }
 
-          // Search for docker-compose.yml (also .yaml variant) in common locations
+          // Search for docker-compose.yml / .yaml in common locations (same logic as Dockerfile)
           let dockerComposePath: string | null = null;
           try {
-            // Try .yml first, then .yaml
-            dockerComposePath = await GitHubService.findFile(userToken, repoOwner, repoNameOnly, 'docker-compose.yml', resolvedBranch);
-            if (!dockerComposePath) {
-              dockerComposePath = await GitHubService.findFile(userToken, repoOwner, repoNameOnly, 'docker-compose.yaml', resolvedBranch);
-            }
+            dockerComposePath = await GitHubService.findFile(
+              userToken, repoOwner, repoNameOnly,
+              ['docker-compose.yml', 'docker-compose.yaml'],
+              resolvedBranch,
+            );
           } catch (err) {
             // ignore
           }
