@@ -6,8 +6,13 @@ const DeploymentStep_1 = require("../models/DeploymentStep");
 const Environment_1 = require("../models/Environment");
 const User_1 = require("../models/User");
 const deployment_service_1 = require("../services/deployment.service");
+// Reusable include for fetching a deployment with its relations
+const DEPLOYMENT_INCLUDES = [
+    { model: Environment_1.Environment, as: 'environment' },
+    { model: DeploymentStep_1.DeploymentStep, as: 'steps' },
+];
 class DeploymentsController {
-    static async list(req, res, next) {
+    static async list(_req, res, next) {
         try {
             const deployments = await Deployment_1.Deployment.findAll({
                 include: [
@@ -33,7 +38,8 @@ class DeploymentsController {
                 ],
             });
             if (!deployment) {
-                return res.status(404).json({ error: 'Deployment not found' });
+                res.status(404).json({ error: 'Deployment not found' });
+                return;
             }
             res.json(deployment);
         }
@@ -45,25 +51,21 @@ class DeploymentsController {
         try {
             const { environment_id, repositories, config, notes, status } = req.body;
             if (!environment_id || !repositories?.length) {
-                return res.status(400).json({ error: 'environment_id and repositories are required' });
+                res.status(400).json({ error: 'environment_id and repositories are required' });
+                return;
             }
             const userId = req.user.id;
-            const userToken = req.user.access_token || '';
+            const userToken = req.user.access_token ?? '';
             const deployment = await deployment_service_1.DeploymentService.createDeployment({
                 environment_id,
                 user_id: userId,
                 repositories,
-                config: config || {},
+                config: config ?? {},
                 notes,
                 accessToken: userToken,
                 status,
             });
-            const result = await Deployment_1.Deployment.findByPk(deployment.id, {
-                include: [
-                    { model: Environment_1.Environment, as: 'environment' },
-                    { model: DeploymentStep_1.DeploymentStep, as: 'steps' },
-                ],
-            });
+            const result = await Deployment_1.Deployment.findByPk(deployment.id, { include: DEPLOYMENT_INCLUDES });
             res.status(201).json(result);
         }
         catch (err) {
@@ -75,7 +77,8 @@ class DeploymentsController {
             const { status } = req.body;
             const deployment = await Deployment_1.Deployment.findByPk(req.params.id);
             if (!deployment) {
-                return res.status(404).json({ error: 'Not found' });
+                res.status(404).json({ error: 'Not found' });
+                return;
             }
             await deployment.update({ status });
             res.json(deployment);
@@ -91,7 +94,8 @@ class DeploymentsController {
                 where: { deployment_id: req.params.id, step_number: req.params.stepNumber },
             });
             if (!step) {
-                return res.status(404).json({ error: 'Step not found' });
+                res.status(404).json({ error: 'Step not found' });
+                return;
             }
             const updates = { status };
             if (log !== undefined)
@@ -112,14 +116,21 @@ class DeploymentsController {
     static async executeDraft(req, res, next) {
         try {
             const deploymentId = parseInt(req.params.id, 10);
-            const userToken = req.user.access_token || '';
+            const userToken = req.user.access_token ?? '';
             const deployment = await deployment_service_1.DeploymentService.executeDraftDeployment(deploymentId, userToken);
-            const result = await Deployment_1.Deployment.findByPk(deployment.id, {
-                include: [
-                    { model: Environment_1.Environment, as: 'environment' },
-                    { model: DeploymentStep_1.DeploymentStep, as: 'steps' },
-                ],
-            });
+            const result = await Deployment_1.Deployment.findByPk(deployment.id, { include: DEPLOYMENT_INCLUDES });
+            res.json(result);
+        }
+        catch (err) {
+            next(err);
+        }
+    }
+    static async retry(req, res, next) {
+        try {
+            const deploymentId = parseInt(req.params.id, 10);
+            const userToken = req.user.access_token ?? '';
+            const deployment = await deployment_service_1.DeploymentService.retryDeployment(deploymentId, userToken);
+            const result = await Deployment_1.Deployment.findByPk(deployment.id, { include: DEPLOYMENT_INCLUDES });
             res.json(result);
         }
         catch (err) {

@@ -49,23 +49,49 @@ async function start() {
     await sequelize.sync();
     console.log('✅ Models synchronized');
 
-    // Seed default admin user if no users exist
+    // Seed default users if they don't exist
     try {
-      const userCount = await User.count();
-      if (userCount === 0) {
-        const defaultPasswordHash = crypto.createHash('sha256').update('admin').digest('hex');
-        await User.create({
+      const defaultPasswordHash = crypto.createHash('sha256').update('admin').digest('hex');
+      
+      // Ensure admin exists
+      const [adminUser, adminCreated] = await User.findOrCreate({
+        where: { login: 'admin' },
+        defaults: {
           github_id: 'admin_local',
           login: 'admin',
           name: 'Administrator',
           email: 'admin@local.com',
           password: defaultPasswordHash,
           avatar_url: 'https://avatars.githubusercontent.com/u/9919?v=4'
-        });
-        console.log('✅ Default admin user seeded (login: admin / pass: admin)');
+        }
+      });
+      if (adminCreated) {
+        console.log('✅ Default user admin seeded (pass: admin)');
+      } else if (!adminUser.password) {
+        await adminUser.update({ password: defaultPasswordHash });
+        console.log('✅ Default user admin updated with password');
+      }
+
+      // Ensure rijal exists
+      const [rijalUser, rijalCreated] = await User.findOrCreate({
+        where: { login: 'rijal' },
+        defaults: {
+          github_id: 'rijal_local',
+          login: 'rijal',
+          name: 'Rijal',
+          email: 'rijal@local.com',
+          password: defaultPasswordHash,
+          avatar_url: 'https://avatars.githubusercontent.com/u/10660468?v=4'
+        }
+      });
+      if (rijalCreated) {
+        console.log('✅ Default user rijal seeded (pass: admin)');
+      } else if (!rijalUser.password) {
+        await rijalUser.update({ password: defaultPasswordHash });
+        console.log('✅ Default user rijal updated with password');
       }
     } catch (err: unknown) {
-      console.error('⚠️ Failed to seed default admin user:', err instanceof Error ? err.message : String(err));
+      console.error('⚠️ Failed to seed default users:', err instanceof Error ? err.message : String(err));
     }
 
     app.listen(PORT, '0.0.0.0', () => {

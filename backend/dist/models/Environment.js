@@ -15,6 +15,7 @@ Environment.init({
     slug: { type: sequelize_1.DataTypes.STRING(100), allowNull: false, unique: true },
     description: { type: sequelize_1.DataTypes.TEXT, allowNull: true },
     color: { type: sequelize_1.DataTypes.STRING(20), defaultValue: '#06b6d4' },
+    target_branch: { type: sequelize_1.DataTypes.STRING(100), allowNull: true, defaultValue: 'main' },
 }, {
     sequelize: database_1.default,
     tableName: 'environments',

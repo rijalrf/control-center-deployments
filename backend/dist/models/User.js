@@ -17,6 +17,7 @@ User.init({
     email: { type: sequelize_1.DataTypes.STRING(200), allowNull: true },
     avatar_url: { type: sequelize_1.DataTypes.TEXT, allowNull: true },
     access_token: { type: sequelize_1.DataTypes.TEXT, allowNull: true },
+    password: { type: sequelize_1.DataTypes.STRING(255), allowNull: true },
 }, {
     sequelize: database_1.default,
     tableName: 'users',

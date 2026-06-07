@@ -14,7 +14,7 @@ exports.env = {
     PORT: parseInt(process.env.BACKEND_PORT || '5000', 10),
     FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
     JWT_SECRET: process.env.JWT_SECRET || 'supersecret',
-    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+    JWT_EXPIRES_IN: (process.env.JWT_EXPIRES_IN || '7d'),
     // Database Configuration
     db: {
         host: process.env.DB_HOST || 'ccd-mysql',
