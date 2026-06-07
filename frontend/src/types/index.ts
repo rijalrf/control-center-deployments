@@ -55,6 +55,7 @@ export interface Repository {
   synced_at: string | null;
   branch?: string;
   fallback_used?: boolean;
+  docker_image_name?: string | null;
 }
 
 export interface DeploymentRepository {
@@ -64,6 +65,7 @@ export interface DeploymentRepository {
   branch: string;
   clone_url?: string | null;
   default_branch?: string;
+  docker_image_name?: string | null;
 }
 
 export type DeploymentConfig = Record<string, Record<string, string>>;

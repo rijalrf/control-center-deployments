@@ -871,6 +871,13 @@ export default function Deployment() {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ type: 'wizard' | 'draft'; draftId?: number } | null>(null)
 
+  const draftDetails = useMemo(() => {
+    if (confirmAction?.type === 'draft' && confirmAction.draftId) {
+      return deployments.find(d => d.id === confirmAction.draftId) || null
+    }
+    return null
+  }, [confirmAction, deployments])
+
   const updateData = (patch: Partial<FormData>) => setFormData(prev => ({ ...prev, ...patch }))
 
   // Restore active deployment on mount
@@ -1652,30 +1659,68 @@ export default function Deployment() {
               <p className="text-ccd-text-dim leading-relaxed">
                 Anda akan memulai proses deployment ke server. Hal ini akan memicu pipeline GitHub Actions untuk membangun dan memperbarui container aplikasi Anda.
               </p>
-              <div className="border-t border-ccd-border/30 pt-3 flex flex-col gap-1.5 font-mono text-[11px]">
+              <div className="border-t border-ccd-border/30 pt-3 flex flex-col gap-3 font-mono text-[11px]">
                 {confirmAction?.type === 'wizard' ? (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-ccd-text-muted">Environment:</span>
+                    <div className="flex justify-between border-b border-ccd-border/10 pb-2">
+                      <span className="text-ccd-text-muted font-sans font-semibold">Environment:</span>
                       <span className="text-ccd-accent font-semibold">{formData.environment?.name || 'Staging'}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-ccd-text-muted">Applications:</span>
-                      <span className="text-ccd-text font-medium truncate max-w-[200px]" title={formData.repositories.map(r => r.name).join(', ')}>
-                        {formData.repositories.map(r => r.name).join(', ')}
-                      </span>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-ccd-text-muted font-sans font-semibold mb-1">Applications to Deploy:</span>
+                      <div className="pl-3 border-l-2 border-ccd-accent/30 flex flex-col gap-2.5 text-[10px] text-ccd-text-dim max-h-40 overflow-y-auto pr-1">
+                        {formData.repositories.map(repo => {
+                          const result = validationResults[repo.id];
+                          const validatedBranch = result?.resolved_branch || repo.default_branch;
+                          return (
+                            <div key={repo.id} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
+                              <div className="flex justify-between font-semibold">
+                                <span className="text-ccd-text">{repo.name}</span>
+                                <span className="text-ccd-cyan">{validatedBranch}</span>
+                              </div>
+                              <div className="flex justify-between text-[9px] text-ccd-text-muted">
+                                <span>Image:</span>
+                                <span className="truncate max-w-[190px] font-mono">
+                                  {repo.docker_image_name || `${repo.name}:latest (default)`}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-ccd-text-muted">Source:</span>
+                      <span className="text-ccd-text-muted font-sans font-semibold">Source:</span>
                       <span className="text-ccd-warning font-semibold">Saved Draft Deployment</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-ccd-text-muted">Draft ID:</span>
+                    <div className="flex justify-between border-b border-ccd-border/10 pb-2">
+                      <span className="text-ccd-text-muted font-sans font-semibold">Draft ID:</span>
                       <span className="text-ccd-text font-medium">#{confirmAction?.draftId}</span>
                     </div>
+                    {draftDetails && draftDetails.repositories && (
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-ccd-text-muted font-sans font-semibold mb-1">Applications to Deploy:</span>
+                        <div className="pl-3 border-l-2 border-ccd-warning/30 flex flex-col gap-2.5 text-[10px] text-ccd-text-dim max-h-40 overflow-y-auto pr-1">
+                          {draftDetails.repositories.map(repo => (
+                            <div key={repo.github_id || repo.name} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
+                              <div className="flex justify-between font-semibold">
+                                <span className="text-ccd-text">{repo.name}</span>
+                                <span className="text-ccd-warning">{repo.branch}</span>
+                              </div>
+                              <div className="flex justify-between text-[9px] text-ccd-text-muted">
+                                <span>Image:</span>
+                                <span className="truncate max-w-[190px] font-mono">
+                                  {repo.docker_image_name || `${repo.name}:latest (default)`}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

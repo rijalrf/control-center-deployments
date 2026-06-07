@@ -7,6 +7,7 @@ export interface DeploymentRepository {
   branch: string;
   clone_url?: string | null;
   default_branch?: string;
+  docker_image_name?: string | null;
 }
 
 export type DeploymentConfig = Record<string, Record<string, string>>;

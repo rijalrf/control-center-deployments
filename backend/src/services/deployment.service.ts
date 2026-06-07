@@ -186,6 +186,7 @@ export class DeploymentService {
           server_host:             serverHost,
           server_username:         serverUsername,
           dockerfile_path:         dockerfilePath,
+          docker_image_name:       r.docker_image_name ?? '',
         };
 
         const runMeta = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, 'main');
