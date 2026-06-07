@@ -115,6 +115,8 @@ jobs:
           port: 22
           envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,CONFIG_JSON,DOCKER_IMAGE_NAME
           script: |
+            set -e
+
             # 1. Parse config JSON using Python directly from environment
             STRATEGY=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_STRATEGY', 'standard'))")
             DEPLOY_DIR=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_DIR', '/app/${TARGET_REPO_NAME}'))")
@@ -191,6 +193,11 @@ jobs:
             if [ "$STRATEGY" = "docker-compose" ]; then
               echo "Verifikasi kontainer docker compose..."
               docker compose -f $COMPOSE_FILE ps
+              # Jika docker compose ps kosong (nggak ada service jalan), kita fail
+              if [ -z "$(docker compose -f $COMPOSE_FILE ps -q)" ]; then
+                echo "❌ Deployment Gagal: Tidak ada container yang berjalan!"
+                exit 1
+              fi
               echo "✅ Deployment Berhasil!"
             else
               if docker ps | grep -q "${TARGET_REPO_NAME}"; then
