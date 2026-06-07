@@ -1066,9 +1066,25 @@ export default function Deployment() {
         };
       });
 
+      const updatedConfig = { ...formData.config }
+      formData.repositories.forEach(repo => {
+        const result = resultsMap[repo.id]
+        if (result) {
+          const currentRepoConfig = updatedConfig[repo.name] || {}
+          if (currentRepoConfig['DEPLOY_STRATEGY'] === undefined) {
+            currentRepoConfig['DEPLOY_STRATEGY'] = result.docker_compose_exists ? 'docker-compose' : 'standard'
+          }
+          if (currentRepoConfig['VERSION_TAG'] === undefined) {
+            currentRepoConfig['VERSION_TAG'] = result.docker_compose_exists ? '' : 'v2'
+          }
+          updatedConfig[repo.name] = currentRepoConfig
+        }
+      })
+
       setFormData(prev => ({
         ...prev,
-        repositories: updatedRepositories
+        repositories: updatedRepositories,
+        config: updatedConfig
       }));
 
       if (hasMissingDockerfile) {
@@ -1093,20 +1109,38 @@ export default function Deployment() {
         
         await Promise.all(
           formData.repositories.map(async (repo) => {
+            const validationMap = validationResults || {}
+            const hasCompose = validationMap[repo.id]?.docker_compose_exists || false
+
             if (!newConfig[repo.name] || Object.keys(newConfig[repo.name]).length === 0) {
               try {
                 const res = await api.get(`/repos/${repo.id}/env-keys`)
                 const keys = res.data.keys && res.data.keys.length > 0 ? res.data.keys : []
                 
-                const defaults: Record<string, string> = {}
+                const defaults: Record<string, string> = {
+                  'DEPLOY_STRATEGY': hasCompose ? 'docker-compose' : 'standard',
+                  'VERSION_TAG': hasCompose ? '' : 'v2'
+                }
                 keys.forEach((k: string) => {
                   defaults[k] = ''
                 })
                 newConfig[repo.name] = defaults
               } catch (err) {
-                const defaults: Record<string, string> = {}
+                const defaults: Record<string, string> = {
+                  'DEPLOY_STRATEGY': hasCompose ? 'docker-compose' : 'standard',
+                  'VERSION_TAG': hasCompose ? '' : 'v2'
+                }
                 newConfig[repo.name] = defaults
               }
+            } else {
+              const currentRepoConfig = { ...newConfig[repo.name] }
+              if (currentRepoConfig['DEPLOY_STRATEGY'] === undefined) {
+                currentRepoConfig['DEPLOY_STRATEGY'] = hasCompose ? 'docker-compose' : 'standard'
+              }
+              if (currentRepoConfig['VERSION_TAG'] === undefined) {
+                currentRepoConfig['VERSION_TAG'] = hasCompose ? '' : 'v2'
+              }
+              newConfig[repo.name] = currentRepoConfig
             }
           })
         )

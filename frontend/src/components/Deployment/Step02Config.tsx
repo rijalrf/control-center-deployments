@@ -170,7 +170,11 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
 
   // Initialize default vars for repos that have none
   const ensureDefaults = (repo: Repository) => {
-    if (!config[repo.name]) {
+    const currentRepoConfig = config[repo.name] || {}
+    const hasStrategy = currentRepoConfig['DEPLOY_STRATEGY'] !== undefined
+    const hasTag = currentRepoConfig['VERSION_TAG'] !== undefined
+    
+    if (!hasStrategy || !hasTag) {
       const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
       const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
       const hasCompose = validationMap[repo.id]?.docker_compose_exists || false
@@ -179,8 +183,9 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
         config: {
           ...config,
           [repo.name]: {
-            'DEPLOY_STRATEGY': hasCompose ? 'docker-compose' : 'standard',
-            'VERSION_TAG': hasCompose ? '' : 'v2'
+            ...currentRepoConfig,
+            'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
+            'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
           },
         },
       })
