@@ -183,7 +183,19 @@ class GitHubService {
         const token = this.getEffectiveToken(accessToken);
         const octokit = new rest_1.Octokit({ auth: token });
         const names = Array.isArray(filename) ? filename : [filename];
-        const dirs = ['', '.docker/', 'docker/', 'deploy/', 'deployment/', 'infra/', 'config/'];
+        const dirs = [
+            '',
+            '.docker/',
+            '.dokcer/',
+            'docker/',
+            'deploy/',
+            'deployment/',
+            'infra/',
+            'infrastructure/',
+            'config/',
+            'dockerfiles/',
+            '.dockerfiles/'
+        ];
         // Build candidate list: for each dir, try each name variant + its lowercase
         const candidates = [];
         for (const dir of dirs) {
