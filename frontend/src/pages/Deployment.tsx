@@ -98,11 +98,13 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh }: ActiveDepl
 
   // Auto-refresh while running
   useEffect(() => {
-    const hasRunning = steps.some(s => s.status === 'running' || s.status === 'pending')
-    if (!hasRunning) return
+    const isActive = deployment.status === 'running' || 
+                     deployment.status === 'pending' || 
+                     steps.some(s => s.status === 'running' || s.status === 'pending')
+    if (!isActive) return
     const interval = setInterval(onRefresh, 4000)
     return () => clearInterval(interval)
-  }, [steps, onRefresh])
+  }, [deployment.status, steps, onRefresh])
 
   // Consolidate all steps' logs into a single plain text log string
   const consolidatedLogs = sortedSteps
