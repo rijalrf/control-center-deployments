@@ -13,9 +13,9 @@ async function start() {
 
     // Seed static environments
     const staticEnvs = [
-      { id: 1, name: 'non production #1', slug: 'non-production-1', description: 'Environment Non-Production 1', color: '#3b82f6' },
-      { id: 2, name: 'non production #2', slug: 'non-production-2', description: 'Environment Non-Production 2', color: '#06b6d4' },
-      { id: 3, name: 'production', slug: 'production', description: 'Environment Production', color: '#ef4444' }
+      { id: 1, name: 'non production #1', slug: 'non-production-1', description: 'Environment Non-Production 1', color: '#3b82f6', target_branch: 'dev' },
+      { id: 2, name: 'non production #2', slug: 'non-production-2', description: 'Environment Non-Production 2', color: '#06b6d4', target_branch: 'staging' },
+      { id: 3, name: 'production', slug: 'production', description: 'Environment Production', color: '#ef4444', target_branch: 'main' }
     ];
     for (const envObj of staticEnvs) {
       await Environment.upsert(envObj);

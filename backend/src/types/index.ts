@@ -43,6 +43,7 @@ export interface EnvironmentAttributes {
   slug: string;
   description: string | null;
   color: string;
+  target_branch?: string | null;
   created_at?: Date;
   updated_at?: Date;
 }
