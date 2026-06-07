@@ -424,12 +424,6 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh }: ActiveDepl
                       {isRunning && <span className="text-[10px] text-ccd-accent font-mono animate-pulse">processing...</span>}
                       {isSkipped && <span className="text-[10px] text-ccd-text-muted font-mono italic">skipped</span>}
                     </div>
-                    {s.started_at && (
-                      <div className="text-[10px] text-ccd-text-muted mt-0.5 font-mono">
-                        Started: {new Date(s.started_at).toLocaleTimeString()}
-                        {s.completed_at && ` · Finished: ${new Date(s.completed_at).toLocaleTimeString()}`}
-                      </div>
-                    )}
                   </div>
                 </div>
               )
