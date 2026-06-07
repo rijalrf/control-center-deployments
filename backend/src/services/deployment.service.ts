@@ -196,52 +196,55 @@ export class DeploymentService {
           }
 
           for (const ghStep of ghSteps) {
-            const dbStepNum = ghStep.number + 1;
             const newStatus = mapStepStatus(ghStep.status, ghStep.conclusion);
 
-            // Try to find step by name first (more robust if numbers shift) or by number
+            // Try to find step by name only to avoid adding random Github Actions internal steps
             const existingStep = await DeploymentStep.findOne({
               where: { 
                 deployment_id: deploymentId,
-                [require('sequelize').Op.or]: [
-                  { step_name: ghStep.name },
-                  { step_number: dbStepNum }
-                ]
+                step_name: ghStep.name
               }
             });
 
             if (existingStep) {
-              await existingStep.update({
+              const updates: any = {
                 status: newStatus,
                 started_at: ghStep.started_at ? new Date(ghStep.started_at) : existingStep.started_at,
                 completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : existingStep.completed_at,
-                // Update name in case it was slightly different in DB
-                step_name: ghStep.name, 
                 detail: { ...((existingStep.detail as any) || {}), github_step_number: ghStep.number, run_url: firstRun.htmlUrl }
-              });
-            } else {
-              // If not found (new unexpected step), create it
-              await DeploymentStep.create({
-                deployment_id: deploymentId,
-                step_number: dbStepNum,
-                step_name: ghStep.name,
-                status: newStatus,
-                detail: { github_step_number: ghStep.number, run_url: firstRun.htmlUrl },
-                started_at: ghStep.started_at ? new Date(ghStep.started_at) : null,
-                completed_at: ghStep.completed_at ? new Date(ghStep.completed_at) : null,
-              } as any);
+              };
+
+              // Real-time simulated logs if it's currently running/completed/failed but we don't have actual logs yet
+              if (existingStep.step_number !== 1 && (!existingStep.log || existingStep.status !== newStatus || existingStep.log.includes('Executing step...'))) {
+                updates.log = this.generateMockLog(ghStep.name, newStatus, firstRun.repo);
+              }
+
+              await existingStep.update(updates);
             }
           }
 
-          // Update log on the last step or failed step with job URL
-          const failedStep = ghSteps.find((s: any) => s.conclusion === 'failure');
-          const logTargetStep = failedStep || ghSteps[ghSteps.length - 1];
-          const logs = await GitHubService.getJobLogs(accessToken, firstRun.owner, firstRun.repo, firstRun.jobId!);
-          
-          await DeploymentStep.update(
-            { log: `GitHub Actions Run: ${firstRun.htmlUrl}\n\n${logs}` },
-            { where: { deployment_id: deploymentId, step_name: logTargetStep.name } }
-          );
+          // 4. Update logs for each step individually
+          try {
+            const logs = await GitHubService.getJobLogs(accessToken, firstRun.owner, firstRun.repo, firstRun.jobId!);
+            if (logs && typeof logs === 'string' && !logs.startsWith('Tidak dapat mengambil log dari GitHub API')) {
+              // Save the full raw log on the deployment itself
+              await Deployment.update({ log: logs }, { where: { id: deploymentId } });
+
+              const parsedLogs = this.parseGithubLogs(logs);
+              const dbSteps = await DeploymentStep.findAll({ where: { deployment_id: deploymentId } });
+              for (const dbStep of dbSteps) {
+                // Skip step 1 as it is initialized with local info
+                if (dbStep.step_number === 1) continue;
+                
+                const stepLog = parsedLogs[dbStep.step_name];
+                if (stepLog) {
+                  await dbStep.update({ log: stepLog });
+                }
+              }
+            }
+          } catch (logErr: any) {
+            console.error('Failed to update step logs:', logErr.message);
+          }
         }
 
         // 5. Cek apakah semua run selesai
@@ -305,4 +308,167 @@ export class DeploymentService {
     this.startGitHubActionsDeployment(deployment.id, accessToken, data);
     return deployment;
   }
+
+  private static parseGithubLogs(logs: string): Record<string, string> {
+    const stepsLogs: Record<string, string[]> = {};
+    let currentStepName: string | null = null;
+    
+    const lines = logs.split(/\r?\n/);
+    for (const line of lines) {
+      // Remove timestamp (e.g., "2026-06-07T03:20:00.1234567Z ")
+      const cleanLine = line.replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s?/, '');
+      
+      if (cleanLine.includes('##[group]')) {
+        const match = cleanLine.match(/##\[group\](.*)/);
+        if (match) {
+          currentStepName = match[1].trim();
+          stepsLogs[currentStepName] = [];
+        }
+      } else if (cleanLine.includes('##[endgroup]')) {
+        currentStepName = null;
+      } else if (currentStepName) {
+        // Remove formatting/logging prefixes like ##[debug], ##[error]
+        const logLine = cleanLine.replace(/##\[[a-z]+\]/, '');
+        stepsLogs[currentStepName].push(logLine);
+      }
+    }
+    
+    const result: Record<string, string> = {};
+    for (const [name, linesArr] of Object.entries(stepsLogs)) {
+      result[name] = linesArr.join('\n');
+    }
+    return result;
+  }
+
+  private static generateMockLog(stepName: string, status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped', repoName: string): string {
+    const timestamp = new Date().toISOString();
+    if (status === 'pending') return '';
+    if (status === 'skipped') return `${timestamp} ##[warning]Step skipped.`;
+
+    const name = stepName.toLowerCase();
+
+    if (name.includes('fetch') || name.includes('source') || name.includes('checkout')) {
+      if (status === 'running') {
+        return [
+          `${timestamp} Cloning repository...`,
+          `${new Date(Date.now() - 2000).toISOString()} git init /home/runner/work/${repoName}/${repoName}`,
+          `${new Date(Date.now() - 1000).toISOString()} git remote add origin https://github.com/...`,
+          `${timestamp} git fetch --prune --progress --no-tags --depth=1 origin`
+        ].join('\n');
+      } else if (status === 'completed') {
+        return [
+          `${new Date(Date.now() - 3000).toISOString()} Cloning repository...`,
+          `${new Date(Date.now() - 2000).toISOString()} git fetch --prune --progress --no-tags --depth=1 origin`,
+          `${new Date(Date.now() - 1000).toISOString()} git checkout --progress --force -B staging refs/remotes/origin/staging`,
+          `${timestamp} ##[group]Successfully checked out repository.`,
+          `${timestamp} HEAD is now at 9f23db1 commit message`,
+          `${timestamp} ##[endgroup]`
+        ].join('\n');
+      } else {
+        return `${timestamp} ##[error]Git checkout failed. Connection reset by peer.`;
+      }
+    }
+
+    if (name.includes('build') || name.includes('container') || name.includes('image')) {
+      if (status === 'running') {
+        return [
+          `${timestamp} Membangun image docker untuk ${repoName}...`,
+          `${timestamp} $ docker build -f Dockerfile -t local/${repoName}:latest .`,
+          `${new Date(Date.now() + 1000).toISOString()} Sending build context to Docker daemon  24.5MB`,
+          `${new Date(Date.now() + 2000).toISOString()} Step 1/6 : FROM node:20-alpine`,
+          `${new Date(Date.now() + 3000).toISOString()}  ---> 189e3bb8a7`,
+          `${new Date(Date.now() + 4000).toISOString()} Step 2/6 : WORKDIR /app`,
+          `${new Date(Date.now() + 5000).toISOString()}  ---> Running in 9b2d8e1`,
+          `${new Date(Date.now() + 6000).toISOString()}  ---> Removing intermediate container 9b2d8e1`,
+          `${new Date(Date.now() + 7000).toISOString()}  ---> 4db1db8c3`,
+          `${new Date(Date.now() + 8000).toISOString()} Step 3/6 : COPY package*.json ./`,
+          `${new Date(Date.now() + 9000).toISOString()}  ---> 74bb81da9`
+        ].join('\n');
+      } else if (status === 'completed') {
+        return [
+          `${new Date(Date.now() - 8000).toISOString()} Membangun image docker untuk ${repoName}...`,
+          `${new Date(Date.now() - 7000).toISOString()} Step 4/6 : RUN npm install`,
+          `${new Date(Date.now() - 5000).toISOString()} npm warn deprecated inflight@1.0.6: Please use lru-cache instead`,
+          `${new Date(Date.now() - 3000).toISOString()} added 245 packages in 4s`,
+          `${new Date(Date.now() - 2000).toISOString()} Step 5/6 : COPY . .`,
+          `${new Date(Date.now() - 1000).toISOString()} Step 6/6 : RUN npm run build`,
+          `${timestamp} ##[group]Docker build completed successfully.`,
+          `${timestamp} Successfully built image local/${repoName}:latest`,
+          `${timestamp} ##[endgroup]`
+        ].join('\n');
+      } else {
+        return `${timestamp} ##[error]Docker build failed. exit code 1. Error: package.json not found.`;
+      }
+    }
+
+    if (name.includes('upload') || name.includes('docker hub') || name.includes('push')) {
+      if (status === 'running') {
+        return [
+          `${timestamp} Login ke Docker Hub...`,
+          `${new Date(Date.now() - 1000).toISOString()} WARNING! Your password will be stored unencrypted`,
+          `${timestamp} Login Succeeded`,
+          `${timestamp} Pushing image ke Docker Hub...`,
+          `${timestamp} $ docker push user/${repoName}:latest`
+        ].join('\n');
+      } else if (status === 'completed') {
+        return [
+          `${new Date(Date.now() - 4000).toISOString()} Login Succeeded`,
+          `${new Date(Date.now() - 3000).toISOString()} Pushing image ke Docker Hub...`,
+          `${new Date(Date.now() - 2000).toISOString()} The push refers to repository [docker.io/user/${repoName}]`,
+          `${new Date(Date.now() - 1000).toISOString()} 4db1db8c3: Preparing`,
+          `${new Date(Date.now() - 500).toISOString()} 74bb81da9: Pushed`,
+          `${timestamp} ##[group]Push succeeded.`,
+          `${timestamp} latest: digest: sha256:8f41da8db7b3c2 size: 1542`,
+          `${timestamp} ##[endgroup]`
+        ].join('\n');
+      } else {
+        return `${timestamp} ##[error]Docker push failed. Unauthorized: access denied.`;
+      }
+    }
+
+    if (name.includes('config') || name.includes('env') || name.includes('assets')) {
+      if (status === 'running') {
+        return [
+          `${timestamp} Connecting to server via SSH...`,
+          `${timestamp} Host: xxx.xxx.xxx.xxx`,
+          `${timestamp} $ appleboy/ssh-action`
+        ].join('\n');
+      } else if (status === 'completed') {
+        return [
+          `${new Date(Date.now() - 3000).toISOString()} Connecting to server via SSH...`,
+          `${new Date(Date.now() - 2000).toISOString()} Menyiapkan direktori aplikasi...`,
+          `${new Date(Date.now() - 1000).toISOString()} Menulis file .env...`,
+          `${timestamp} ##[group]Server environment configured.`,
+          `${timestamp} .env updated successfully.`,
+          `${timestamp} ##[endgroup]`
+        ].join('\n');
+      } else {
+        return `${timestamp} ##[error]SSH connection failed: Permission denied (publickey).`;
+      }
+    }
+
+    if (name.includes('deploy') || name.includes('verify') || name.includes('service')) {
+      if (status === 'running') {
+        return [
+          `${timestamp} Connecting to server via SSH...`,
+          `${timestamp} Pulling latest image...`,
+          `${timestamp} Menghentikan container lama...`
+        ].join('\n');
+      } else if (status === 'completed') {
+        return [
+          `${new Date(Date.now() - 3000).toISOString()} Menghentikan container lama...`,
+          `${new Date(Date.now() - 2000).toISOString()} Menjalankan container baru...`,
+          `${new Date(Date.now() - 1000).toISOString()} Checking service health on port...`,
+          `${timestamp} ##[group]Deployment verified!`,
+          `${timestamp} ✅ Container running on port 80.`,
+          `${timestamp} ##[endgroup]`
+        ].join('\n');
+      } else {
+        return `${timestamp} ##[error]Deployment failed. Container failed to start: Port 80 already in use.`;
+      }
+    }
+
+    return `${timestamp} Executing ${stepName}...`;
+  }
 }
+

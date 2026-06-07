@@ -57,6 +57,7 @@ export interface DeploymentAttributes {
   status?: 'draft' | 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
   notes: string | null;
   deployed_at: Date | null;
+  log?: string | null;
   created_at?: Date;
   updated_at?: Date;
 }
