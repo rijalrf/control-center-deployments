@@ -330,6 +330,93 @@ function ViewModal({ item, onClose }: { item: EnvVar; onClose: () => void }) {
   )
 }
 
+// ── Project Env Modal ─────────────────────────────────────────
+function ProjectEnvModal({ onClose }: { onClose: () => void }) {
+  const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    api.get('/env-vars/project-env/raw')
+      .then(res => {
+        setContent(res.data.content)
+      })
+      .catch(err => {
+        setError(err.response?.data?.error || 'Failed to load project .env file')
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [])
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSaving(true)
+    try {
+      await api.post('/env-vars/project-env/raw', { content })
+      showToast('Project .env updated successfully!', 'success')
+      onClose()
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to save project .env file')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="ccd-card w-full max-w-3xl mx-4 rounded-2xl border border-ccd-border shadow-2xl animate-slide-down flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ccd-border shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-ccd-text">Edit Project .env</h3>
+            <p className="text-xs text-ccd-text-muted font-mono mt-0.5">/home/rijal/projects/center-control-deployments/.env</p>
+          </div>
+          <button onClick={onClose} className="ccd-btn-ghost p-1.5 rounded-lg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-20 flex-1">
+            <div className="spinner w-6 h-6" />
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="flex flex-col overflow-hidden flex-1">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 flex flex-col min-h-[300px]">
+              <div className="flex-1 flex flex-col">
+                <label className="block text-xs font-medium text-ccd-text-muted mb-2">
+                  Edit configuration variables directly (changes require container restart to take full effect):
+                </label>
+                <textarea
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  className="ccd-input font-mono text-xs p-4 flex-1 resize-none h-full focus:outline-none min-h-[250px] leading-relaxed bg-[#0b0f19] border-ccd-border"
+                  placeholder="# Enter your environment variables here..."
+                  spellCheck={false}
+                />
+              </div>
+
+              {error && <div className="text-xs text-ccd-danger bg-ccd-danger/10 px-3 py-2 rounded-lg">{error}</div>}
+            </div>
+
+            <div className="px-6 py-4 border-t border-ccd-border flex gap-3 shrink-0">
+              <button type="button" onClick={onClose} className="ccd-btn-secondary flex-1">Cancel</button>
+              <button type="submit" disabled={saving} className="ccd-btn-primary flex-1">
+                {saving ? <><div className="spinner w-4 h-4" />Saving...</> : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function EnvVars() {
   const [items, setItems] = useState<EnvVar[]>([])
@@ -338,6 +425,7 @@ export default function EnvVars() {
   const [search, setSearch] = useState('')
   const [filterEnv, setFilterEnv] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [showProjectEnv, setShowProjectEnv] = useState(false)
   const [editItem, setEditItem] = useState<EnvVar | null>(null)
   const [viewItem, setViewItem] = useState<EnvVar | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<EnvVar | null>(null)
@@ -388,6 +476,9 @@ export default function EnvVars() {
       {showCreate && (
         <EnvModal title="New Env Variables" envs={envs} onSave={handleCreate} onClose={() => setShowCreate(false)} />
       )}
+      {showProjectEnv && (
+        <ProjectEnvModal onClose={() => setShowProjectEnv(false)} />
+      )}
       {editItem && (
         <EnvModal title={`Edit — ${editItem.name}`} initial={editItem} envs={envs} onSave={handleEdit} onClose={() => setEditItem(null)} />
       )}
@@ -421,12 +512,20 @@ export default function EnvVars() {
           <h2 className="text-lg font-semibold text-ccd-text">Env Variables</h2>
           <p className="text-sm text-ccd-text-muted mt-1">Kelola file .env per repository & environment</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="ccd-btn-primary flex items-center gap-2" id="new-env-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          New Env File
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowProjectEnv(true)} className="ccd-btn-secondary flex items-center gap-2 border border-ccd-border/50 text-ccd-text hover:text-ccd-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-text-muted hover:text-ccd-accent">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            Edit Project .env
+          </button>
+          <button onClick={() => setShowCreate(true)} className="ccd-btn-primary flex items-center gap-2" id="new-env-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Env File
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
