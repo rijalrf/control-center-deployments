@@ -179,7 +179,25 @@ export default function Step01Setup({ data, onChange }: Step01SetupProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs font-mono badge-muted">{repo.default_branch}</span>
+                    {data.environment?.target_branch ? (
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs font-mono badge-accent">
+                          {data.environment.target_branch}
+                        </span>
+                        <span className="text-[10px] text-ccd-text-muted mt-0.5">
+                          via environment
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs font-mono badge-muted">
+                          {repo.default_branch}
+                        </span>
+                        <span className="text-[10px] text-ccd-text-muted mt-0.5">
+                          default branch
+                        </span>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeRepo(repo)}
