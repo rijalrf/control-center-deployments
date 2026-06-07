@@ -375,12 +375,12 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                                 }}
                                 className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan cursor-pointer"
                               >
-                                <option value="">-- Kosongkan (Jangan di-update) --</option>
-                                <option value={s.suggested_tag}>{s.suggested_tag} (Saran Auto-increment +1)</option>
+                                <option value="">-- Kosongkan --</option>
+                                <option value={s.suggested_tag}>{s.suggested_tag}+</option>
                                 {s.current_tag && (
-                                  <option value={s.current_tag}>{s.current_tag} (Tag Saat ini di server)</option>
+                                  <option value={s.current_tag}>{s.current_tag}</option>
                                 )}
-                                <option value="custom">Ketik manual / Kustom...</option>
+                                <option value="custom">Kustom / Manual...</option>
                               </select>
 
                               {/* Manual Input if Custom is selected */}
