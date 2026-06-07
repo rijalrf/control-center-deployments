@@ -9,10 +9,24 @@ interface Step02ConfigProps {
   onChange: (update: Partial<Step02ConfigProps['data']>) => void;
 }
 
+const SPECIAL_KEYS = [
+  'DEPLOY_STRATEGY',
+  'DEPLOY_DIR',
+  'COMPOSE_FILE',
+  'PRE_DEPLOY_COMMANDS',
+  'POST_DEPLOY_COMMANDS',
+  'DOCKERFILE_PATH'
+]
+
 export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   const { repositories, config } = data
   const [bulkRepo, setBulkRepo] = useState<string | null>(null)
   const [bulkInput, setBulkInput] = useState<string>('')
+  const [expandedAdvanced, setExpandedAdvanced] = useState<Record<string, boolean>>({})
+
+  const toggleAdvanced = (repoName: string) => {
+    setExpandedAdvanced(prev => ({ ...prev, [repoName]: !prev[repoName] }))
+  }
 
   const updateVar = (repoName: string, key: string, value: string) => {
     onChange({
@@ -46,6 +60,21 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     onChange({ config: { ...config, [repoName]: repoConfig } })
   }
 
+  const getSpecialVal = (repoName: string, key: string, defaultVal = '') => {
+    return config[repoName]?.[key] ?? defaultVal
+  }
+
+  const setSpecialVal = (repoName: string, key: string, val: string) => {
+    const trimmed = val.trim()
+    if (trimmed === '') {
+      const updated = { ...(config[repoName] || {}) }
+      delete updated[key]
+      onChange({ config: { ...config, [repoName]: updated } })
+    } else {
+      updateVar(repoName, key, trimmed)
+    }
+  }
+
   // Initialize default vars for repos that have none (default to empty object)
   const ensureDefaults = (repo: Repository) => {
     if (!config[repo.name]) {
@@ -62,6 +91,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     setBulkRepo(repoName)
     const currentVars = config[repoName] || {}
     const text = Object.entries(currentVars)
+      .filter(([k]) => !SPECIAL_KEYS.includes(k))
       .map(([k, v]) => `${k}=${v}`)
       .join('\n')
     setBulkInput(text)
@@ -82,6 +112,14 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
         if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
           parsed[key] = value
         }
+      }
+    }
+
+    // Preserve special keys
+    const currentConfig = config[repoName] || {}
+    for (const sk of SPECIAL_KEYS) {
+      if (currentConfig[sk] !== undefined) {
+        parsed[sk] = currentConfig[sk]
       }
     }
     
@@ -114,7 +152,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       {repositories.map(repo => {
         if (!config[repo.name]) ensureDefaults(repo)
         const vars = config[repo.name] || {}
-        const entries = Object.entries(vars)
+        const envEntries = Object.entries(vars).filter(([key]) => !SPECIAL_KEYS.includes(key))
 
         return (
           <div key={repo.id} className="ccd-card overflow-hidden">
@@ -124,7 +162,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                 <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
               </svg>
               <span className="font-mono text-sm font-semibold text-ccd-cyan">{repo.full_name || repo.name}</span>
-              <span className="ml-auto text-xs text-ccd-text-muted">{entries.length} variable{entries.length !== 1 ? 's' : ''}</span>
+              <span className="ml-auto text-xs text-ccd-text-muted">{envEntries.length} variable{envEntries.length !== 1 ? 's' : ''}</span>
             </div>
 
             {/* Variables Content */}
@@ -159,7 +197,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
               </div>
             ) : (
               <div className="p-5 space-y-3">
-                {entries.map(([key, value]) => (
+                {envEntries.map(([key, value]) => (
                   <div key={key} className="flex items-center gap-2">
                     {/* Key input */}
                     <input
@@ -191,7 +229,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                   </div>
                 ))}
 
-                {entries.length === 0 && (
+                {envEntries.length === 0 && (
                   <div className="text-xs text-ccd-text-muted italic py-2">No variables configured</div>
                 )}
 
@@ -219,6 +257,111 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                     Bulk Import (.env)
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Advanced Settings Accordion */}
+            {bulkRepo !== repo.name && (
+              <div className="border-t border-ccd-border/30 bg-ccd-muted/5 px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => toggleAdvanced(repo.name)}
+                  className="flex items-center gap-2 text-xs font-semibold text-ccd-text-dim hover:text-ccd-cyan transition-colors"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    className={`w-4 h-4 transition-transform duration-200 ${expandedAdvanced[repo.name] ? 'rotate-90' : ''}`}
+                  >
+                    <path d="M9 5l7 7-7 7" />
+                  </svg>
+                  Advanced Deployment Settings
+                </button>
+
+                {expandedAdvanced[repo.name] && (
+                  <div className="mt-4 pt-3 border-t border-ccd-border/20 space-y-4 animate-slide-down">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Strategy Selection */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-ccd-text-muted">Deployment Strategy</label>
+                        <select
+                          value={getSpecialVal(repo.name, 'DEPLOY_STRATEGY', 'standard')}
+                          onChange={e => setSpecialVal(repo.name, 'DEPLOY_STRATEGY', e.target.value)}
+                          className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan"
+                        >
+                          <option value="standard">Standard Container (docker run)</option>
+                          <option value="docker-compose">Docker Compose (docker compose)</option>
+                        </select>
+                      </div>
+
+                      {/* Dockerfile Path */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-ccd-text-muted">Dockerfile Path</label>
+                        <input
+                          type="text"
+                          value={getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile')}
+                          onChange={e => setSpecialVal(repo.name, 'DOCKERFILE_PATH', e.target.value)}
+                          placeholder="Dockerfile"
+                          className="ccd-input font-mono text-xs w-full"
+                        />
+                      </div>
+
+                      {/* Target Deployment Directory */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-ccd-text-muted">Target Directory in VPS</label>
+                        <input
+                          type="text"
+                          value={getSpecialVal(repo.name, 'DEPLOY_DIR', '')}
+                          onChange={e => setSpecialVal(repo.name, 'DEPLOY_DIR', e.target.value)}
+                          placeholder={`/app/${repo.name}`}
+                          className="ccd-input font-mono text-xs w-full"
+                        />
+                      </div>
+
+                      {/* Compose File Name */}
+                      {getSpecialVal(repo.name, 'DEPLOY_STRATEGY', 'standard') === 'docker-compose' && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-ccd-text-muted">Compose File Name</label>
+                          <input
+                            type="text"
+                            value={getSpecialVal(repo.name, 'COMPOSE_FILE', 'docker-compose.yml')}
+                            onChange={e => setSpecialVal(repo.name, 'COMPOSE_FILE', e.target.value)}
+                            placeholder="docker-compose.yml"
+                            className="ccd-input font-mono text-xs w-full"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Pre-Deploy Commands */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-ccd-text-muted block">
+                        Pre-Deploy Script (commands run before container start)
+                      </label>
+                      <textarea
+                        value={getSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', '')}
+                        onChange={e => setSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', e.target.value)}
+                        placeholder="e.g. docker volume rm my_volume || true"
+                        className="ccd-input font-mono text-xs w-full h-16 resize-y"
+                      />
+                    </div>
+
+                    {/* Post-Deploy Commands */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-ccd-text-muted block">
+                        Post-Deploy Script (commands run after container start)
+                      </label>
+                      <textarea
+                        value={getSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', '')}
+                        onChange={e => setSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', e.target.value)}
+                        placeholder="e.g. docker exec my_container php artisan migrate --force"
+                        className="ccd-input font-mono text-xs w-full h-16 resize-y"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

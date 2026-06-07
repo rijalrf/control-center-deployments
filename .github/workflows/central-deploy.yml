@@ -66,14 +66,18 @@ jobs:
           port: 22
           envs: CONFIG_JSON,TARGET_REPO_NAME
           script: |
-            echo "Menyiapkan direktori aplikasi..."
-            sudo mkdir -p /app/${TARGET_REPO_NAME}
-            sudo chown -R $USER:$USER /app/${TARGET_REPO_NAME}
-            cd /app/${TARGET_REPO_NAME}
+            echo "Membaca konfigurasi..."
+            echo "$CONFIG_JSON" > /tmp/config.json
+            DEPLOY_DIR=$(python3 -c "import json, os; p='/tmp/config.json'; d=json.loads(open(p).read()) if os.path.exists(p) else {}; print(d.get('DEPLOY_DIR', '/app/${TARGET_REPO_NAME}'))")
+
+            echo "Menyiapkan direktori aplikasi: $DEPLOY_DIR..."
+            sudo mkdir -p "$DEPLOY_DIR"
+            sudo chown -R $USER:$USER "$DEPLOY_DIR"
+            cd "$DEPLOY_DIR"
 
             echo "Menulis file .env..."
-            echo "$CONFIG_JSON" > config.json
-            python3 -c "import json, os; d=json.loads(open('config.json').read()); f=open('.env', 'w'); [f.write(f'{k}={v}\n') for k, v in d.items()]"
+            mv /tmp/config.json ./config.json
+            python3 -c "import json; d=json.loads(open('config.json').read()); exclude={'DEPLOY_STRATEGY', 'DEPLOY_DIR', 'COMPOSE_FILE', 'PRE_DEPLOY_COMMANDS', 'POST_DEPLOY_COMMANDS', 'DOCKERFILE_PATH'}; f=open('.env', 'w'); [f.write(f'{k}={v}\n') for k, v in d.items() if k not in exclude]"
             rm config.json
 
             echo "Isi .env (masked):"
@@ -89,8 +93,23 @@ jobs:
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
           port: 22
-          envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
+          envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,CONFIG_JSON
           script: |
+            # 1. Parse config JSON using Python to determine execution parameters
+            echo "$CONFIG_JSON" > /tmp/config_deploy.json
+            STRATEGY=$(python3 -c "import json; d=json.loads(open('/tmp/config_deploy.json').read()); print(d.get('DEPLOY_STRATEGY', 'standard'))")
+            DEPLOY_DIR=$(python3 -c "import json; d=json.loads(open('/tmp/config_deploy.json').read()); print(d.get('DEPLOY_DIR', '/app/${TARGET_REPO_NAME}'))")
+            COMPOSE_FILE=$(python3 -c "import json; d=json.loads(open('/tmp/config_deploy.json').read()); print(d.get('COMPOSE_FILE', 'docker-compose.yml'))")
+            
+            # Write custom scripts to files to avoid shell escaping issues
+            python3 -c "import json; d=json.loads(open('/tmp/config_deploy.json').read()); open('/tmp/pre_deploy.sh', 'w').write(d.get('PRE_DEPLOY_COMMANDS', ''))"
+            python3 -c "import json; d=json.loads(open('/tmp/config_deploy.json').read()); open('/tmp/post_deploy.sh', 'w').write(d.get('POST_DEPLOY_COMMANDS', ''))"
+            rm /tmp/config_deploy.json
+
+            echo "Menuju direktori deployment: $DEPLOY_DIR..."
+            cd "$DEPLOY_DIR"
+
+            # 2. Login Docker Hub
             IMAGE_NAME="${DOCKERHUB_USERNAME}/${TARGET_REPO_NAME}:latest"
             if [ -z "$DOCKERHUB_USERNAME" ]; then
               echo "DOCKERHUB_USERNAME tidak diset, menggunakan image lokal..."
@@ -98,36 +117,67 @@ jobs:
             else
               echo "Login ke Docker Hub di server..."
               echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-              echo "Pulling image terbaru: $IMAGE_NAME"
-              docker pull $IMAGE_NAME
             fi
 
-            echo "Menghentikan container lama..."
-            docker stop ${TARGET_REPO_NAME} || true
-            docker rm ${TARGET_REPO_NAME} || true
+            # 3. Eksekusi Pull & Down
+            if [ "$STRATEGY" = "docker-compose" ]; then
+              echo "Menggunakan strategi Docker Compose dengan file: $COMPOSE_FILE"
+              docker compose -f $COMPOSE_FILE pull
+              docker compose -f $COMPOSE_FILE down
+            else
+              echo "Menggunakan strategi Standard Docker..."
+              if [ ! -z "$DOCKERHUB_USERNAME" ]; then
+                docker pull $IMAGE_NAME
+              fi
+              docker stop ${TARGET_REPO_NAME} || true
+              docker rm ${TARGET_REPO_NAME} || true
+            fi
 
-            cd /app/${TARGET_REPO_NAME}
-            TARGET_PORT=$(grep -E "^PORT=" .env | cut -d'=' -f2)
-            if [ -z "$TARGET_PORT" ]; then TARGET_PORT=80; fi
+            # 4. Jalankan Pre-Deploy Commands (jika ada)
+            if [ -s /tmp/pre_deploy.sh ]; then
+              echo "Menjalankan pre-deploy commands..."
+              chmod +x /tmp/pre_deploy.sh
+              /tmp/pre_deploy.sh
+            fi
+            rm -f /tmp/pre_deploy.sh
 
-            echo "Menjalankan container pada port ${TARGET_PORT}..."
-            docker run -d \
-              --name ${TARGET_REPO_NAME} \
-              --restart unless-stopped \
-              --env-file .env \
-              -p ${TARGET_PORT}:${TARGET_PORT} \
-              $IMAGE_NAME
+            # 5. Jalankan Container
+            if [ "$STRATEGY" = "docker-compose" ]; then
+              echo "Memulai container via Docker Compose..."
+              docker compose -f $COMPOSE_FILE up -d
+            else
+              TARGET_PORT=$(grep -E "^PORT=" .env | cut -d'=' -f2)
+              if [ -z "$TARGET_PORT" ]; then TARGET_PORT=80; fi
+              echo "Menjalankan container pada port ${TARGET_PORT}..."
+              docker run -d \
+                --name ${TARGET_REPO_NAME} \
+                --restart unless-stopped \
+                --env-file .env \
+                -p ${TARGET_PORT}:${TARGET_PORT} \
+                $IMAGE_NAME
+            fi
 
+            # 6. Verifikasi Service
             sleep 3
-            if docker ps | grep -q "${TARGET_REPO_NAME}"; then
+            if [ "$STRATEGY" = "docker-compose" ]; then
+              echo "Verifikasi kontainer docker compose..."
+              docker compose -f $COMPOSE_FILE ps
               echo "✅ Deployment Berhasil!"
             else
-              echo "❌ Deployment Gagal!"
-              docker logs ${TARGET_REPO_NAME} || true
-              exit 1
+              if docker ps | grep -q "${TARGET_REPO_NAME}"; then
+                echo "✅ Deployment Berhasil!"
+              else
+                echo "❌ Deployment Gagal!"
+                docker logs ${TARGET_REPO_NAME} || true
+                exit 1
+              fi
             fi
-        env:
-          TARGET_REPO_NAME: ${{ github.event.inputs.target_repo_name }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            # 7. Jalankan Post-Deploy Commands (jika ada)
+            if [ -s /tmp/post_deploy.sh ]; then
+              echo "Menjalankan post-deploy commands..."
+              chmod +x /tmp/post_deploy.sh
+              /tmp/post_deploy.sh
+            fi
+            rm -f /tmp/post_deploy.sh
 
