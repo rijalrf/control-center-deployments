@@ -75,6 +75,8 @@ export interface Deployment {
   log?: string | null;
   created_at: string;
   updated_at: string;
+  createdAt?: string;
+  updatedAt?: string;
   environment?: Environment;
   user?: User;
   steps?: DeploymentStep[];
