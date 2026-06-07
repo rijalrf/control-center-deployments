@@ -190,10 +190,11 @@ function EnvironmentsSection() {
 
       <div className="ccd-card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-ccd-border">
-          <div className="text-sm font-semibold text-ccd-text">Environments</div>
-          <button onClick={() => setShowModal(true)} className="ccd-btn-primary text-xs px-3 py-1.5" id="add-env-btn">
-            + Add Environment
-          </button>
+          <div>
+            <div className="text-sm font-semibold text-ccd-text">Environments</div>
+            <div className="text-xs text-ccd-text-muted mt-0.5">Sistem menggunakan environment statis</div>
+          </div>
+          <span className="badge-muted text-xs px-2 py-0.5">Static</span>
         </div>
 
         {loading ? (
@@ -203,7 +204,7 @@ function EnvironmentsSection() {
         ) : (
           <table className="ccd-table">
             <thead>
-              <tr><th>Name</th><th>Slug</th><th>Servers</th><th>Description</th><th></th></tr>
+              <tr><th>Name</th><th>Slug</th><th>Servers</th><th>Description</th></tr>
             </thead>
             <tbody>
               {envs.map(env => (
@@ -217,16 +218,6 @@ function EnvironmentsSection() {
                   <td><span className="font-mono text-xs badge-muted">{env.slug}</span></td>
                   <td><span className="text-xs text-ccd-text-muted">{env.servers?.length || 0}</span></td>
                   <td><span className="text-xs text-ccd-text-muted truncate max-w-[180px] block">{env.description || '—'}</span></td>
-                  <td>
-                    <button onClick={() => setDelTarget(env)} className="ccd-btn-ghost p-1.5">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-danger">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                        <path d="M10 11v6M14 11v6" />
-                        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                      </svg>
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
