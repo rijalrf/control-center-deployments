@@ -178,10 +178,14 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-ccd-warning mb-0.5">Penting: Nama Docker Image</p>
                   <p className="text-[11px] text-ccd-text-muted leading-relaxed">
-                    Nama image di bawah <strong className="text-ccd-text">harus sama persis</strong> dengan yang tertulis di file{' '}
+                    Nama image <strong className="text-ccd-text">harus sama persis</strong> dengan yang tertulis di{' '}
                     <code className="font-mono text-ccd-cyan bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">docker-compose.yml</code>{' '}
-                    di <strong className="text-ccd-text">server target</strong> sebagai referensi image yang akan di-pull.
-                    Jika berbeda, container tidak akan bisa dijalankan.
+                    server target sebagai referensi image yang akan di-pull.
+                    <br />
+                    Kamu bisa isi hanya nama image-nya saja (misal:{' '}
+                    <code className="font-mono text-ccd-accent bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">lms-app:latest</code>),
+                    username Docker Hub dari secret <code className="font-mono text-ccd-cyan bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">DOCKERHUB_USERNAME</code>{' '}
+                    akan otomatis ditambahkan di depannya oleh workflow.
                   </p>
                 </div>
               </div>
@@ -198,7 +202,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                   </svg>
                   <input
                     type="text"
-                    placeholder={`${repo.name}:latest`}
+                    placeholder={`${repo.name}:latest  (username otomatis dari secret)`}
                     value={repo.docker_image_name || ''}
                     onChange={(e) => {
                       const val = e.target.value;
