@@ -1,6 +1,7 @@
 import app from './app';
 import { env } from './config/env';
-import { sequelize } from './models';
+import { sequelize, Environment } from './models';
+import { Op } from 'sequelize';
 
 const PORT = env.PORT || 5000;
 
@@ -9,6 +10,27 @@ async function start() {
     await sequelize.authenticate();
     await sequelize.sync();
     console.log('✅ Models synchronized');
+
+    // Seed static environments
+    const staticEnvs = [
+      { id: 1, name: 'non production #1', slug: 'non-production-1', description: 'Environment Non-Production 1', color: '#3b82f6' },
+      { id: 2, name: 'non production #2', slug: 'non-production-2', description: 'Environment Non-Production 2', color: '#06b6d4' },
+      { id: 3, name: 'production', slug: 'production', description: 'Environment Production', color: '#ef4444' }
+    ];
+    for (const envObj of staticEnvs) {
+      await Environment.upsert(envObj);
+    }
+    // Safely delete any other environments
+    await Environment.destroy({
+      where: {
+        id: {
+          [Op.notIn]: [1, 2, 3]
+        }
+      }
+    }).catch((err: unknown) => {
+      console.warn('⚠️ Could not delete old environments (possibly due to foreign key constraints):', err instanceof Error ? err.message : String(err));
+    });
+    console.log('✅ Static environments seeded/verified');
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 CCD Backend running on port ${PORT} in ${env.NODE_ENV} mode`);
