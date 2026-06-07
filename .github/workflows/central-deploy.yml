@@ -70,8 +70,8 @@ jobs:
             DEPLOY_DIR=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_DIR', '/app/${TARGET_REPO_NAME}'))")
 
             echo "Menyiapkan direktori aplikasi: $DEPLOY_DIR..."
-            sudo mkdir -p "$DEPLOY_DIR"
-            sudo chown -R $USER:$USER "$DEPLOY_DIR"
+            mkdir -p "$DEPLOY_DIR" || sudo mkdir -p "$DEPLOY_DIR"
+            chown -R $USER:$USER "$DEPLOY_DIR" 2>/dev/null || sudo chown -R $USER:$USER "$DEPLOY_DIR" || true
             cd "$DEPLOY_DIR"
 
             echo "Menulis file .env..."
