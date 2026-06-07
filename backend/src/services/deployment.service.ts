@@ -290,6 +290,11 @@ export class DeploymentService {
           if (!stepsInitialized) {
             stepsInitialized = true;
             await Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
+            // Mark step 1 as completed since we've initialized and found steps running
+            await DeploymentStep.update(
+              { status: 'completed', completed_at: new Date() },
+              { where: { deployment_id: deploymentId, step_number: 1 } }
+            );
           }
 
           for (const ghStep of ghSteps) {
@@ -367,6 +372,11 @@ export class DeploymentService {
         if (allCompleted) {
           clearInterval(timer);
           await Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
+          // Update any remaining pending/running steps to completed
+          await DeploymentStep.update(
+            { status: 'completed', completed_at: new Date() },
+            { where: { deployment_id: deploymentId, status: ['pending', 'running'] } },
+          );
         }
       } catch (err: unknown) {
         console.error('Error saat polling deployment:', err instanceof Error ? err.message : err);

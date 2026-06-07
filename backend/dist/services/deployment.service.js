@@ -196,6 +196,8 @@ class DeploymentService {
                     if (!stepsInitialized) {
                         stepsInitialized = true;
                         await Deployment_1.Deployment.update({ status: 'running' }, { where: { id: deploymentId } });
+                        // Mark step 1 as completed since we've initialized and found steps running
+                        await DeploymentStep_1.DeploymentStep.update({ status: 'completed', completed_at: new Date() }, { where: { deployment_id: deploymentId, step_number: 1 } });
                     }
                     for (const ghStep of ghSteps) {
                         const newStatus = mapStepStatus(ghStep.status, ghStep.conclusion);
@@ -254,6 +256,8 @@ class DeploymentService {
                 if (allCompleted) {
                     clearInterval(timer);
                     await Deployment_1.Deployment.update({ status: 'success', deployed_at: new Date() }, { where: { id: deploymentId } });
+                    // Update any remaining pending/running steps to completed
+                    await DeploymentStep_1.DeploymentStep.update({ status: 'completed', completed_at: new Date() }, { where: { deployment_id: deploymentId, status: ['pending', 'running'] } });
                 }
             }
             catch (err) {

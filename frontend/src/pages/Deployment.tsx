@@ -511,13 +511,13 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {/* Path 1: Repository -> Actions Runner (Straight Horizontal Line) */}
               <line x1="60" y1="70" x2="200" y2="70" stroke="#161b2d" strokeWidth="5" strokeLinecap="round" />
               <line x1="60" y1="70" x2="200" y2="70" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" />
-              {repoStatus === 'completed' && (
+              {(repoStatus === 'completed' || overallStatus === 'success') && (
                 <line x1="60" y1="70" x2="200" y2="70" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" filter="url(#green-glow)" />
               )}
               {repoStatus === 'failed' && (
                 <line x1="60" y1="70" x2="200" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {repoStatus === 'running' && overallStatus !== 'failed' && (
+              {repoStatus === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
                 <>
                   <line x1="60" y1="70" x2="200" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="60" y1="70" x2="200" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -527,13 +527,13 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {/* Path 2: Actions Runner -> Docker Hub (Straight Vertical Line) */}
               <line x1="200" y1="70" x2="200" y2="170" stroke="#161b2d" strokeWidth="5" strokeLinecap="round" />
               <line x1="200" y1="70" x2="200" y2="170" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" />
-              {registryStatus === 'completed' && (
+              {(registryStatus === 'completed' || overallStatus === 'success') && (
                 <line x1="200" y1="70" x2="200" y2="170" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" filter="url(#green-glow)" />
               )}
               {registryStatus === 'failed' && (
                 <line x1="200" y1="70" x2="200" y2="170" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {registryStatus === 'running' && overallStatus !== 'failed' && (
+              {registryStatus === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
                 <>
                   <line x1="200" y1="70" x2="200" y2="170" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="70" x2="200" y2="170" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -543,13 +543,13 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {/* Path 3: Docker Hub -> Target Server (Straight Diagonal Line) */}
               <line x1="200" y1="170" x2="340" y2="70" stroke="#161b2d" strokeWidth="5" strokeLinecap="round" />
               <line x1="200" y1="170" x2="340" y2="70" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" />
-              {s6 === 'completed' && (
+              {(s6 === 'completed' || overallStatus === 'success') && (
                 <line x1="200" y1="170" x2="340" y2="70" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" filter="url(#green-glow)" />
               )}
               {s6 === 'failed' && (
                 <line x1="200" y1="170" x2="340" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {s6 === 'running' && overallStatus !== 'failed' && (
+              {s6 === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
                 <>
                   <line x1="200" y1="170" x2="340" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="170" x2="340" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -559,13 +559,13 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {/* Path 4: Actions Runner -> Target Server (Straight SSH/Config Line) */}
               <line x1="200" y1="70" x2="340" y2="70" stroke="#161b2d" strokeWidth="5" strokeLinecap="round" />
               <line x1="200" y1="70" x2="340" y2="70" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" />
-              {s5 === 'completed' && (
+              {(s5 === 'completed' || overallStatus === 'success') && (
                 <line x1="200" y1="70" x2="340" y2="70" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" filter="url(#green-glow)" />
               )}
               {s5 === 'failed' && (
                 <line x1="200" y1="70" x2="340" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {s5 === 'running' && overallStatus !== 'failed' && (
+              {s5 === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
                 <>
                   <line x1="200" y1="70" x2="340" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="70" x2="340" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
