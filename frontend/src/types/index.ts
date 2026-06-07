@@ -72,6 +72,7 @@ export interface Deployment {
   status: 'draft' | 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
   notes: string | null;
   deployed_at: string | null;
+  log?: string | null;
   created_at: string;
   updated_at: string;
   environment?: Environment;

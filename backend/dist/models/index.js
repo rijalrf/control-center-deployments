@@ -1,0 +1,33 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EnvVar = exports.DeploymentStep = exports.Deployment = exports.Repository = exports.Server = exports.Environment = exports.User = exports.sequelize = void 0;
+const database_1 = __importDefault(require("../config/database"));
+exports.sequelize = database_1.default;
+const User_1 = require("./User");
+Object.defineProperty(exports, "User", { enumerable: true, get: function () { return User_1.User; } });
+const Environment_1 = require("./Environment");
+Object.defineProperty(exports, "Environment", { enumerable: true, get: function () { return Environment_1.Environment; } });
+const Server_1 = require("./Server");
+Object.defineProperty(exports, "Server", { enumerable: true, get: function () { return Server_1.Server; } });
+const Repository_1 = require("./Repository");
+Object.defineProperty(exports, "Repository", { enumerable: true, get: function () { return Repository_1.Repository; } });
+const Deployment_1 = require("./Deployment");
+Object.defineProperty(exports, "Deployment", { enumerable: true, get: function () { return Deployment_1.Deployment; } });
+const DeploymentStep_1 = require("./DeploymentStep");
+Object.defineProperty(exports, "DeploymentStep", { enumerable: true, get: function () { return DeploymentStep_1.DeploymentStep; } });
+const EnvVar_1 = require("./EnvVar");
+Object.defineProperty(exports, "EnvVar", { enumerable: true, get: function () { return EnvVar_1.EnvVar; } });
+// ── Associations ────────────────────────────────────────────
+Environment_1.Environment.hasMany(Server_1.Server, { foreignKey: 'environment_id', as: 'servers' });
+Server_1.Server.belongsTo(Environment_1.Environment, { foreignKey: 'environment_id', as: 'environment' });
+Environment_1.Environment.hasMany(Deployment_1.Deployment, { foreignKey: 'environment_id', as: 'deployments' });
+Deployment_1.Deployment.belongsTo(Environment_1.Environment, { foreignKey: 'environment_id', as: 'environment' });
+User_1.User.hasMany(Deployment_1.Deployment, { foreignKey: 'user_id', as: 'deployments' });
+Deployment_1.Deployment.belongsTo(User_1.User, { foreignKey: 'user_id', as: 'user' });
+Deployment_1.Deployment.hasMany(DeploymentStep_1.DeploymentStep, { foreignKey: 'deployment_id', as: 'steps' });
+DeploymentStep_1.DeploymentStep.belongsTo(Deployment_1.Deployment, { foreignKey: 'deployment_id', as: 'deployment' });
+Environment_1.Environment.hasMany(EnvVar_1.EnvVar, { foreignKey: 'environment_id', as: 'envVars' });
+EnvVar_1.EnvVar.belongsTo(Environment_1.Environment, { foreignKey: 'environment_id', as: 'environment' });

@@ -11,6 +11,7 @@ export class Deployment extends Model<DeploymentAttributes, Omit<DeploymentAttri
   public status!: 'draft' | 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
   public notes!: string | null;
   public deployed_at!: Date | null;
+  public log!: string | null;
 
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
@@ -28,6 +29,7 @@ Deployment.init({
   },
   notes: { type: DataTypes.TEXT, allowNull: true },
   deployed_at: { type: DataTypes.DATE, allowNull: true },
+  log: { type: DataTypes.TEXT({ length: 'long' }), allowNull: true },
 }, {
   sequelize,
   tableName: 'deployments',

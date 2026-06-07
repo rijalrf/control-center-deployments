@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const repos_controller_1 = require("../controllers/repos.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+router.use(auth_middleware_1.authMiddleware);
+router.get('/', repos_controller_1.ReposController.list);
+router.post('/sync', repos_controller_1.ReposController.sync);
+router.delete('/:id', repos_controller_1.ReposController.delete);
+router.get('/:id/env-keys', repos_controller_1.ReposController.getEnvKeys);
+exports.default = router;
