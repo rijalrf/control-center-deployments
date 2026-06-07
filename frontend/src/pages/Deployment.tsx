@@ -1723,12 +1723,6 @@ export default function Deployment() {
       {/* Sleek Glassmorphism Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ccd-animate-fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)' }}>
-          <style>{`
-            @keyframes ccdFadeIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes ccdScaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-            .ccd-animate-fade-in { animation: ccdFadeIn 0.18s ease-out forwards; }
-            .ccd-animate-scale-in { animation: ccdScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-          `}</style>
           <div className="bg-[#0b0f19] border border-ccd-border/60 max-w-md w-full rounded-2xl p-6 shadow-2xl shadow-black/80 ccd-animate-scale-in relative overflow-hidden">
             {/* Background cyan radial glow */}
             <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-ccd-accent/10 blur-2xl pointer-events-none" />

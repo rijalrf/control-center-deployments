@@ -150,3 +150,10 @@
 .toast-progress {
   animation: shrink linear forwards;
 }
+
+/* ── Sleek Modal Animations ── */
+@keyframes ccdFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ccdScaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.ccd-animate-fade-in { animation: ccdFadeIn 0.18s ease-out forwards; }
+.ccd-animate-scale-in { animation: ccdScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
