@@ -107,12 +107,38 @@ export class ReposController {
             // ignore
           }
 
+          const resolvedBranch = branchExists ? desiredBranch : repo.default_branch;
+
+          // Search for Dockerfile in common locations
+          let dockerfilePath: string | null = null;
+          try {
+            dockerfilePath = await GitHubService.findFile(userToken, repoOwner, repoNameOnly, 'Dockerfile', resolvedBranch);
+          } catch (err) {
+            // ignore
+          }
+
+          // Search for docker-compose.yml / .yaml in common locations (same logic as Dockerfile)
+          let dockerComposePath: string | null = null;
+          try {
+            dockerComposePath = await GitHubService.findFile(
+              userToken, repoOwner, repoNameOnly,
+              ['docker-compose.yml', 'docker-compose.yaml'],
+              resolvedBranch,
+            );
+          } catch (err) {
+            // ignore
+          }
+
           return {
             repository_id: repo.id,
             desired_branch: desiredBranch,
             exists: branchExists,
-            resolved_branch: branchExists ? desiredBranch : repo.default_branch,
+            resolved_branch: resolvedBranch,
             fallback_used: !branchExists,
+            dockerfile_exists: dockerfilePath !== null,
+            dockerfile_path: dockerfilePath,
+            docker_compose_exists: dockerComposePath !== null,
+            docker_compose_path: dockerComposePath,
           };
         })
       );

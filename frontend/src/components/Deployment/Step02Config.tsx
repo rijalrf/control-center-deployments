@@ -164,6 +164,66 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
               <span className="ml-auto text-xs text-ccd-text-muted">{envEntries.length} variable{envEntries.length !== 1 ? 's' : ''}</span>
             </div>
 
+            {/* Docker Image Name Section */}
+            <div className="px-5 pt-4 pb-0">
+              {/* Info Card */}
+              <div className="flex gap-3 p-3 rounded-xl bg-ccd-warning/8 border border-ccd-warning/25 mb-4">
+                <div className="mt-0.5 shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-ccd-warning">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-ccd-warning mb-0.5">Penting: Nama Docker Image</p>
+                  <p className="text-[11px] text-ccd-text-muted leading-relaxed">
+                    Nama image <strong className="text-ccd-text">harus sama persis</strong> dengan yang tertulis di{' '}
+                    <code className="font-mono text-ccd-cyan bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">docker-compose.yml</code>{' '}
+                    server target sebagai referensi image yang akan di-pull.
+                    <br />
+                    Kamu bisa isi hanya nama image-nya saja (misal:{' '}
+                    <code className="font-mono text-ccd-accent bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">lms-app:latest</code>),
+                    username Docker Hub dari secret <code className="font-mono text-ccd-cyan bg-ccd-muted/30 px-1 py-0.5 rounded text-[10px]">DOCKERHUB_USERNAME</code>{' '}
+                    akan otomatis ditambahkan di depannya oleh workflow.
+                  </p>
+                </div>
+              </div>
+
+              {/* Input */}
+              <div className="flex items-center gap-3 mb-4">
+                <label className="text-xs font-semibold text-ccd-text-muted uppercase tracking-wider shrink-0 w-32">
+                  Docker Image Name
+                </label>
+                <div className="flex-1 relative">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5 text-ccd-text-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M3 9h18M9 21V9" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder={`${repo.name}:latest  (username otomatis dari secret)`}
+                    value={repo.docker_image_name || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const updatedRepos = data.repositories.map(r =>
+                        r.id === repo.id ? { ...r, docker_image_name: val } : r
+                      );
+                      onChange({ repositories: updatedRepos });
+                    }}
+                    className="ccd-input pl-8 font-mono text-xs w-full"
+                  />
+                </div>
+                {repo.docker_image_name ? (
+                  <span className="text-[10px] font-mono badge-success shrink-0 max-w-[120px] truncate" title={repo.docker_image_name}>
+                    {repo.docker_image_name}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-ccd-text-muted shrink-0">default</span>
+                )}
+              </div>
+            </div>
+
             {/* Variables Content */}
             {bulkRepo === repo.name ? (
               <div className="p-5 space-y-4">

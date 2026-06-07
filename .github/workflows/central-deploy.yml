@@ -54,10 +54,17 @@ jobs:
       - name: Building Application Container Image
         run: |
           CUSTOM_IMAGE="${{ github.event.inputs.docker_image_name }}"
+          DHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
           if [ -z "$CUSTOM_IMAGE" ]; then
-            IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ github.event.inputs.target_repo_name }}:latest"
+            # No custom name — use username/reponame:latest (or local/reponame if no username)
+            IMAGE_NAME="${DHUB_USER:-local}/${{ github.event.inputs.target_repo_name }}:latest"
           else
-            IMAGE_NAME="$CUSTOM_IMAGE"
+            # Custom name provided — auto-prefix with username if no '/' present
+            if [[ "$CUSTOM_IMAGE" != *"/"* ]] && [ -n "$DHUB_USER" ]; then
+              IMAGE_NAME="${DHUB_USER}/${CUSTOM_IMAGE}"
+            else
+              IMAGE_NAME="$CUSTOM_IMAGE"
+            fi
           fi
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "Membangun image docker $IMAGE_NAME untuk ${{ github.event.inputs.target_repo_name }}..."
@@ -123,9 +130,15 @@ jobs:
             # 2. Login Docker Hub
             IMAGE_NAME="$DOCKER_IMAGE_NAME"
             if [ -z "$IMAGE_NAME" ]; then
-              IMAGE_NAME="${DOCKERHUB_USERNAME}/${TARGET_REPO_NAME}:latest"
-              if [ -z "$DOCKERHUB_USERNAME" ]; then
+              if [ -n "$DOCKERHUB_USERNAME" ]; then
+                IMAGE_NAME="${DOCKERHUB_USERNAME}/${TARGET_REPO_NAME}:latest"
+              else
                 IMAGE_NAME="${TARGET_REPO_NAME}:latest"
+              fi
+            else
+              # Auto-prefix with username if no '/' present in image name
+              if [[ "$IMAGE_NAME" != *"/"* ]] && [ -n "$DOCKERHUB_USERNAME" ]; then
+                IMAGE_NAME="${DOCKERHUB_USERNAME}/${IMAGE_NAME}"
               fi
             fi
             if [ -z "$DOCKERHUB_USERNAME" ]; then

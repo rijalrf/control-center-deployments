@@ -259,4 +259,48 @@ export class GitHubService {
       return false;
     }
   }
+
+  /**
+   * Search for a file in multiple candidate paths (root first, then common subdirs).
+   * Accepts one filename or multiple variants (e.g. ['docker-compose.yml', 'docker-compose.yaml']).
+   * Each variant is tried with its original case AND lowercase per directory.
+   * Returns the path where the file was found, or null if not found anywhere.
+   */
+  static async findFile(
+    accessToken: string | null,
+    owner: string,
+    repo: string,
+    filename: string | string[],
+    ref: string,
+    extraPaths: string[] = [],
+  ): Promise<string | null> {
+    const token   = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
+
+    const names = Array.isArray(filename) ? filename : [filename];
+    const dirs  = ['', '.docker/', 'docker/', 'deploy/', 'deployment/', 'infra/', 'config/'];
+
+    // Build candidate list: for each dir, try each name variant + its lowercase
+    const candidates: string[] = [];
+    for (const dir of dirs) {
+      for (const name of names) {
+        candidates.push(`${dir}${name}`);
+        const lower = name.toLowerCase();
+        if (lower !== name) {
+          candidates.push(`${dir}${lower}`);
+        }
+      }
+    }
+    candidates.push(...extraPaths);
+
+    for (const path of candidates) {
+      try {
+        await octokit.repos.getContent({ owner, repo, path, ref });
+        return path; // found!
+      } catch {
+        // not at this path, continue
+      }
+    }
+    return null;
+  }
 }
