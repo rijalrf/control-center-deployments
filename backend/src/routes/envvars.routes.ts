@@ -1,9 +1,40 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { EnvVar } from '../models/EnvVar';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 router.use(authMiddleware);
+
+const PROJECT_ENV_PATH = '/app/.env';
+
+// GET /api/env-vars/project-env/raw
+router.get('/project-env/raw', async (_req: Request, res: Response) => {
+  try {
+    if (!fs.existsSync(PROJECT_ENV_PATH)) {
+      return res.status(404).json({ error: 'Project .env file not found inside container' });
+    }
+    const content = fs.readFileSync(PROJECT_ENV_PATH, 'utf-8');
+    res.json({ content });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/env-vars/project-env/raw
+router.post('/project-env/raw', async (req: Request, res: Response) => {
+  try {
+    const { content } = req.body;
+    if (content === undefined) {
+      return res.status(400).json({ error: 'content is required' });
+    }
+    fs.writeFileSync(PROJECT_ENV_PATH, content, 'utf-8');
+    res.json({ message: 'Project .env updated successfully!' });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // GET /api/env-vars — list all
 router.get('/', async (_req: Request, res: Response) => {
