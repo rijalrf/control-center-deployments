@@ -874,6 +874,7 @@ export default function Deployment() {
 
   // Confirmation Modal State
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showAbortModal, setShowAbortModal] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ type: 'wizard' | 'draft'; draftId?: number } | null>(null)
 
   const draftDetails = useMemo(() => {
@@ -886,17 +887,17 @@ export default function Deployment() {
   const updateData = (patch: Partial<FormData>) => setFormData(prev => ({ ...prev, ...patch }))
 
   const handleAbort = () => {
-    const ok = window.confirm(
-      "Apakah Anda yakin ingin membatalkan rencana deployment ini?\nSemua konfigurasi langkah yang sudah diisi akan dihapus secara permanen."
-    )
-    if (!ok) return
+    setShowAbortModal(true)
+  }
 
+  const confirmAbortPlan = () => {
     // Reset wizard states
     setCurrentStep(1)
     setFormData(INIT_DATA)
     setIsValidated(false)
     setValidationResults({})
     setShowWizard(false)
+    setShowAbortModal(false)
 
     // Clear localStorage values
     localStorage.removeItem('ccd_wizard_step')
@@ -1866,6 +1867,52 @@ export default function Deployment() {
                 className="ccd-btn-primary py-2 px-5 text-xs bg-gradient-to-r from-ccd-accent to-ccd-cyan text-white font-semibold rounded-lg shadow-lg shadow-ccd-accent/20 hover:opacity-90"
               >
                 Eksekusi Deployment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sleek Glassmorphism Abort Confirmation Modal */}
+      {showAbortModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ccd-animate-fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-[#0b0f19] border border-ccd-border/60 max-w-sm w-full rounded-2xl p-6 shadow-2xl shadow-black/80 ccd-animate-scale-in relative overflow-hidden">
+            {/* Background red radial glow */}
+            <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-ccd-danger/10 blur-2xl pointer-events-none" />
+            
+            {/* Title & Icon */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-ccd-danger/15 border border-ccd-danger/30 flex items-center justify-center text-ccd-danger shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-6 h-6">
+                  <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-ccd-text">Abort Deployment Plan?</h4>
+                <p className="text-xs text-ccd-text-muted mt-0.5">Konfirmasi pembatalan rencana</p>
+              </div>
+            </div>
+
+            {/* Description details */}
+            <div className="space-y-3 my-4 bg-ccd-muted/10 border border-ccd-border/40 rounded-xl p-4 text-xs">
+              <p className="text-ccd-text-dim leading-relaxed">
+                Apakah Anda yakin ingin membatalkan rencana deployment ini? Semua konfigurasi langkah yang sudah diisi akan dihapus secara permanen dari browser.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAbortModal(false)}
+                className="ccd-btn-secondary py-2 px-4 text-xs border border-ccd-border/50 rounded-lg"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmAbortPlan}
+                className="ccd-btn-danger py-2 px-5 text-xs bg-ccd-danger/80 hover:bg-ccd-danger text-white font-semibold rounded-lg shadow-lg shadow-ccd-danger/20 transition-colors"
+              >
+                Ya, Batalkan Rencana
               </button>
             </div>
           </div>
