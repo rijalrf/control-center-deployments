@@ -352,14 +352,14 @@ export class DeploymentService {
           }
         }
 
-        // 5. Check if any workflow failed
-        const anyFailed = runsMap.some(
-          (r) => r.conclusion === 'failure' || r.conclusion === 'cancelled' || r.conclusion === 'timed_out',
-        );
+        // 5. Check if any workflow failed or was cancelled
+        const isCancelled = runsMap.some((r) => r.conclusion === 'cancelled');
+        const isFailed = runsMap.some((r) => r.conclusion === 'failure' || r.conclusion === 'timed_out');
 
-        if (anyFailed) {
+        if (isCancelled || isFailed) {
           clearInterval(timer);
-          await Deployment.update({ status: 'failed' }, { where: { id: deploymentId } });
+          const finalStatus = isCancelled ? 'cancelled' : 'failed';
+          await Deployment.update({ status: finalStatus }, { where: { id: deploymentId } });
           // Update all remaining non-completed steps of this deployment to failed
           await DeploymentStep.update(
             { status: 'failed', completed_at: new Date() },

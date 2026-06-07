@@ -517,7 +517,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {repoStatus === 'failed' && (
                 <line x1="60" y1="70" x2="200" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {repoStatus === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
+              {repoStatus === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && overallStatus !== 'cancelled' && (
                 <>
                   <line x1="60" y1="70" x2="200" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="60" y1="70" x2="200" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -533,7 +533,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {registryStatus === 'failed' && (
                 <line x1="200" y1="70" x2="200" y2="170" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {registryStatus === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
+              {registryStatus === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && overallStatus !== 'cancelled' && (
                 <>
                   <line x1="200" y1="70" x2="200" y2="170" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="70" x2="200" y2="170" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -549,7 +549,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {s6 === 'failed' && (
                 <line x1="200" y1="170" x2="340" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {s6 === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
+              {s6 === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && overallStatus !== 'cancelled' && (
                 <>
                   <line x1="200" y1="170" x2="340" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="170" x2="340" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -565,7 +565,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               {s5 === 'failed' && (
                 <line x1="200" y1="70" x2="340" y2="70" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="url(#red-glow)" />
               )}
-              {s5 === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && (
+              {s5 === 'running' && overallStatus !== 'failed' && overallStatus !== 'success' && overallStatus !== 'cancelled' && (
                 <>
                   <line x1="200" y1="70" x2="340" y2="70" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" filter="url(#cyan-glow)" />
                   <line x1="200" y1="70" x2="340" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" className="active-line-flow" />
@@ -669,11 +669,13 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry }: A
               <span className={`text-xs font-semibold tracking-wide ${
                 overallStatus === 'success' ? 'text-ccd-success' :
                 overallStatus === 'failed' ? 'text-ccd-danger' :
+                overallStatus === 'cancelled' ? 'text-ccd-text-muted' :
                 overallStatus === 'running' ? 'text-ccd-accent' :
                 'text-ccd-text-muted'
               }`}>
                 {overallStatus === 'success' ? '🚀 Deployment Completed Successfully!' :
                  overallStatus === 'failed' ? '❌ Deployment Pipeline Failed' :
+                 overallStatus === 'cancelled' ? '🚫 Deployment Cancelled' :
                  overallStatus === 'running' ? `⚡ Active: ${runningStep?.step_name || 'Deploying...'}` :
                  '⏳ Awaiting Actions Runner Dispatch...'}
               </span>
