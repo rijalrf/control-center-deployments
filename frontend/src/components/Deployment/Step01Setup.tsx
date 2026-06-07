@@ -120,6 +120,12 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
               {env.description && (
                 <div className="text-xs text-ccd-text-muted mt-1 truncate">{env.description}</div>
               )}
+              <div className="mt-2.5 pt-2 border-t border-ccd-border/40 flex items-center justify-between text-[10px]">
+                <span className="text-ccd-text-muted uppercase tracking-wider font-semibold text-[9px]">Target Branch</span>
+                <span className="font-mono badge-accent py-0.5 px-1.5 rounded font-semibold">
+                  {env.target_branch || 'main'}
+                </span>
+              </div>
             </button>
           ))}
           {environments.length === 0 && (
