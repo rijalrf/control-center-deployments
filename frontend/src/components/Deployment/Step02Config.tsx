@@ -65,17 +65,18 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
         [repo.id]: { loading: false, error: null, data: res.data }
       }))
 
-      // Auto-select first service if TARGET_COMPOSE_SERVICE is not set yet
+      // Pre-populate tag for service matching repository name
       const currentConfig = config[repo.name] || {}
-      if (!currentConfig['TARGET_COMPOSE_SERVICE'] && res.data.services?.length > 0) {
-        const firstService = res.data.services[0]
+      const hasAnyComposeTag = Object.keys(currentConfig).some(k => k.startsWith('COMPOSE_TAG_'))
+      if (!hasAnyComposeTag && res.data.services?.length > 0) {
+        const mainService = res.data.services.find((s: any) => s.name.toLowerCase() === repo.name.toLowerCase()) || res.data.services[0]
         onChange({
           config: {
             ...config,
             [repo.name]: {
               ...currentConfig,
-              'TARGET_COMPOSE_SERVICE': firstService.name,
-              'VERSION_TAG': firstService.suggested_tag,
+              [`COMPOSE_TAG_${mainService.name}`]: mainService.suggested_tag,
+              'VERSION_TAG': mainService.suggested_tag,
             }
           }
         })
@@ -172,7 +173,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     setBulkRepo(repoName)
     const currentVars = config[repoName] || {}
     const text = Object.entries(currentVars)
-      .filter(([k]) => !SPECIAL_KEYS.includes(k))
+      .filter(([k]) => !SPECIAL_KEYS.includes(k) && !k.startsWith('COMPOSE_TAG_'))
       .map(([k, v]) => `${k}=${v}`)
       .join('\n')
     setBulkInput(text)
@@ -196,11 +197,16 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       }
     }
 
-    // Preserve special keys
+    // Preserve special keys and compose tag keys
     const currentConfig = config[repoName] || {}
     for (const sk of SPECIAL_KEYS) {
       if (currentConfig[sk] !== undefined) {
         parsed[sk] = currentConfig[sk]
+      }
+    }
+    for (const key of Object.keys(currentConfig)) {
+      if (key.startsWith('COMPOSE_TAG_')) {
+        parsed[key] = currentConfig[key]
       }
     }
     
@@ -233,7 +239,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       {repositories.map(repo => {
         if (!config[repo.name]) ensureDefaults(repo)
         const vars = config[repo.name] || {}
-        const envEntries = Object.entries(vars).filter(([key]) => !SPECIAL_KEYS.includes(key))
+        const envEntries = Object.entries(vars).filter(([key]) => !SPECIAL_KEYS.includes(key) && !key.startsWith('COMPOSE_TAG_'))
 
         return (
           <div key={repo.id} className="ccd-card overflow-hidden">
@@ -308,134 +314,110 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
 
             {/* Docker Compose configuration section */}
             {getSpecialVal(repo.name, 'DEPLOY_STRATEGY') === 'docker-compose' && (
-              <div className="px-5 pb-4 border-b border-ccd-border/30">
-                <div className="bg-ccd-muted/10 border border-ccd-border/50 rounded-xl p-4 space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-ccd-border/30">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan">
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                    </svg>
-                    <h4 className="text-xs font-bold text-ccd-cyan uppercase tracking-wider">Docker Compose Deployment Options</h4>
-                  </div>
-
-                  {composeData[repo.id]?.loading && (
-                    <div className="flex items-center gap-2 py-2 text-xs text-ccd-text-muted">
-                      <div className="spinner w-3.5 h-3.5 border-t-transparent border-ccd-cyan animate-spin" />
-                      <span>Scanning docker-compose.yml from GitHub...</span>
-                    </div>
-                  )}
-
-                  {composeData[repo.id]?.error && (
-                    <div className="space-y-2 py-1">
-                      <div className="text-xs text-ccd-danger bg-ccd-danger/10 border border-ccd-danger/25 rounded-lg p-2.5">
-                        Failed to fetch Compose config: {composeData[repo.id].error}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => fetchComposeServices(repo)}
-                        className="px-2.5 py-1 text-[11px] font-semibold bg-ccd-muted/30 hover:bg-ccd-muted/50 text-ccd-text rounded-md transition-all border border-ccd-border/40"
-                      >
-                        Retry Scan
-                      </button>
-                    </div>
-                  )}
-
-                  {composeData[repo.id]?.data && (
-                    <div className="space-y-4">
-                      {/* Service Dropdown */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-ccd-text-muted block">
-                          Pilih Service yang akan di-deploy
-                        </label>
-                        <select
-                          value={getSpecialVal(repo.name, 'TARGET_COMPOSE_SERVICE')}
-                          onChange={(e) => {
-                            const selectedService = e.target.value
-                            const serviceDetails = composeData[repo.id]?.data?.services.find(s => s.name === selectedService)
-                            
-                            onChange({
-                              config: {
-                                ...config,
-                                [repo.name]: {
-                                  ...(config[repo.name] || {}),
-                                  'TARGET_COMPOSE_SERVICE': selectedService,
-                                  'VERSION_TAG': serviceDetails?.suggested_tag || 'v1',
-                                }
-                              }
-                            })
-                          }}
-                          className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan"
-                        >
-                          <option value="">-- Pilih Service --</option>
-                          {composeData[repo.id].data?.services.map(s => (
-                            <option key={s.name} value={s.name}>
-                              {s.name} ({s.image})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Version Tag Input */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-ccd-text-muted block">
-                          Version Tag
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={getSpecialVal(repo.name, 'VERSION_TAG')}
-                            onChange={(e) => setSpecialVal(repo.name, 'VERSION_TAG', e.target.value)}
-                            placeholder="e.g. v3, v1.2.4, or v3-hotfix"
-                            className="ccd-input font-mono text-xs flex-1"
-                          />
-                        </div>
-
-                        {/* Suggestion Pills */}
-                        {(() => {
-                          const currentService = getSpecialVal(repo.name, 'TARGET_COMPOSE_SERVICE')
-                          const serviceDetails = composeData[repo.id]?.data?.services.find(s => s.name === currentService)
-                          if (!serviceDetails) return null
-
-                          return (
-                            <div className="flex flex-wrap gap-2 pt-1 items-center">
-                              <span className="text-[10px] text-ccd-text-muted">Saran:</span>
-                              
-                              <button
-                                type="button"
-                                onClick={() => setSpecialVal(repo.name, 'VERSION_TAG', serviceDetails.suggested_tag)}
-                                className="px-2 py-0.5 rounded bg-ccd-cyan/10 hover:bg-ccd-cyan/20 border border-ccd-cyan/30 text-ccd-cyan text-[10px] transition-colors font-mono"
-                              >
-                                {serviceDetails.suggested_tag} (Auto-increment +1)
-                              </button>
-
-                              {serviceDetails.current_tag && (
-                                <button
-                                  type="button"
-                                  onClick={() => setSpecialVal(repo.name, 'VERSION_TAG', serviceDetails.current_tag!)}
-                                  className="px-2 py-0.5 rounded bg-ccd-muted/30 hover:bg-ccd-muted/50 border border-ccd-border text-ccd-text-dim text-[10px] transition-colors font-mono"
-                                >
-                                  {serviceDetails.current_tag} (Saat ini)
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </div>
-
-                      {/* Release Notes */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-ccd-text-muted block">
-                          Release Notes / Catatan Deployment
-                        </label>
-                        <textarea
-                          value={getSpecialVal(repo.name, 'RELEASE_NOTES')}
-                          onChange={(e) => setSpecialVal(repo.name, 'RELEASE_NOTES', e.target.value)}
-                          placeholder="Tuliskan catatan rilis untuk tracking histori (misal: fixing bug auth, update UI dashboard, dsb.)"
-                          className="ccd-input text-xs w-full h-20 resize-y"
-                        />
-                      </div>
-                    </div>
-                  )}
+              <div className="px-5 py-4 border-b border-ccd-border/30 space-y-4">
+                <div className="flex items-center gap-2 pb-1 border-b border-ccd-border/20">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                  </svg>
+                  <h4 className="text-xs font-bold text-ccd-cyan uppercase tracking-wider">Docker Compose Configuration</h4>
                 </div>
+
+                {composeData[repo.id]?.loading && (
+                  <div className="flex items-center gap-2 py-2 text-xs text-ccd-text-muted">
+                    <div className="spinner w-3.5 h-3.5 border-t-transparent border-ccd-cyan animate-spin" />
+                    <span>Scanning docker-compose.yml from GitHub...</span>
+                  </div>
+                )}
+
+                {composeData[repo.id]?.error && (
+                  <div className="space-y-2 py-1">
+                    <div className="text-xs text-ccd-danger bg-ccd-danger/10 border border-ccd-danger/25 rounded-lg p-2.5">
+                      Failed to fetch Compose config: {composeData[repo.id].error}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fetchComposeServices(repo)}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-ccd-muted/30 hover:bg-ccd-muted/50 text-ccd-text rounded-md transition-all border border-ccd-border/40"
+                    >
+                      Retry Scan
+                    </button>
+                  </div>
+                )}
+
+                {composeData[repo.id]?.data && (
+                  <div className="space-y-4">
+                    {/* Services List directly in form */}
+                    <div className="space-y-3">
+                      <label className="text-[11px] font-bold text-ccd-text-muted block uppercase tracking-wider">
+                        Configure Service Version Tags
+                      </label>
+                      
+                      {composeData[repo.id].data?.services.map(s => {
+                        const tagKey = `COMPOSE_TAG_${s.name}`
+                        const currentVal = getSpecialVal(repo.name, tagKey)
+                        
+                        return (
+                          <div key={s.name} className="flex flex-col sm:flex-row sm:items-center gap-3 py-1">
+                            <span className="font-mono text-xs font-bold text-ccd-cyan w-32 truncate shrink-0" title={s.name}>
+                              {s.name}
+                            </span>
+                            <span className="text-[10px] text-ccd-text-muted max-w-[200px] truncate shrink-0 hidden sm:inline" title={s.image}>
+                              {s.image}
+                            </span>
+                            
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                list={`tags-${repo.id}-${s.name}`}
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const tag = e.target.value
+                                  const updatedConfig = {
+                                    ...(config[repo.name] || {}),
+                                    [tagKey]: tag
+                                  }
+                                  if (tag) {
+                                    updatedConfig['VERSION_TAG'] = tag
+                                  } else {
+                                    const otherTag = Object.keys(updatedConfig)
+                                      .find(k => k.startsWith('COMPOSE_TAG_') && updatedConfig[k])
+                                    updatedConfig['VERSION_TAG'] = otherTag ? updatedConfig[otherTag] : ''
+                                  }
+                                  
+                                  onChange({
+                                    config: {
+                                      ...config,
+                                      [repo.name]: updatedConfig
+                                    }
+                                  })
+                                }}
+                                placeholder="Select or type tag (e.g. v3)"
+                                className="ccd-input font-mono text-xs w-full"
+                              />
+                              <datalist id={`tags-${repo.id}-${s.name}`}>
+                                <option value={s.suggested_tag}>{s.suggested_tag} (Saran +1)</option>
+                                {s.current_tag && <option value={s.current_tag}>{s.current_tag} (Saat ini)</option>}
+                              </datalist>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Release Notes */}
+                    <div className="space-y-1 pt-2">
+                      <label className="text-xs font-semibold text-ccd-text-muted block">
+                        Release Notes / Catatan Deployment
+                      </label>
+                      <textarea
+                        value={getSpecialVal(repo.name, 'RELEASE_NOTES')}
+                        onChange={(e) => setSpecialVal(repo.name, 'RELEASE_NOTES', e.target.value)}
+                        placeholder="Tuliskan catatan rilis untuk tracking histori (misal: fixing bug auth, update UI dashboard, dsb.)"
+                        className="ccd-input text-xs w-full h-20 resize-y"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -143,10 +143,8 @@ jobs:
             echo "Menuju direktori deployment: $DEPLOY_DIR..."
             cd "$DEPLOY_DIR"
 
-            # 2. Login Docker Hub
             # 2. Login Docker Hub / Parse image name and version tag
             VERSION_TAG=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('VERSION_TAG', ''))")
-            TARGET_COMPOSE_SERVICE=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('TARGET_COMPOSE_SERVICE', ''))")
             
             IMAGE_NAME="$DOCKER_IMAGE_NAME"
             if [ -z "$IMAGE_NAME" ]; then
@@ -182,61 +180,88 @@ jobs:
             if [ "$STRATEGY" = "docker-compose" ]; then
               echo "Menggunakan strategi Docker Compose dengan file: $COMPOSE_FILE"
               
-              if [ -n "$TARGET_COMPOSE_SERVICE" ] && [ -n "$VERSION_TAG" ]; then
-                echo "Melakukan replacement image untuk service '$TARGET_COMPOSE_SERVICE' menjadi '$IMAGE_NAME' di file $COMPOSE_FILE..."
-                COMPOSE_FILE="$COMPOSE_FILE" TARGET_COMPOSE_SERVICE="$TARGET_COMPOSE_SERVICE" IMAGE_NAME="$IMAGE_NAME" python3 -c '
-import os
-compose_path = os.environ.get("COMPOSE_FILE", "docker-compose.yml")
-target_service = os.environ.get("TARGET_COMPOSE_SERVICE", "")
-new_image = os.environ.get("IMAGE_NAME", "")
+              echo "Memproses replacement image untuk service di file $COMPOSE_FILE..."
+              COMPOSE_FILE="$COMPOSE_FILE" TARGET_REPO_NAME="$TARGET_REPO_NAME" DOCKERHUB_USERNAME="$DOCKERHUB_USERNAME" DOCKER_IMAGE_NAME="$DOCKER_IMAGE_NAME" CONFIG_JSON="$CONFIG_JSON" python3 -c '
+import os, json
 
+compose_path = os.environ.get("COMPOSE_FILE", "docker-compose.yml")
+config_str = os.environ.get("CONFIG_JSON", "{}")
+config = json.loads(config_str)
+db_user = os.environ.get("DOCKERHUB_USERNAME", "")
+repo_name = os.environ.get("TARGET_REPO_NAME", "")
+custom_image = os.environ.get("DOCKER_IMAGE_NAME", "")
+
+# Determine base image name
+if not custom_image:
+    if db_user:
+        base_image = f"{db_user}/{repo_name}"
+    else:
+        base_image = repo_name
+else:
+    if "/" not in custom_image and db_user:
+        base_image = f"{db_user}/{custom_image}"
+    else:
+        base_image = custom_image
+    if ":" in base_image:
+        base_image = base_image.split(":")[0]
+
+# Load compose lines
 with open(compose_path, "r") as f:
     lines = f.readlines()
+
 output = []
 in_services = False
 services_indent = -1
-in_target_service = False
-target_indent = -1
-replaced = False
+current_service = None
+service_indent = -1
+replaced_count = 0
+
 for line in lines:
     stripped = line.strip()
     if not stripped or stripped.startswith("#"):
         output.append(line)
         continue
+    
     indent = len(line) - len(line.lstrip())
+    
     if stripped.startswith("services:"):
         in_services = True
         services_indent = indent
         output.append(line)
         continue
+        
     if in_services and indent <= services_indent and not stripped.startswith("services:"):
         in_services = False
-        in_target_service = False
+        current_service = None
+        
     if in_services:
         if stripped.endswith(":") and not stripped.startswith("-"):
-            service_name = stripped[:-1].strip()
-            if in_target_service and indent <= target_indent:
-                in_target_service = False
-            if service_name == target_service:
-                in_target_service = True
-                target_indent = indent
-        elif in_target_service and indent <= target_indent:
-            in_target_service = False
-        if in_target_service and stripped.startswith("image:"):
-            leading_whitespace = line[:len(line) - len(line.lstrip())]
-            line = f"{leading_whitespace}image: {new_image}\n"
-            replaced = True
-            in_target_service = False
+            s_name = stripped[:-1].strip()
+            if current_service and indent <= service_indent:
+                current_service = None
+            if indent > services_indent:
+                current_service = s_name
+                service_indent = indent
+        elif current_service and indent <= service_indent:
+            current_service = None
+            
+        if current_service and stripped.startswith("image:"):
+            tag_key = f"COMPOSE_TAG_{current_service}"
+            target_tag = config.get(tag_key, "")
+            
+            if target_tag:
+                new_image = f"{base_image}:{target_tag}"
+                leading_whitespace = line[:len(line) - len(line.lstrip())]
+                line = f"{leading_whitespace}image: {new_image}\n"
+                replaced_count += 1
+                
     output.append(line)
+
 with open(compose_path, "w") as f:
     f.writelines(output)
 
-if replaced:
-    print("SUCCESS: Image successfully replaced in compose file.")
-else:
-    print("WARNING: Service or image tag not found/replaced in compose file.")
+print(f"SUCCESS: Replaced image in {replaced_count} services in compose file.")
 '
-              fi
 
               docker compose -f $COMPOSE_FILE pull
               docker compose -f $COMPOSE_FILE down
