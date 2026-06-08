@@ -5,6 +5,7 @@ import deploymentsRoutes from './deployments.routes';
 import environmentsRoutes from './environments.routes';
 import serversRoutes from './servers.routes';
 import configRoutes from './config.routes';
+import usersRoutes from './users.routes';
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.use('/deployments', deploymentsRoutes);
 router.use('/environments', environmentsRoutes);
 router.use('/servers', serversRoutes);
 router.use('/config', configRoutes);
+router.use('/users', usersRoutes);
 
 export default router;
 

@@ -9,6 +9,7 @@ import Repos from './pages/Repos'
 import Deployment from './pages/Deployment'
 import Configuration from './pages/Configuration'
 import Documentation from './pages/Documentation'
+import Users from './pages/Users'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="deployment"    element={<Deployment />} />
               <Route path="configuration" element={<Configuration />} />
               <Route path="documentation" element={<Documentation />} />
+              <Route path="users"         element={<Users />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
