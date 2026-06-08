@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import * as yaml from 'js-yaml';
 import { Repository } from '../models/Repository';
 import { Environment } from '../models/Environment';
 import { GitHubService } from '../services/github.service';
@@ -144,6 +145,99 @@ export class ReposController {
       );
 
       res.json({ results });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getComposeServices(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const repo = await Repository.findByPk(req.params.id);
+      if (!repo) {
+        res.status(404).json({ error: 'Repository not found' });
+        return;
+      }
+
+      const userToken = req.user?.access_token ?? null;
+      const [owner, repoName] = repo.full_name.split('/');
+      if (!owner || !repoName) {
+        res.status(400).json({ error: 'Invalid repository name format' });
+        return;
+      }
+
+      const branch = (req.query.branch as string) || repo.default_branch || 'main';
+      let composePath = (req.query.path as string) || null;
+
+      if (!composePath) {
+        try {
+          composePath = await GitHubService.findFile(
+            userToken,
+            owner,
+            repoName,
+            ['docker-compose.yml', 'docker-compose.yaml'],
+            branch,
+          );
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      if (!composePath) {
+        res.status(404).json({ error: 'docker-compose.yml not found in this repository' });
+        return;
+      }
+
+      const rawYaml = await GitHubService.getFileContent(userToken, owner, repoName, composePath, branch);
+      const doc = yaml.load(rawYaml) as any;
+
+      if (!doc || typeof doc !== 'object' || !doc.services || typeof doc.services !== 'object') {
+        res.status(400).json({ error: 'Invalid docker-compose file structure (missing services)' });
+        return;
+      }
+
+      const servicesList = Object.keys(doc.services).map((serviceName) => {
+        const serviceObj = doc.services[serviceName];
+        const image = serviceObj?.image || '';
+        
+        let currentTag: string | null = null;
+        let suggestedTag = 'v1';
+
+        if (image && typeof image === 'string') {
+          const parts = image.split(':');
+          const lastPart = parts[parts.length - 1];
+          if (parts.length > 1 && !lastPart.includes('/')) {
+            currentTag = lastPart;
+            
+            const match = currentTag.match(/^(.*?)(\d+)$/);
+            if (match) {
+              const prefix = match[1];
+              const num = parseInt(match[2], 10);
+              suggestedTag = `${prefix}${num + 1}`;
+            } else {
+              const semverMatch = currentTag.match(/^(v?\d+\.\d+\.)(\d+)$/);
+              if (semverMatch) {
+                const prefix = semverMatch[1];
+                const patch = parseInt(semverMatch[2], 10);
+                suggestedTag = `${prefix}${patch + 1}`;
+              } else {
+                suggestedTag = `${currentTag}-next`;
+              }
+            }
+          }
+        }
+
+        return {
+          name: serviceName,
+          image,
+          current_tag: currentTag,
+          suggested_tag: suggestedTag,
+        };
+      });
+
+      res.json({
+        compose_path: composePath,
+        services: servicesList,
+      });
     } catch (err) {
       next(err);
     }

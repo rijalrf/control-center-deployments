@@ -783,6 +783,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
 }
 export default function Deployment() {
   const navigate = useNavigate()
+  const isFirstRender = useRef(true)
   const [currentStep, setCurrentStep]         = useState<number>(() => {
     const saved = localStorage.getItem('ccd_wizard_step')
     return saved ? Number(saved) : 1
@@ -887,6 +888,7 @@ export default function Deployment() {
 
   // Confirmation Modal State
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showAbortModal, setShowAbortModal] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ type: 'wizard' | 'draft'; draftId?: number } | null>(null)
 
   const draftDetails = useMemo(() => {
@@ -897,6 +899,29 @@ export default function Deployment() {
   }, [confirmAction, deployments])
 
   const updateData = (patch: Partial<FormData>) => setFormData(prev => ({ ...prev, ...patch }))
+
+  const handleAbort = () => {
+    setShowAbortModal(true)
+  }
+
+  const confirmAbortPlan = () => {
+    // Reset wizard states
+    setCurrentStep(1)
+    setFormData(INIT_DATA)
+    setIsValidated(false)
+    setValidationResults({})
+    setShowWizard(false)
+    setShowAbortModal(false)
+
+    // Clear localStorage values
+    localStorage.removeItem('ccd_wizard_step')
+    localStorage.removeItem('ccd_wizard_form_data')
+    localStorage.removeItem('ccd_show_wizard')
+    localStorage.removeItem('ccd_wizard_is_validated')
+    localStorage.removeItem('ccd_wizard_validation_results')
+
+    showToast('Rencana deployment telah dibatalkan.', 'info')
+  }
 
   // Restore active deployment on mount
   useEffect(() => {
@@ -935,6 +960,10 @@ export default function Deployment() {
   }, [formData.repositories])
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
     setIsValidated(false)
     setValidationResults({})
     localStorage.removeItem('ccd_wizard_is_validated')
@@ -1051,9 +1080,28 @@ export default function Deployment() {
         };
       });
 
+      const updatedConfig = { ...formData.config }
+      formData.repositories.forEach(repo => {
+        const result = resultsMap[repo.id]
+        if (result) {
+          const currentRepoConfig = updatedConfig[repo.name] || {}
+          if (currentRepoConfig['DEPLOY_STRATEGY'] === undefined) {
+            currentRepoConfig['DEPLOY_STRATEGY'] = result.docker_compose_exists ? 'docker-compose' : 'standard'
+          }
+          if (currentRepoConfig['VERSION_TAG'] === undefined) {
+            currentRepoConfig['VERSION_TAG'] = result.docker_compose_exists ? '' : 'v2'
+          }
+          if (result.docker_compose_exists && result.docker_compose_path) {
+            currentRepoConfig['COMPOSE_FILE'] = result.docker_compose_path
+          }
+          updatedConfig[repo.name] = currentRepoConfig
+        }
+      })
+
       setFormData(prev => ({
         ...prev,
-        repositories: updatedRepositories
+        repositories: updatedRepositories,
+        config: updatedConfig
       }));
 
       if (hasMissingDockerfile) {
@@ -1078,20 +1126,61 @@ export default function Deployment() {
         
         await Promise.all(
           formData.repositories.map(async (repo) => {
-            if (!newConfig[repo.name] || Object.keys(newConfig[repo.name]).length === 0) {
+            const validationMap = validationResults || {}
+            const hasCompose = validationMap[repo.id]?.docker_compose_exists || false
+
+            const SPECIAL_KEYS = [
+              'DEPLOY_STRATEGY',
+              'DEPLOY_DIR',
+              'COMPOSE_FILE',
+              'PRE_DEPLOY_COMMANDS',
+              'POST_DEPLOY_COMMANDS',
+              'DOCKERFILE_PATH',
+              'TARGET_COMPOSE_SERVICE',
+              'VERSION_TAG',
+              'RELEASE_NOTES'
+            ];
+            const currentRepoConfig = newConfig[repo.name] || {}
+            const hasEnvVars = Object.keys(currentRepoConfig).some(key => !SPECIAL_KEYS.includes(key))
+
+            if (!hasEnvVars) {
               try {
                 const res = await api.get(`/repos/${repo.id}/env-keys`)
                 const keys = res.data.keys && res.data.keys.length > 0 ? res.data.keys : []
                 
-                const defaults: Record<string, string> = {}
+                const defaults: Record<string, string> = {
+                  'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+                }
+                if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
+                  defaults['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
+                }
                 keys.forEach((k: string) => {
                   defaults[k] = ''
                 })
                 newConfig[repo.name] = defaults
               } catch (err) {
-                const defaults: Record<string, string> = {}
+                const defaults: Record<string, string> = {
+                  'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
+                }
+                if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
+                  defaults['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
+                }
                 newConfig[repo.name] = defaults
               }
+            } else {
+              const mergedConfig = { ...currentRepoConfig }
+              if (mergedConfig['DEPLOY_STRATEGY'] === undefined) {
+                mergedConfig['DEPLOY_STRATEGY'] = hasCompose ? 'docker-compose' : 'standard'
+              }
+              if (mergedConfig['VERSION_TAG'] === undefined) {
+                mergedConfig['VERSION_TAG'] = hasCompose ? '' : 'v2'
+              }
+              if (hasCompose && mergedConfig['COMPOSE_FILE'] === undefined && validationMap[repo.id]?.docker_compose_path) {
+                mergedConfig['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
+              }
+              newConfig[repo.name] = mergedConfig
             }
           })
         )
@@ -1125,10 +1214,19 @@ export default function Deployment() {
     if (confirmAction.type === 'wizard') {
       setSubmitting(true)
       try {
+        const notesList = formData.repositories
+          .map(r => {
+            const note = formData.config[r.name]?.['RELEASE_NOTES']?.trim()
+            return note ? `[${r.name}] ${note}` : ''
+          })
+          .filter(Boolean)
+        const combinedNotes = notesList.join('\n\n') || null
+
         const res = await api.post('/deployments', {
           environment_id: formData.environment_id,
           repositories:   formData.repositories,
           config:         formData.config,
+          notes:          combinedNotes,
         })
         setActiveDeployment(res.data)
         localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
@@ -1165,11 +1263,20 @@ export default function Deployment() {
   const handleSavePlan = async () => {
     setSubmitting(true)
     try {
+      const notesList = formData.repositories
+        .map(r => {
+          const note = formData.config[r.name]?.['RELEASE_NOTES']?.trim()
+          return note ? `[${r.name}] ${note}` : ''
+        })
+        .filter(Boolean)
+      const combinedNotes = notesList.join('\n\n') || null
+
       await api.post('/deployments', {
         environment_id: formData.environment_id,
         repositories:   formData.repositories,
         config:         formData.config,
         status:         'draft',
+        notes:          combinedNotes,
       })
       showToast('Deployment plan saved successfully!', 'success')
       localStorage.removeItem('ccd_wizard_step')
@@ -1285,12 +1392,22 @@ export default function Deployment() {
                   <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowWizard(false)}
-                className="ccd-btn-secondary text-xs py-1.5 px-3 border border-ccd-border/50"
-              >
-                Cancel
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAbort}
+                  className="ccd-btn-danger text-xs py-1.5 px-3"
+                  title="Batalkan rencana deployment ini dan hapus draf konfigurasi"
+                >
+                  Abort Plan
+                </button>
+                <button
+                  onClick={() => setShowWizard(false)}
+                  className="ccd-btn-secondary text-xs py-1.5 px-3 border border-ccd-border/50"
+                  title="Tutup wizard sementara tanpa menghapus konfigurasi"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             {currentStep === 1 && (
@@ -1715,12 +1832,6 @@ export default function Deployment() {
       {/* Sleek Glassmorphism Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ccd-animate-fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)' }}>
-          <style>{`
-            @keyframes ccdFadeIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes ccdScaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-            .ccd-animate-fade-in { animation: ccdFadeIn 0.18s ease-out forwards; }
-            .ccd-animate-scale-in { animation: ccdScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-          `}</style>
           <div className="bg-[#0b0f19] border border-ccd-border/60 max-w-md w-full rounded-2xl p-6 shadow-2xl shadow-black/80 ccd-animate-scale-in relative overflow-hidden">
             {/* Background cyan radial glow */}
             <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-ccd-accent/10 blur-2xl pointer-events-none" />
@@ -1758,7 +1869,22 @@ export default function Deployment() {
                       <div className="pl-3 border-l-2 border-ccd-accent/30 flex flex-col gap-2.5 text-[10px] text-ccd-text-dim max-h-40 overflow-y-auto pr-1">
                         {formData.repositories.map(repo => {
                           const result = validationResults[repo.id];
-                          const validatedBranch = result?.resolved_branch || repo.default_branch;
+                          const env = formData.environment;
+                          const targetBranch = env?.target_branch || (env?.name?.toLowerCase() === 'production' ? 'main' : 'staging');
+                          const validatedBranch = result?.resolved_branch || repo.branch || targetBranch || repo.default_branch;
+                          const versionTag = formData.config[repo.name]?.['VERSION_TAG'] || 'latest';
+                          
+                          let displayImage = '';
+                          if (repo.docker_image_name) {
+                            const lastColon = repo.docker_image_name.lastIndexOf(':');
+                            const lastSlash = repo.docker_image_name.lastIndexOf('/');
+                            const hasTag = lastColon !== -1 && lastColon > lastSlash;
+                            const baseImage = hasTag ? repo.docker_image_name.substring(0, lastColon) : repo.docker_image_name;
+                            displayImage = `${baseImage}:${versionTag}`;
+                          } else {
+                            displayImage = `${repo.name}:${versionTag} (default)`;
+                          }
+
                           return (
                             <div key={repo.id} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
                               <div className="flex justify-between font-semibold">
@@ -1767,8 +1893,8 @@ export default function Deployment() {
                               </div>
                               <div className="flex justify-between text-[9px] text-ccd-text-muted">
                                 <span>Image:</span>
-                                <span className="truncate max-w-[190px] font-mono">
-                                  {repo.docker_image_name || `${repo.name}:latest (default)`}
+                                <span className="truncate max-w-[190px] font-mono" title={displayImage}>
+                                  {displayImage}
                                 </span>
                               </div>
                             </div>
@@ -1791,20 +1917,35 @@ export default function Deployment() {
                       <div className="flex flex-col gap-1.5">
                         <span className="text-ccd-text-muted font-sans font-semibold mb-1">Applications to Deploy:</span>
                         <div className="pl-3 border-l-2 border-ccd-warning/30 flex flex-col gap-2.5 text-[10px] text-ccd-text-dim max-h-40 overflow-y-auto pr-1">
-                          {draftDetails.repositories.map(repo => (
-                            <div key={repo.github_id || repo.name} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
-                              <div className="flex justify-between font-semibold">
-                                <span className="text-ccd-text">{repo.name}</span>
-                                <span className="text-ccd-warning">{repo.branch}</span>
+                          {draftDetails.repositories.map(repo => {
+                            const versionTag = draftDetails.config?.[repo.name]?.['VERSION_TAG'] || 'latest';
+                            
+                            let displayImage = '';
+                            if (repo.docker_image_name) {
+                              const lastColon = repo.docker_image_name.lastIndexOf(':');
+                              const lastSlash = repo.docker_image_name.lastIndexOf('/');
+                              const hasTag = lastColon !== -1 && lastColon > lastSlash;
+                              const baseImage = hasTag ? repo.docker_image_name.substring(0, lastColon) : repo.docker_image_name;
+                              displayImage = `${baseImage}:${versionTag}`;
+                            } else {
+                              displayImage = `${repo.name}:${versionTag} (default)`;
+                            }
+
+                            return (
+                              <div key={repo.github_id || repo.name} className="flex flex-col gap-0.5 border-b border-ccd-border/10 pb-1.5 last:border-0 last:pb-0">
+                                <div className="flex justify-between font-semibold">
+                                  <span className="text-ccd-text">{repo.name}</span>
+                                  <span className="text-ccd-warning">{repo.branch}</span>
+                                </div>
+                                <div className="flex justify-between text-[9px] text-ccd-text-muted">
+                                  <span>Image:</span>
+                                  <span className="truncate max-w-[190px] font-mono" title={displayImage}>
+                                    {displayImage}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex justify-between text-[9px] text-ccd-text-muted">
-                                <span>Image:</span>
-                                <span className="truncate max-w-[190px] font-mono">
-                                  {repo.docker_image_name || `${repo.name}:latest (default)`}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1829,6 +1970,52 @@ export default function Deployment() {
                 className="ccd-btn-primary py-2 px-5 text-xs bg-gradient-to-r from-ccd-accent to-ccd-cyan text-white font-semibold rounded-lg shadow-lg shadow-ccd-accent/20 hover:opacity-90"
               >
                 Eksekusi Deployment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sleek Glassmorphism Abort Confirmation Modal */}
+      {showAbortModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ccd-animate-fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-[#0b0f19] border border-ccd-border/60 max-w-sm w-full rounded-2xl p-6 shadow-2xl shadow-black/80 ccd-animate-scale-in relative overflow-hidden">
+            {/* Background red radial glow */}
+            <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-ccd-danger/10 blur-2xl pointer-events-none" />
+            
+            {/* Title & Icon */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-ccd-danger/15 border border-ccd-danger/30 flex items-center justify-center text-ccd-danger shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-6 h-6">
+                  <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-ccd-text">Abort Deployment Plan?</h4>
+                <p className="text-xs text-ccd-text-muted mt-0.5">Konfirmasi pembatalan rencana</p>
+              </div>
+            </div>
+
+            {/* Description details */}
+            <div className="space-y-3 my-4 bg-ccd-muted/10 border border-ccd-border/40 rounded-xl p-4 text-xs">
+              <p className="text-ccd-text-dim leading-relaxed">
+                Apakah Anda yakin ingin membatalkan rencana deployment ini? Semua konfigurasi langkah yang sudah diisi akan dihapus secara permanen dari browser.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAbortModal(false)}
+                className="ccd-btn-secondary py-2 px-4 text-xs border border-ccd-border/50 rounded-lg"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmAbortPlan}
+                className="ccd-btn-danger py-2 px-5 text-xs bg-ccd-danger/80 hover:bg-ccd-danger text-white font-semibold rounded-lg shadow-lg shadow-ccd-danger/20 transition-colors"
+              >
+                Ya, Batalkan Rencana
               </button>
             </div>
           </div>

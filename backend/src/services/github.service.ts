@@ -260,6 +260,22 @@ export class GitHubService {
     }
   }
 
+  static async getFileContent(
+    accessToken: string | null,
+    owner: string,
+    repo: string,
+    path: string,
+    ref: string,
+  ): Promise<string> {
+    const token   = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
+    const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
+    if (data && 'content' in data && typeof (data as any).content === 'string') {
+      return Buffer.from((data as any).content, 'base64').toString('utf-8');
+    }
+    throw new Error('File has no content or is a directory');
+  }
+
   /**
    * Search for a file in multiple candidate paths (root first, then common subdirs).
    * Accepts one filename or multiple variants (e.g. ['docker-compose.yml', 'docker-compose.yaml']).
@@ -278,7 +294,19 @@ export class GitHubService {
     const octokit = new Octokit({ auth: token });
 
     const names = Array.isArray(filename) ? filename : [filename];
-    const dirs  = ['', '.docker/', 'docker/', 'deploy/', 'deployment/', 'infra/', 'config/'];
+    const dirs  = [
+      '', 
+      '.docker/', 
+      '.dokcer/', 
+      'docker/', 
+      'deploy/', 
+      'deployment/', 
+      'infra/', 
+      'infrastructure/', 
+      'config/', 
+      'dockerfiles/', 
+      '.dockerfiles/'
+    ];
 
     // Build candidate list: for each dir, try each name variant + its lowercase
     const candidates: string[] = [];

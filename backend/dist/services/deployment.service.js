@@ -6,6 +6,7 @@ const DeploymentStep_1 = require("../models/DeploymentStep");
 const Environment_1 = require("../models/Environment");
 const Server_1 = require("../models/Server");
 const github_service_1 = require("./github.service");
+const env_1 = require("../config/env");
 // ── Helpers ───────────────────────────────────────────────────────────────────
 /** Maps GitHub Actions step status/conclusion → internal StepStatus. */
 function mapStepStatus(ghStatus, ghConclusion) {
@@ -124,7 +125,7 @@ class DeploymentService {
                     dockerfile_path: dockerfilePath,
                     docker_image_name: r.docker_image_name ?? '',
                 };
-                const runMeta = await github_service_1.GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, 'main');
+                const runMeta = await github_service_1.GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, env_1.env.central.ref);
                 runsInfo.push({
                     ...runMeta,
                     repoName: r.name,

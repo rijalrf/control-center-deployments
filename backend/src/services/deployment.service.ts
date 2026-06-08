@@ -3,6 +3,7 @@ import { DeploymentStep } from '../models/DeploymentStep';
 import { Environment } from '../models/Environment';
 import { Server } from '../models/Server';
 import { GitHubService } from './github.service';
+import { env } from '../config/env';
 import {
   DeploymentRepository,
   DeploymentConfig,
@@ -189,7 +190,7 @@ export class DeploymentService {
           docker_image_name:       r.docker_image_name ?? '',
         };
 
-        const runMeta = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, 'main');
+        const runMeta = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, env.central.ref);
         runsInfo.push({
           ...runMeta,
           repoName:   r.name,

@@ -1,6 +1,40 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReposController = void 0;
+const yaml = __importStar(require("js-yaml"));
 const Repository_1 = require("../models/Repository");
 const Environment_1 = require("../models/Environment");
 const github_service_1 = require("../services/github.service");
@@ -122,6 +156,84 @@ class ReposController {
                 };
             }));
             res.json({ results });
+        }
+        catch (err) {
+            next(err);
+        }
+    }
+    static async getComposeServices(req, res, next) {
+        try {
+            const repo = await Repository_1.Repository.findByPk(req.params.id);
+            if (!repo) {
+                res.status(404).json({ error: 'Repository not found' });
+                return;
+            }
+            const userToken = req.user?.access_token ?? null;
+            const [owner, repoName] = repo.full_name.split('/');
+            if (!owner || !repoName) {
+                res.status(400).json({ error: 'Invalid repository name format' });
+                return;
+            }
+            const branch = req.query.branch || repo.default_branch || 'main';
+            let composePath = req.query.path || null;
+            if (!composePath) {
+                try {
+                    composePath = await github_service_1.GitHubService.findFile(userToken, owner, repoName, ['docker-compose.yml', 'docker-compose.yaml'], branch);
+                }
+                catch (err) {
+                    // ignore
+                }
+            }
+            if (!composePath) {
+                res.status(404).json({ error: 'docker-compose.yml not found in this repository' });
+                return;
+            }
+            const rawYaml = await github_service_1.GitHubService.getFileContent(userToken, owner, repoName, composePath, branch);
+            const doc = yaml.load(rawYaml);
+            if (!doc || typeof doc !== 'object' || !doc.services || typeof doc.services !== 'object') {
+                res.status(400).json({ error: 'Invalid docker-compose file structure (missing services)' });
+                return;
+            }
+            const servicesList = Object.keys(doc.services).map((serviceName) => {
+                const serviceObj = doc.services[serviceName];
+                const image = serviceObj?.image || '';
+                let currentTag = null;
+                let suggestedTag = 'v1';
+                if (image && typeof image === 'string') {
+                    const parts = image.split(':');
+                    const lastPart = parts[parts.length - 1];
+                    if (parts.length > 1 && !lastPart.includes('/')) {
+                        currentTag = lastPart;
+                        const match = currentTag.match(/^(.*?)(\d+)$/);
+                        if (match) {
+                            const prefix = match[1];
+                            const num = parseInt(match[2], 10);
+                            suggestedTag = `${prefix}${num + 1}`;
+                        }
+                        else {
+                            const semverMatch = currentTag.match(/^(v?\d+\.\d+\.)(\d+)$/);
+                            if (semverMatch) {
+                                const prefix = semverMatch[1];
+                                const patch = parseInt(semverMatch[2], 10);
+                                suggestedTag = `${prefix}${patch + 1}`;
+                            }
+                            else {
+                                suggestedTag = `${currentTag}-next`;
+                            }
+                        }
+                    }
+                }
+                return {
+                    name: serviceName,
+                    image,
+                    current_tag: currentTag,
+                    suggested_tag: suggestedTag,
+                };
+            });
+            res.json({
+                compose_path: composePath,
+                services: servicesList,
+            });
         }
         catch (err) {
             next(err);
