@@ -346,6 +346,7 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
             onClick={() => setDetailRepo(null)}
+            style={{ marginTop: 0 }}
           >
             <div
               className="ccd-card w-full max-w-lg mx-4 rounded-2xl border border-ccd-border shadow-2xl overflow-hidden animate-slide-down"
@@ -559,7 +560,7 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
       })()}
 
       {showSelectorPopup && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" style={{ marginTop: 0 }}>
           <div className="ccd-card w-full max-w-2xl mx-4 rounded-2xl border border-ccd-border shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-slide-down">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-ccd-border shrink-0">
