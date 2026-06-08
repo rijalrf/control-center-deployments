@@ -1401,13 +1401,6 @@ export default function Deployment() {
                 >
                   Abort Plan
                 </button>
-                <button
-                  onClick={() => setShowWizard(false)}
-                  className="ccd-btn-secondary text-xs py-1.5 px-3 border border-ccd-border/50"
-                  title="Tutup wizard sementara tanpa menghapus konfigurasi"
-                >
-                  Close
-                </button>
               </div>
             </div>
 
@@ -1424,13 +1417,23 @@ export default function Deployment() {
 
             {/* Navigation buttons */}
             <div className="flex items-center justify-between mt-8 pt-5 border-t border-ccd-border">
-              <button
-                onClick={() => currentStep > 1 ? setCurrentStep(s => s - 1) : null}
-                disabled={currentStep === 1 || loadingKeys}
-                className="ccd-btn-secondary"
-              >
-                ← Back
-              </button>
+              {currentStep === 1 ? (
+                <button
+                  onClick={() => setShowWizard(false)}
+                  className="ccd-btn-secondary"
+                  title="Tutup wizard sementara tanpa menghapus konfigurasi"
+                >
+                  Close
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCurrentStep(s => s - 1)}
+                  disabled={loadingKeys}
+                  className="ccd-btn-secondary"
+                >
+                  ← Back
+                </button>
+              )}
 
               <div className="flex gap-3">
                 {currentStep === 1 ? (
