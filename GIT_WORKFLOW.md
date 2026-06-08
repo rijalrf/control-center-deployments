@@ -25,6 +25,7 @@ git checkout -b <type>/<nama-deskriptif>
 ```
 
 **Contoh konteks berbeda:**
+
 - Sedang di `feature/auth-page`, lalu diminta perbaiki bug di halaman deployment → buat `fix/deployment-bug`
 - Sedang di `refactor/types`, lalu diminta tambah fitur baru → buat `feature/nama-fitur`
 
@@ -42,6 +43,7 @@ git push
 ```
 
 **Contoh konteks sama:**
+
 - Menambah fungsi baru ke fitur yang sedang dikerjakan
 - Memperbaiki bug yang muncul dari perubahan yang baru dibuat
 - Iterasi/revisi atas hasil kerja di branch aktif
@@ -50,17 +52,17 @@ git push
 
 ## Konvensi Nama Branch
 
-| Prefix | Digunakan untuk |
-|---|---|
-| `feature/` | Fitur baru |
-| `fix/` | Perbaikan bug |
+| Prefix      | Digunakan untuk                        |
+| ----------- | -------------------------------------- |
+| `feature/`  | Fitur baru                             |
+| `fix/`      | Perbaikan bug                          |
 | `refactor/` | Refactoring tanpa perubahan fungsional |
-| `chore/` | Update dependency, config, tooling |
-| `docs/` | Perubahan dokumentasi saja |
+| `chore/`    | Update dependency, config, tooling     |
+| `docs/`     | Perubahan dokumentasi saja             |
 
 **Format:** `<prefix>/<nama-singkat-dengan-dash>`
 
-```
+```plan
 feature/user-authentication
 fix/deployment-status-polling
 refactor/remove-any-types
