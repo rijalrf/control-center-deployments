@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import Step01Setup from '../components/Deployment/Step01Setup'
@@ -1830,7 +1831,7 @@ export default function Deployment() {
       )}
 
       {/* Sleek Glassmorphism Confirmation Modal */}
-      {showConfirmModal && (
+      {showConfirmModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ccd-animate-fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-[#0b0f19] border border-ccd-border/60 max-w-md w-full rounded-2xl p-6 shadow-2xl shadow-black/80 ccd-animate-scale-in relative overflow-hidden">
             {/* Background cyan radial glow */}
@@ -1973,11 +1974,12 @@ export default function Deployment() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Sleek Glassmorphism Abort Confirmation Modal */}
-      {showAbortModal && (
+      {showAbortModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ccd-animate-fade-in" style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-[#0b0f19] border border-ccd-border/60 max-w-sm w-full rounded-2xl p-6 shadow-2xl shadow-black/80 ccd-animate-scale-in relative overflow-hidden">
             {/* Background red radial glow */}
@@ -2019,7 +2021,8 @@ export default function Deployment() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../services/api'
 import { Environment, Server } from '../types'
 import { useToast } from '../context/ToastContext'
@@ -11,7 +12,7 @@ interface ModalProps {
 }
 
 function Modal({ title, onClose, children }: ModalProps) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="ccd-card w-full max-w-md mx-4 rounded-2xl border border-ccd-border shadow-2xl animate-slide-down">
         <div className="flex items-center justify-between px-6 py-4 border-b border-ccd-border">
@@ -24,7 +25,8 @@ function Modal({ title, onClose, children }: ModalProps) {
         </div>
         <div className="p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -35,7 +37,7 @@ interface ConfirmModalProps {
 }
 
 function ConfirmModal({ message, onConfirm, onCancel }: ConfirmModalProps) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="ccd-card w-full max-w-sm mx-4 rounded-2xl border border-ccd-danger/30 animate-slide-down">
         <div className="p-6 text-center">
@@ -52,7 +54,8 @@ function ConfirmModal({ message, onConfirm, onCancel }: ConfirmModalProps) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
