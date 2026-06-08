@@ -848,6 +848,18 @@ export default function Deployment() {
     repositories: DeploymentRepository[];
     config: Record<string, any>;
   } | null>(null)
+  const [editingDraftId, setEditingDraftId] = useState<number | null>(() => {
+    const saved = localStorage.getItem('ccd_wizard_editing_draft_id')
+    return saved ? Number(saved) : null
+  })
+
+  useEffect(() => {
+    if (editingDraftId !== null) {
+      localStorage.setItem('ccd_wizard_editing_draft_id', String(editingDraftId))
+    } else {
+      localStorage.removeItem('ccd_wizard_editing_draft_id')
+    }
+  }, [editingDraftId])
   
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [filterEnv, setFilterEnv] = useState<string>('')
@@ -923,7 +935,18 @@ export default function Deployment() {
     setShowAbortModal(true)
   }
 
-  const confirmAbortPlan = () => {
+  const confirmAbortPlan = async () => {
+    if (editingDraftId !== null) {
+      try {
+        await api.patch(`/deployments/${editingDraftId}/status`, { status: 'cancelled' })
+        showToast('Rencana deployment (draf) telah dibatalkan.', 'info')
+      } catch (err) {
+        showToast('Gagal membatalkan draf di database.', 'error')
+      }
+    } else {
+      showToast('Rencana deployment telah dibatalkan.', 'info')
+    }
+
     // Reset wizard states
     setCurrentStep(1)
     setFormData(INIT_DATA)
@@ -931,6 +954,7 @@ export default function Deployment() {
     setValidationResults({})
     setShowWizard(false)
     setShowAbortModal(false)
+    setEditingDraftId(null)
 
     // Clear localStorage values
     localStorage.removeItem('ccd_wizard_step')
@@ -938,8 +962,7 @@ export default function Deployment() {
     localStorage.removeItem('ccd_show_wizard')
     localStorage.removeItem('ccd_wizard_is_validated')
     localStorage.removeItem('ccd_wizard_validation_results')
-
-    showToast('Rencana deployment telah dibatalkan.', 'info')
+    localStorage.removeItem('ccd_wizard_editing_draft_id')
   }
 
   // Restore active deployment on mount
@@ -1241,12 +1264,21 @@ export default function Deployment() {
           .filter(Boolean)
         const combinedNotes = notesList.join('\n\n') || null
 
-        const res = await api.post('/deployments', {
+        const payload = {
           environment_id: formData.environment_id,
           repositories:   formData.repositories,
           config:         formData.config,
           notes:          combinedNotes,
-        })
+        }
+
+        let res;
+        if (editingDraftId !== null) {
+          await api.put(`/deployments/${editingDraftId}`, payload)
+          res = await api.post(`/deployments/${editingDraftId}/execute`)
+        } else {
+          res = await api.post('/deployments', payload)
+        }
+
         setActiveDeployment(res.data)
         localStorage.setItem('ccd_active_deployment_id', String(res.data.id))
         showToast('Deployment triggered successfully!', 'success')
@@ -1256,7 +1288,9 @@ export default function Deployment() {
         localStorage.removeItem('ccd_show_wizard')
         localStorage.removeItem('ccd_wizard_is_validated')
         localStorage.removeItem('ccd_wizard_validation_results')
+        localStorage.removeItem('ccd_wizard_editing_draft_id')
         setFormData(INIT_DATA)
+        setEditingDraftId(null)
         setCurrentStep(1)
         setShowWizard(false)
       } catch (err: unknown) {
@@ -1290,20 +1324,30 @@ export default function Deployment() {
         .filter(Boolean)
       const combinedNotes = notesList.join('\n\n') || null
 
-      await api.post('/deployments', {
+      const payload = {
         environment_id: formData.environment_id,
         repositories:   formData.repositories,
         config:         formData.config,
         status:         'draft',
         notes:          combinedNotes,
-      })
-      showToast('Deployment plan saved successfully!', 'success')
+      }
+
+      if (editingDraftId !== null) {
+        await api.put(`/deployments/${editingDraftId}`, payload)
+        showToast('Deployment plan updated successfully!', 'success')
+      } else {
+        await api.post('/deployments', payload)
+        showToast('Deployment plan saved successfully!', 'success')
+      }
+
       localStorage.removeItem('ccd_wizard_step')
       localStorage.removeItem('ccd_wizard_form_data')
       localStorage.removeItem('ccd_show_wizard')
       localStorage.removeItem('ccd_wizard_is_validated')
       localStorage.removeItem('ccd_wizard_validation_results')
+      localStorage.removeItem('ccd_wizard_editing_draft_id')
       setFormData(INIT_DATA)
+      setEditingDraftId(null)
       setCurrentStep(1)
       setShowWizard(false)
       fetchDeployments()
@@ -1355,6 +1399,7 @@ export default function Deployment() {
 
     setIsValidated(false)
     setValidationResults({})
+    setEditingDraftId(d.id)
     setCurrentStep(1)
     setShowWizard(true)
     
