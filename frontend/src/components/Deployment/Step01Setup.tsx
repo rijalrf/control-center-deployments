@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../../services/api'
 import { Environment, Repository } from '../../types'
 
@@ -341,10 +342,11 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
         const hasBranchFallback = result?.fallback_used
         const hasNoCompose = result && !result.docker_compose_exists
 
-        return (
+        return createPortal(
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
             onClick={() => setDetailRepo(null)}
+            style={{ marginTop: 0 }}
           >
             <div
               className="ccd-card w-full max-w-lg mx-4 rounded-2xl border border-ccd-border shadow-2xl overflow-hidden animate-slide-down"
@@ -552,13 +554,13 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )
       })()}
 
-      {/* ── Repo Selector Popup ── */}
-      {showSelectorPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+      {showSelectorPopup && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" style={{ marginTop: 0 }}>
           <div className="ccd-card w-full max-w-2xl mx-4 rounded-2xl border border-ccd-border shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-slide-down">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-ccd-border shrink-0">
@@ -651,7 +653,8 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
               <button type="button" onClick={applyRepoSelection} className="ccd-btn-primary text-xs">Apply Selection</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
