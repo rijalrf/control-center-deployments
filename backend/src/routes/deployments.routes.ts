@@ -9,6 +9,7 @@ router.use(authMiddleware);
 router.get('/', DeploymentsController.list);
 router.get('/:id', DeploymentsController.getById);
 router.post('/', DeploymentsController.create);
+router.put('/:id', DeploymentsController.update);
 router.post('/:id/execute', DeploymentsController.executeDraft);
 router.post('/:id/retry', DeploymentsController.retry);
 router.patch('/:id/status', DeploymentsController.updateStatus);
