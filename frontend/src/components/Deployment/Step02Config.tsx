@@ -567,14 +567,18 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-ccd-text-muted">Docker Compose File Path (relative to repo root)</label>
                           <div className="relative flex items-center">
-                            <input
-                              type="text"
-                              value={getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo))}
-                              onChange={e => setSpecialVal(repo.name, 'COMPOSE_FILE', e.target.value)}
-                              onBlur={() => fetchComposeServices(repo)}
-                              placeholder={getComposeDefaultPath(repo)}
-                              className="ccd-input font-mono text-xs w-full pr-20"
-                            />
+                            <div 
+                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)) })}
+                              className="flex items-center gap-2.5 bg-ccd-surface border border-ccd-border rounded-lg px-3 py-2 text-ccd-text text-sm w-full font-mono select-none pr-20 cursor-pointer hover:border-ccd-accent/40 transition-colors group"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan shrink-0 group-hover:scale-105 transition-transform">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                              </svg>
+                              <span className="truncate text-xs text-ccd-text-dim group-hover:text-ccd-text transition-colors">
+                                {getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo))}
+                              </span>
+                            </div>
                             <button
                               type="button"
                               onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)) })}
