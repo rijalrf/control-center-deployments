@@ -331,4 +331,25 @@ export class GitHubService {
     }
     return null;
   }
+
+  static async getRepoContents(
+    accessToken: string | null,
+    owner: string,
+    repo: string,
+    path: string,
+    ref: string
+  ): Promise<any[]> {
+    const token = this.getEffectiveToken(accessToken);
+    const octokit = new Octokit({ auth: token });
+    const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
+    if (Array.isArray(data)) {
+      return data.map(item => ({
+        name: item.name,
+        path: item.path,
+        type: item.type, // 'file' or 'dir'
+        size: item.size
+      }));
+    }
+    return [];
+  }
 }

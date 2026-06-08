@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Repository, Environment } from '../../types'
 import api from '../../services/api'
+import FileExplorerModal from './FileExplorerModal'
 
 interface Step02ConfigProps {
   data: {
@@ -36,6 +37,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     })
     return initial
   })
+  const [explorerTarget, setExplorerTarget] = useState<{ repo: Repository; initialPath: string } | null>(null)
 
   const validationMap = React.useMemo(() => {
     try {
@@ -74,7 +76,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     data: FetchResult | null;
   }>>({})
 
-  const fetchComposeServices = async (repo: Repository) => {
+  const fetchComposeServices = async (repo: Repository, customPath?: string) => {
     setComposeData(prev => ({
       ...prev,
       [repo.id]: { loading: true, error: null, data: prev[repo.id]?.data || null }
@@ -82,7 +84,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     try {
       const targetBranch = data.environment?.target_branch || (data.environment?.name?.toLowerCase() === 'production' ? 'main' : 'staging')
       const resolvedBranch = validationMap[repo.id]?.resolved_branch || targetBranch || repo.default_branch || 'main'
-      const composePath = config[repo.name]?.['COMPOSE_FILE'] || getComposeDefaultPath(repo)
+      const composePath = customPath || config[repo.name]?.['COMPOSE_FILE'] || getComposeDefaultPath(repo)
 
       const res = await api.get(`/repos/${repo.id}/compose-services`, {
         params: { branch: resolvedBranch, path: composePath }
@@ -565,14 +567,28 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-ccd-text-muted">Docker Compose File Path (relative to repo root)</label>
                           <div className="relative flex items-center">
-                            <input
-                              type="text"
-                              value={getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo))}
-                              onChange={e => setSpecialVal(repo.name, 'COMPOSE_FILE', e.target.value)}
-                              onBlur={() => fetchComposeServices(repo)}
-                              placeholder={getComposeDefaultPath(repo)}
-                              className="ccd-input font-mono text-xs w-full pr-10"
-                            />
+                            <div 
+                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)) })}
+                              className="flex items-center gap-2.5 bg-ccd-surface border border-ccd-border rounded-lg px-3 py-2 text-ccd-text text-sm w-full font-mono select-none pr-20 cursor-pointer hover:border-ccd-accent/40 transition-colors group"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan shrink-0 group-hover:scale-105 transition-transform">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                              </svg>
+                              <span className="truncate text-xs text-ccd-text-dim group-hover:text-ccd-text transition-colors">
+                                {getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo))}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)) })}
+                              className="absolute right-11 p-1 rounded hover:bg-ccd-muted/20 text-ccd-text-muted hover:text-ccd-warning transition-colors"
+                              title="Browse repository files visually"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                              </svg>
+                            </button>
                             <button
                               type="button"
                               onClick={() => fetchComposeServices(repo)}
@@ -625,6 +641,32 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
           </div>
         )
       })}
+
+      {explorerTarget && (
+        <FileExplorerModal
+          repoId={explorerTarget.repo.id}
+          repoName={explorerTarget.repo.name}
+          branch={
+            validationMap[explorerTarget.repo.id]?.resolved_branch ||
+            explorerTarget.repo.default_branch ||
+            'main'
+          }
+          initialPath={explorerTarget.initialPath}
+          onSelect={(path) => {
+            const updatedConfig = {
+              ...config,
+              [explorerTarget.repo.name]: {
+                ...(config[explorerTarget.repo.name] || {}),
+                'COMPOSE_FILE': path
+              }
+            }
+            onChange({ config: updatedConfig })
+            fetchComposeServices(explorerTarget.repo, path)
+            setExplorerTarget(null)
+          }}
+          onClose={() => setExplorerTarget(null)}
+        />
+      )}
     </div>
   )
 }
