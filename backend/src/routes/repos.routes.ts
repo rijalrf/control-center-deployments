@@ -12,5 +12,6 @@ router.delete('/:id', ReposController.delete);
 router.get('/:id/env-keys', ReposController.getEnvKeys);
 router.post('/validate-branches', ReposController.validateBranches);
 router.get('/:id/compose-services', ReposController.getComposeServices);
+router.get('/:id/contents', ReposController.getContents);
 
 export default router;
