@@ -12,6 +12,10 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Configuration",
     subtitle: "Environments & server management",
   },
+  "/users": {
+    title: "User Management",
+    subtitle: "Manage system administrators and developer access",
+  },
 };
 
 export default function TopBar() {
