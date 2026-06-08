@@ -37,6 +37,22 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     return initial
   })
 
+  const validationMap = React.useMemo(() => {
+    try {
+      const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
+      return validationSaved ? JSON.parse(validationSaved) : {}
+    } catch (e) {
+      return {}
+    }
+  }, [])
+
+  const getComposeDefaultPath = (repo: Repository) => {
+    const result = validationMap[repo.id]
+    return (result?.docker_compose_exists && result?.docker_compose_path)
+      ? result.docker_compose_path
+      : 'docker-compose.yml'
+  }
+
   const toggleRepo = (repoId: number) => {
     setExpandedRepos(prev => ({ ...prev, [repoId]: !prev[repoId] }))
   }
@@ -64,11 +80,9 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       [repo.id]: { loading: true, error: null, data: prev[repo.id]?.data || null }
     }))
     try {
-      const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
-      const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
       const targetBranch = data.environment?.target_branch || (data.environment?.name?.toLowerCase() === 'production' ? 'main' : 'staging')
       const resolvedBranch = validationMap[repo.id]?.resolved_branch || targetBranch || repo.default_branch || 'main'
-      const composePath = validationMap[repo.id]?.docker_compose_path || ''
+      const composePath = config[repo.name]?.['COMPOSE_FILE'] || getComposeDefaultPath(repo)
 
       const res = await api.get(`/repos/${repo.id}/compose-services`, {
         params: { branch: resolvedBranch, path: composePath }
@@ -175,8 +189,6 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     const hasTag = currentRepoConfig['VERSION_TAG'] !== undefined
     
     if (!hasStrategy || !hasTag) {
-      const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
-      const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
       const result = validationMap[repo.id]
       const hasCompose = result?.docker_compose_exists || false
       
@@ -313,8 +325,6 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                     <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Target Branch</span>
                     <span className="text-xs font-mono font-semibold text-ccd-cyan bg-ccd-cyan/5 border border-ccd-cyan/15 px-2 py-0.5 rounded-md inline-block">
                       {(() => {
-                        const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
-                        const validationMap = validationSaved ? JSON.parse(validationSaved) : {}
                         const targetBranch = data.environment?.target_branch || (data.environment?.name?.toLowerCase() === 'production' ? 'main' : 'staging')
                         return validationMap[repo.id]?.resolved_branch || targetBranch || repo.default_branch || 'main'
                       })()}
@@ -353,7 +363,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                       {composeData[repo.id]?.loading ? (
                         <div className="flex items-center gap-2 py-2 text-xs text-ccd-text-muted">
                           <div className="spinner w-3.5 h-3.5 border-t-transparent border-ccd-cyan animate-spin" />
-                          <span>Scanning docker-compose.yml from GitHub...</span>
+                          <span>Scanning {config[repo.name]?.['COMPOSE_FILE'] || getComposeDefaultPath(repo)} from GitHub...</span>
                         </div>
                       ) : (
                         (() => {
@@ -554,13 +564,31 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                       {strategy === 'docker-compose' && (
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-ccd-text-muted">Docker Compose File Path (relative to repo root)</label>
-                          <input
-                            type="text"
-                            value={getSpecialVal(repo.name, 'COMPOSE_FILE', 'docker-compose.yml')}
-                            onChange={e => setSpecialVal(repo.name, 'COMPOSE_FILE', e.target.value)}
-                            placeholder="docker-compose.yml"
-                            className="ccd-input font-mono text-xs w-full"
-                          />
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              value={getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo))}
+                              onChange={e => setSpecialVal(repo.name, 'COMPOSE_FILE', e.target.value)}
+                              onBlur={() => fetchComposeServices(repo)}
+                              placeholder={getComposeDefaultPath(repo)}
+                              className="ccd-input font-mono text-xs w-full pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => fetchComposeServices(repo)}
+                              disabled={composeData[repo.id]?.loading}
+                              className="absolute right-2.5 p-1 rounded hover:bg-ccd-muted/20 text-ccd-text-muted hover:text-ccd-cyan transition-colors"
+                              title="Scan compose file services"
+                            >
+                              {composeData[repo.id]?.loading ? (
+                                <div className="spinner w-3.5 h-3.5 border-t-transparent border-ccd-cyan animate-spin" />
+                              ) : (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
+                                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       )}
 
