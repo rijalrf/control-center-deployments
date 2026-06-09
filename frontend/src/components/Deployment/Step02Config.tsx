@@ -417,12 +417,12 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                                 <option value="">-- Kosongkan --</option>
                                 {currentTag && (
                                   <>
-                                    <option value={`${currentTag}+`}>{currentTag}+ (new version)</option>
-                                    <option value={currentTag}>{currentTag} (success deploy)</option>
+                                    <option value={`${currentTag}+`}>{currentTag}+</option>
+                                    <option value={currentTag}>{currentTag}</option>
                                   </>
                                 )}
                                 {!currentTag && suggestedTag && (
-                                  <option value={suggestedTag}>{suggestedTag} (new version)</option>
+                                  <option value={suggestedTag}>{suggestedTag}</option>
                                 )}
                                 <option value="custom">Kustom / Manual...</option>
                               </select>
