@@ -31,6 +31,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   const [bulkRepo, setBulkRepo] = useState<string | null>(null)
   const [bulkInput, setBulkInput] = useState<string>('')
   const [expandedAdvanced, setExpandedAdvanced] = useState<Record<string, boolean>>({})
+  const [isCustomMode, setIsCustomMode] = useState<Record<string, boolean>>({})
   const [expandedRepos, setExpandedRepos] = useState<Record<number, boolean>>(() => {
     const initial: Record<number, boolean> = {}
     repositories.forEach((repo, idx) => {
@@ -390,7 +391,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                           }
 
                           const currentVal = getSpecialVal(repo.name, 'VERSION_TAG', '')
-                          const isCustom = currentVal !== '' && currentVal !== suggestedTag && currentVal !== currentTag
+                          const isCustom = isCustomMode[repo.name] || (currentVal !== '' && currentVal !== suggestedTag && currentVal !== currentTag)
                           const selectVal = isCustom ? 'custom' : currentVal
 
                           return (
@@ -400,8 +401,10 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                                 onChange={(e) => {
                                   const val = e.target.value
                                   if (val === 'custom') {
+                                    setIsCustomMode(prev => ({ ...prev, [repo.name]: true }))
                                     setSpecialVal(repo.name, 'VERSION_TAG', '')
                                   } else {
+                                    setIsCustomMode(prev => ({ ...prev, [repo.name]: false }))
                                     setSpecialVal(repo.name, 'VERSION_TAG', val)
                                   }
                                 }}
