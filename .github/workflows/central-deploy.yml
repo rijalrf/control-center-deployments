@@ -39,6 +39,10 @@ on:
         description: 'Nama Custom Docker Image (opsional)'
         required: false
         default: ''
+      build_target:
+        description: 'Target Stage Dockerfile (opsional, misal: prod)'
+        required: false
+        default: ''
 
 jobs:
   deploy:
@@ -180,7 +184,11 @@ jobs:
           
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "Membangun image docker $IMAGE_NAME untuk ${{ github.event.inputs.target_repo_name }}..."
-          docker build -f ${{ github.event.inputs.dockerfile_path }} -t $IMAGE_NAME .
+          TARGET_FLAG=""
+          if [ -n "${{ github.event.inputs.build_target }}" ]; then
+            TARGET_FLAG="--target ${{ github.event.inputs.build_target }}"
+          fi
+          docker build $TARGET_FLAG -f ${{ github.event.inputs.dockerfile_path }} -t $IMAGE_NAME .
 
       - name: Uploading Image to Docker Hub Registry
         if: env.DOCKERHUB_USERNAME != ''

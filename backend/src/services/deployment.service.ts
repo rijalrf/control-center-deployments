@@ -156,6 +156,7 @@ export class DeploymentService {
       for (const r of data.repositories) {
         const repoConfig    = data.config[r.name] ?? {};
         const dockerfilePath = repoConfig['DOCKERFILE_PATH'] ?? 'Dockerfile';
+        const buildTarget    = repoConfig['DOCKER_BUILD_TARGET'] ?? repoConfig['BUILD_TARGET'] ?? '';
         const [repoOwner, repoNameOnly] = r.full_name.split('/');
 
         let targetRef = r.default_branch ?? 'main';
@@ -188,6 +189,7 @@ export class DeploymentService {
           server_username:         serverUsername,
           dockerfile_path:         dockerfilePath,
           docker_image_name:       r.docker_image_name ?? '',
+          build_target:            buildTarget,
         };
 
         const runMeta = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, env.central.ref);

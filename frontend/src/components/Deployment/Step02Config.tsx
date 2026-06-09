@@ -22,7 +22,8 @@ const SPECIAL_KEYS = [
   'DOCKERFILE_PATH',
   'TARGET_COMPOSE_SERVICE',
   'VERSION_TAG',
-  'RELEASE_NOTES'
+  'RELEASE_NOTES',
+  'DOCKER_BUILD_TARGET'
 ]
 
 export default function Step02Config({ data, onChange }: Step02ConfigProps) {
@@ -37,7 +38,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     })
     return initial
   })
-  const [explorerTarget, setExplorerTarget] = useState<{ repo: Repository; initialPath: string } | null>(null)
+  const [explorerTarget, setExplorerTarget] = useState<{ repo: Repository; initialPath: string; field: 'COMPOSE_FILE' | 'DOCKERFILE_PATH' } | null>(null)
 
   const validationMap = React.useMemo(() => {
     try {
@@ -189,15 +190,17 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     const currentRepoConfig = config[repo.name] || {}
     const hasStrategy = currentRepoConfig['DEPLOY_STRATEGY'] !== undefined
     const hasTag = currentRepoConfig['VERSION_TAG'] !== undefined
+    const hasBuildTarget = currentRepoConfig['DOCKER_BUILD_TARGET'] !== undefined
     
-    if (!hasStrategy || !hasTag) {
+    if (!hasStrategy || !hasTag || !hasBuildTarget) {
       const result = validationMap[repo.id]
       const hasCompose = result?.docker_compose_exists || false
       
       const newRepoConfig: Record<string, string> = {
         ...currentRepoConfig,
         'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
+        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+        'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? ''
       }
 
       if (hasCompose && currentRepoConfig['COMPOSE_FILE'] === undefined && result?.docker_compose_path) {
@@ -562,13 +565,57 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                         />
                       </div>
 
+                      {/* Dockerfile & Build Target Options */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Dockerfile Path */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-ccd-text-muted">Dockerfile Path (relative to repo root)</label>
+                          <div className="relative flex items-center">
+                            <div 
+                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile'), field: 'DOCKERFILE_PATH' })}
+                              className="flex items-center gap-2.5 bg-ccd-surface border border-ccd-border rounded-lg px-3 py-2 text-ccd-text text-sm w-full font-mono select-none pr-12 cursor-pointer hover:border-ccd-accent/40 transition-colors group"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan shrink-0 group-hover:scale-105 transition-transform">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                              </svg>
+                              <span className="truncate text-xs text-ccd-text-dim group-hover:text-ccd-text transition-colors">
+                                {getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile')}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile'), field: 'DOCKERFILE_PATH' })}
+                              className="absolute right-2.5 p-1 rounded hover:bg-ccd-muted/20 text-ccd-text-muted hover:text-ccd-warning transition-colors"
+                              title="Browse repository files visually"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Target Build Stage */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-ccd-text-muted">Target Build Stage (optional, e.g. prod)</label>
+                          <input
+                            type="text"
+                            value={getSpecialVal(repo.name, 'DOCKER_BUILD_TARGET', '')}
+                            onChange={e => setSpecialVal(repo.name, 'DOCKER_BUILD_TARGET', e.target.value)}
+                            placeholder="Leave blank for default stage"
+                            className="ccd-input font-mono text-xs w-full"
+                          />
+                        </div>
+                      </div>
+
                       {/* Docker Compose File Path */}
                       {strategy === 'docker-compose' && (
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-ccd-text-muted">Docker Compose File Path (relative to repo root)</label>
                           <div className="relative flex items-center">
                             <div 
-                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)) })}
+                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)), field: 'COMPOSE_FILE' })}
                               className="flex items-center gap-2.5 bg-ccd-surface border border-ccd-border rounded-lg px-3 py-2 text-ccd-text text-sm w-full font-mono select-none pr-20 cursor-pointer hover:border-ccd-accent/40 transition-colors group"
                             >
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan shrink-0 group-hover:scale-105 transition-transform">
@@ -581,7 +628,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                             </div>
                             <button
                               type="button"
-                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)) })}
+                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'COMPOSE_FILE', getComposeDefaultPath(repo)), field: 'COMPOSE_FILE' })}
                               className="absolute right-11 p-1 rounded hover:bg-ccd-muted/20 text-ccd-text-muted hover:text-ccd-warning transition-colors"
                               title="Browse repository files visually"
                             >
@@ -657,11 +704,13 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
               ...config,
               [explorerTarget.repo.name]: {
                 ...(config[explorerTarget.repo.name] || {}),
-                'COMPOSE_FILE': path
+                [explorerTarget.field]: path
               }
             }
             onChange({ config: updatedConfig })
-            fetchComposeServices(explorerTarget.repo, path)
+            if (explorerTarget.field === 'COMPOSE_FILE') {
+              fetchComposeServices(explorerTarget.repo, path)
+            }
             setExplorerTarget(null)
           }}
           onClose={() => setExplorerTarget(null)}

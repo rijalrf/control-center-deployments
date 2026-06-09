@@ -219,5 +219,19 @@ class GitHubService {
         }
         return null;
     }
+    static async getRepoContents(accessToken, owner, repo, path, ref) {
+        const token = this.getEffectiveToken(accessToken);
+        const octokit = new rest_1.Octokit({ auth: token });
+        const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
+        if (Array.isArray(data)) {
+            return data.map(item => ({
+                name: item.name,
+                path: item.path,
+                type: item.type, // 'file' or 'dir'
+                size: item.size
+            }));
+        }
+        return [];
+    }
 }
 exports.GitHubService = GitHubService;

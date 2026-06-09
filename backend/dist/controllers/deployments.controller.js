@@ -113,6 +113,37 @@ class DeploymentsController {
             next(err);
         }
     }
+    static async update(req, res, next) {
+        try {
+            const { environment_id, repositories, config, notes, status } = req.body;
+            const deployment = await Deployment_1.Deployment.findByPk(req.params.id);
+            if (!deployment) {
+                res.status(404).json({ error: 'Deployment not found' });
+                return;
+            }
+            if (deployment.status !== 'draft') {
+                res.status(400).json({ error: 'Only draft deployments can be updated' });
+                return;
+            }
+            const updates = {};
+            if (environment_id !== undefined)
+                updates.environment_id = environment_id;
+            if (repositories !== undefined)
+                updates.repositories = repositories;
+            if (config !== undefined)
+                updates.config = config;
+            if (notes !== undefined)
+                updates.notes = notes;
+            if (status !== undefined)
+                updates.status = status;
+            await deployment.update(updates);
+            const result = await Deployment_1.Deployment.findByPk(deployment.id, { include: DEPLOYMENT_INCLUDES });
+            res.json(result);
+        }
+        catch (err) {
+            next(err);
+        }
+    }
     static async executeDraft(req, res, next) {
         try {
             const deploymentId = parseInt(req.params.id, 10);
