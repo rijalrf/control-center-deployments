@@ -392,32 +392,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
         </div>
       </div>
 
-      {/* Target Environment Banner */}
-      {deployment.environment && (
-        <div className="ccd-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border animate-fade-in"
-          style={{
-            backgroundColor: `${deployment.environment.color}08`,
-            borderColor: `${deployment.environment.color}20`
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: deployment.environment.color }} />
-            <div>
-              <div className="text-xs font-bold text-ccd-text uppercase tracking-wider">
-                Target Environment: <span style={{ color: deployment.environment.color }}>{deployment.environment.name}</span>
-              </div>
-              <div className="text-[11px] text-ccd-text-muted font-mono mt-0.5">
-                Slug: {deployment.environment.slug} | Active Deployment Pipeline Run
-              </div>
-            </div>
-          </div>
-          {deployment.environment.servers && deployment.environment.servers.length > 0 && (
-            <div className="text-xs text-ccd-text-dim sm:text-right font-mono">
-              Server Host: <span className="text-ccd-text font-semibold">{deployment.environment.servers[0].name}</span>
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* Two Columns: Left Step Progress | Right Animation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1466,6 +1441,94 @@ export default function Deployment() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Page Title Header (outside cards, matching Repos.tsx) */}
+      {viewingDeployment ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-ccd-text">Deployment Run #{viewingDeployment.id}</h2>
+              {viewingDeployment.environment && (
+                <span 
+                  className="text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border leading-none flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: `${viewingDeployment.environment.color}15`,
+                    borderColor: `${viewingDeployment.environment.color}40`,
+                    color: viewingDeployment.environment.color
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: viewingDeployment.environment.color }} />
+                  Target: {viewingDeployment.environment.name}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-ccd-text-muted mt-1 leading-relaxed">
+              Active deployment pipeline run.
+              {viewingDeployment.environment?.servers && viewingDeployment.environment.servers.length > 0 && (
+                <span> Active server: <strong className="text-ccd-text-dim">{viewingDeployment.environment.servers[0].name}</strong></span>
+              )}
+            </p>
+          </div>
+        </div>
+      ) : showWizard ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {currentStep === 1 ? (
+            <div>
+              <h2 className="text-lg font-semibold text-ccd-text">New Deployment</h2>
+              <p className="text-xs text-ccd-text-muted mt-1">
+                Configure your deployment run. Select target environment and applications.
+              </p>
+            </div>
+          ) : formData.environment ? (
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-ccd-text">New Deployment</h2>
+                <span 
+                  className="text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border leading-none flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: `${formData.environment.color}15`,
+                    borderColor: `${formData.environment.color}40`,
+                    color: formData.environment.color
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: formData.environment.color }} />
+                  Target: {formData.environment.name}
+                </span>
+              </div>
+              <p className="text-xs text-ccd-text-muted mt-1">
+                Step 0{currentStep}: {STEPS[currentStep - 1].title} configuration.
+                {formData.environment.servers && formData.environment.servers.length > 0 && (
+                  <span> Server: <strong className="text-ccd-text-dim">{formData.environment.servers[0].name}</strong></span>
+                )}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-lg font-semibold text-ccd-text">New Deployment</h2>
+              <p className="text-xs text-ccd-text-muted mt-1">Configure your deployment settings.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ccd-text">Deployments</h2>
+            <p className="text-sm text-ccd-text-muted mt-1">
+              Track and manage remote code deployments across your environment infrastructure.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowWizard(true)}
+            className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 shadow-lg shadow-ccd-accent/20 text-xs py-2.5 px-4 inline-flex items-center gap-2"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Deployment
+          </button>
+        </div>
+      )}
+
       {viewingDeployment ? (
         <ActiveDeploymentDashboard
           deployment={viewingDeployment}
@@ -1476,60 +1539,14 @@ export default function Deployment() {
         />
       ) : showWizard ? (
         /* Form Panel / Stepper Wizard */
-        <div className="w-full">
+        <div className="w-full space-y-6">
           {/* Stepper header */}
-          <div className="ccd-card p-5 mb-5">
+          <div className="ccd-card p-5">
             <StepIndicator current={currentStep} steps={STEPS} />
           </div>
 
           {/* Step content */}
           <div className="ccd-card p-6">
-            {/* Step 1: Welcome / New Deployment Banner */}
-            {currentStep === 1 && (
-              <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-[#1e293b]/40 to-[#0f172a]/40 border border-ccd-border/30 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none" style={{
-                  backgroundImage: `radial-gradient(circle, #3b82f6 1px, transparent 1px)`,
-                  backgroundSize: '12px 12px'
-                }} />
-                <div className="relative z-10 animate-fade-in">
-                  <h1 className="text-base font-bold text-ccd-text flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-ccd-accent animate-pulse" />
-                    New Deployment Run
-                  </h1>
-                  <p className="text-xs text-ccd-text-muted mt-1 leading-relaxed max-w-2xl">
-                    Configure your deployment process. Select the target server infrastructure and choose the application repositories you want to compile, build, and deploy.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2+: Target Environment Banner */}
-            {currentStep > 1 && formData.environment && (
-              <div className="mb-6 p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in"
-                style={{
-                  backgroundColor: `${formData.environment.color}08`,
-                  borderColor: `${formData.environment.color}20`
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: formData.environment.color }} />
-                  <div>
-                    <div className="text-xs font-bold text-ccd-text uppercase tracking-wider">
-                      Target Environment: <span style={{ color: formData.environment.color }}>{formData.environment.name}</span>
-                    </div>
-                    <div className="text-[11px] text-ccd-text-muted font-mono mt-0.5">
-                      Target Branch: {formData.environment.target_branch || 'main'} | Slug: {formData.environment.slug}
-                    </div>
-                  </div>
-                </div>
-                {formData.environment.servers && formData.environment.servers.length > 0 && (
-                  <div className="text-xs text-ccd-text-dim sm:text-right font-mono">
-                    Server: <span className="text-ccd-text font-semibold">{formData.environment.servers[0].name}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-ccd-border">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
@@ -1680,24 +1697,6 @@ export default function Deployment() {
       ) : (
         /* Deployments List Dashboard */
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-ccd-text">Deployments</h2>
-              <p className="text-sm text-ccd-text-muted mt-1">
-                Track and manage code deployments across your environment infrastructure.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowWizard(true)}
-              className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 shadow-lg shadow-ccd-accent/20 text-xs py-2.5 px-4 inline-flex items-center gap-2"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              New Deployment
-            </button>
-          </div>
 
           {/* Filters Bar */}
           <div className="bg-ccd-surface/30 p-4 rounded-xl border border-ccd-border/50 flex flex-col md:flex-row md:items-end gap-3 text-xs">
