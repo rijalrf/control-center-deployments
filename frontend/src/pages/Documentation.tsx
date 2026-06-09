@@ -10,13 +10,14 @@ export default function Documentation() {
   const [copiedText, setCopiedText] = useState<Record<string, boolean>>({})
 
   const sections: DocSection[] = [
-    { id: 'overview', title: '1. Gambaran Umum & Arsitektur' },
-    { id: 'prerequisites', title: '2. Persyaratan & Secrets' },
-    { id: 'env-server', title: '3. Environment & Server Setup' },
-    { id: 'workflow', title: '4. Setup GitHub Actions' },
-    { id: 'deployment-workflow', title: '5. Alur Deploy: Branch vs Image' },
-    { id: 'variables', title: '6. Parameter Konfigurasi Khusus' },
-    { id: 'troubleshooting', title: '7. Troubleshooting & Tips' }
+    { id: 'overview', title: '1. Pengenalan & Konsep Dasar' },
+    { id: 'quickstart-flow', title: '2. Alur Penggunaan Awal (Panduan Pemula)' },
+    { id: 'features', title: '3. Fitur-Fitur Utama' },
+    { id: 'prerequisites', title: '4. Persyaratan Teknis & Secrets' },
+    { id: 'workflow', title: '5. Setup GitHub Actions Workflow' },
+    { id: 'deployment-workflow', title: '6. Strategi Rilis: Branch vs Image' },
+    { id: 'variables', title: '7. Parameter Konfigurasi Khusus' },
+    { id: 'troubleshooting', title: '8. Troubleshooting & Solusi' }
   ]
 
   const handleCopy = (id: string, text: string) => {
@@ -99,7 +100,7 @@ services:
         <div className="w-full md:w-64 shrink-0">
           <div className="sticky top-8 flex flex-col">
             <h2 className="text-xs font-bold text-ccd-text-muted uppercase tracking-widest mb-4 px-3">
-              Dokumentasi
+              Daftar Panduan
             </h2>
             <nav className="flex flex-col space-y-1">
               {sections.map(section => (
@@ -136,71 +137,182 @@ services:
             <div className="space-y-6">
               <div>
                 <h1 className="text-3xl font-bold text-ccd-text tracking-tight mb-2">
-                  Gambaran Umum & Arsitektur
+                  Pengenalan & Konsep Dasar
                 </h1>
                 <p className="text-base text-ccd-text-muted">
-                  Memahami prinsip kerja dasar dan arsitektur aliran data di Control Center Deployment (CCD).
+                  Memahami apa itu CCD dan bagaimana sistem ini membantu menyederhanakan siklus deployment Anda.
+                </p>
+              </div>
+
+              <hr className="border-ccd-border/40" />
+
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-ccd-text">Analogi untuk Orang Awam</h2>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  Bayangkan Anda memiliki 5 website atau aplikasi web yang berbeda di GitHub. Biasanya, setiap kali ingin merilis fitur baru ke server internet (VPS), Anda harus masuk secara manual ke server menggunakan Terminal/SSH, mengunduh kode baru, menghentikan aplikasi lama, mengompilasi ulang kode, dan menyalakannya kembali. Proses manual ini memakan waktu, rumit, dan sangat rawan kesalahan.
+                </p>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  <strong>Control Center Deployment (CCD)</strong> bertindak sebagai <strong>"Remote Control Terpusat"</strong>. Anda tidak perlu lagi melakukan SSH manual ke server Anda. Cukup buka dashboard web ini, pilih proyek yang ingin dideploy, isi variabel pengaturannya, dan klik tombol eksekusi. Dashboard CCD yang akan menginstruksikan robot otomatis di GitHub (GitHub Actions) untuk membungkus kode Anda menjadi paket kontainer (Docker) lalu memasangnya secara otomatis ke server VPS Anda.
+                </p>
+              </div>
+
+              <div className="space-y-4 pt-2">
+                <h2 className="text-xl font-semibold text-ccd-text">Masalah Utama yang Diselesaikan</h2>
+                <ul className="list-disc pl-6 text-base text-ccd-text-dim space-y-2.5 leading-relaxed">
+                  <li>
+                    <strong>Satu Engine untuk Semua Aplikasi:</strong> Anda cukup menulis script konfigurasi otomatis sekali di repositori pusat CCD. Semua proyek aplikasi Anda yang lain tidak perlu lagi dikonfigurasi satu-persatu.
+                  </li>
+                  <li>
+                    <strong>Deployment Multi-Layanan:</strong> Anda dapat mendeploy beberapa aplikasi sekaligus (misal backend API dan frontend web) secara bersamaan hanya dengan sekali klik.
+                  </li>
+                  <li>
+                    <strong>Pemantauan Real-Time Tanpa Terminal:</strong> Log proses pembuatan aplikasi, kompilasi, pengiriman, hingga jalannya aplikasi di server ditampilkan langsung di dashboard dalam bentuk log teks dan visualisasi animasi.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-4 pt-2">
+                <h2 className="text-xl font-semibold text-ccd-text">Arsitektur Sederhana</h2>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  Di balik layar, CCD menghubungkan tiga komponen utama:
+                </p>
+                <div className="overflow-x-auto">
+                  <pre className="text-sm font-mono bg-black/30 text-ccd-cyan p-5 rounded-lg border border-ccd-border/60 leading-loose">
+{`[Dashboard Web CCD] (Instruksi API) ──► [GitHub Actions (Pabrik Build)] ──► [Server VPS (Target Deploy)]
+- Membuat Draf Rilis                  - Mengunduh Source Code           - Memasang Aplikasi
+- Menampung Konfigurasi               - Membungkus Kode ke Docker       - Verifikasi Kesehatan Port
+- Menampilkan Log Rilis               - Mengunggah Paket ke Registry    - Menyajikan Web ke Publik`}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Quickstart Flow */}
+          {activeTab === 'quickstart-flow' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold text-ccd-text tracking-tight mb-2">
+                  Alur Penggunaan Awal (Panduan Pemula)
+                </h1>
+                <p className="text-base text-ccd-text-muted">
+                  Panduan langkah-demi-langkah dari nol untuk melakukan deployment pertama Anda dengan benar.
                 </p>
               </div>
 
               <hr className="border-ccd-border/40" />
 
               <p className="text-base text-ccd-text-dim leading-relaxed">
-                <strong>Control Center Deployment (CCD)</strong> adalah orkestrator deployment terpusat yang dirancang untuk mengotomatisasi penyebaran container aplikasi ke server target (VPS) via remote pipeline GitHub Actions. 
-                Dengan CCD, Anda tidak perlu mengonfigurasi atau menulis pipeline CI/CD yang berulang pada setiap repositori aplikasi. Cukup daftarkan repositori Anda di panel ini, lakukan konfigurasi variabel, dan jalankan deployment.
+                Untuk mendeploy aplikasi pertama Anda, ikuti alur langkah yang telah terstruktur berikut:
               </p>
 
+              <div className="space-y-6">
+                <div className="relative pl-8 border-l-2 border-ccd-border">
+                  <div className="absolute -left-2.5 top-0.5 w-5 h-5 rounded-full bg-ccd-accent flex items-center justify-center text-xs font-bold text-white">
+                    1
+                  </div>
+                  <h3 className="font-semibold text-base text-ccd-text mb-1">Hubungkan Proyek dari GitHub</h3>
+                  <p className="text-sm text-ccd-text-muted leading-relaxed">
+                    Masuk ke menu <strong>Repositories</strong> di panel kiri, lalu klik tombol <strong>Sync Repositories</strong>. CCD akan secara otomatis menarik daftar proyek (repositori) Anda dari akun atau organisasi GitHub Anda dan menyimpannya di database lokal.
+                  </p>
+                </div>
+
+                <div className="relative pl-8 border-l-2 border-ccd-border">
+                  <div className="absolute -left-2.5 top-0.5 w-5 h-5 rounded-full bg-ccd-accent flex items-center justify-center text-xs font-bold text-white">
+                    2
+                  </div>
+                  <h3 className="font-semibold text-base text-ccd-text mb-1">Daftarkan Target Server (VPS)</h3>
+                  <p className="text-sm text-ccd-text-muted leading-relaxed">
+                    Masuk ke menu <strong>Configuration</strong>:
+                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                      <li>Buka sub-menu <strong>Environments</strong> untuk menentukan pengelompokan (contoh: buat environment "Staging" dan "Production").</li>
+                      <li>Buka sub-menu <strong>Servers</strong> untuk mendaftarkan detail server VPS Anda (masukkan Nama Server, IP Host, User SSH, dan Port).</li>
+                    </ul>
+                  </p>
+                </div>
+
+                <div className="relative pl-8 border-l-2 border-ccd-border">
+                  <div className="absolute -left-2.5 top-0.5 w-5 h-5 rounded-full bg-ccd-accent flex items-center justify-center text-xs font-bold text-white">
+                    3
+                  </div>
+                  <h3 className="font-semibold text-base text-ccd-text mb-1">Konfigurasi Kunci Akses (GitHub Secrets)</h3>
+                  <p className="text-sm text-ccd-text-muted leading-relaxed">
+                    Karena GitHub Actions yang akan mengirimkan aplikasi ke server Anda, Anda wajib mendaftarkan Kunci SSH Private Server Anda di GitHub Secrets repositori pusat Anda agar GitHub memiliki izin untuk masuk ke server target. (Lihat tab "Persyaratan Teknis & Secrets" untuk detailnya).
+                  </p>
+                </div>
+
+                <div className="relative pl-8 border-l-2 border-ccd-border">
+                  <div className="absolute -left-2.5 top-0.5 w-5 h-5 rounded-full bg-ccd-accent flex items-center justify-center text-xs font-bold text-white">
+                    4
+                  </div>
+                  <h3 className="font-semibold text-base text-ccd-text mb-1">Jalankan Deployment Wizard</h3>
+                  <p className="text-sm text-ccd-text-muted leading-relaxed">
+                    Masuk ke menu <strong>Deployment</strong> di panel kiri, lalu klik <strong>Create New Deployment</strong>:
+                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                      <li><strong>Step 1:</strong> Pilih Target Environment (misal: Staging) dan pilih proyek aplikasi yang ingin dideploy.</li>
+                      <li><strong>Step 2:</strong> Sistem akan membaca konfigurasi <code className="text-xs">.env.example</code> dari proyek Anda secara otomatis. Isi nilai konfigurasi tersebut (misal URL database, token rahasia, port aplikasi).</li>
+                      <li><strong>Step 3:</strong> Tinjau ringkasan, lalu klik <strong>Execute Deployment</strong>.</li>
+                    </ul>
+                  </p>
+                </div>
+
+                <div className="relative pl-8">
+                  <div className="absolute -left-2.5 top-0.5 w-5 h-5 rounded-full bg-ccd-accent flex items-center justify-center text-xs font-bold text-white">
+                    5
+                  </div>
+                  <h3 className="font-semibold text-base text-ccd-text mb-1">Pantau Jalannya Rilis</h3>
+                  <p className="text-sm text-ccd-text-muted leading-relaxed">
+                    Sistem akan mengarahkan Anda ke Halaman Pemantauan Aktif secara otomatis. Anda dapat memantau indikator status di setiap tahapan pipeline (Initializing, Fetching Code, Building, Deploying) hingga melihat log keluaran terminal dari server secara langsung untuk memastikan aplikasi berjalan normal.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Fitur-fitur Utama */}
+          {activeTab === 'features' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold text-ccd-text tracking-tight mb-2">
+                  Fitur-Fitur Utama
+                </h1>
+                <p className="text-base text-ccd-text-muted">
+                  Kemampuan dan modul utama yang ditawarkan oleh ekosistem Control Center Deployment.
+                </p>
+              </div>
+
+              <hr className="border-ccd-border/40" />
+
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-ccd-text">Skema Arsitektur Aliran Kerja</h3>
-                <div className="overflow-x-auto">
-                  <pre className="text-sm font-mono bg-black/30 text-ccd-cyan p-5 rounded-lg border border-ccd-border/60 leading-loose">
-{`┌───────────────────────┐            Trigger API            ┌────────────────────────┐
-│  Browser (Dashboard)  │ ────────────────────────────────> │ Backend Service (Node) │
-└───────────────────────┘                                   └────────────────────────┘
-            ▲                                                           │
-            │                                                           │ Dispatch Workflow
-            │ Polling Status & Log (setiap 4 detik)                     ▼
-            │                                               ┌────────────────────────┐
-            └────────────────────────────────────────────── │ GitHub Actions Runner  │
-                                                            └────────────────────────┘
-                                                                        │
-                                                                        │ Build, Push & SSH
-                                                                        ▼
-                                                            ┌────────────────────────┐
-                                                            │   Target VPS / Server  │
-                                                            │ - Docker Compose/Run   │
-                                                            │ - Health Verification  │
-                                                            └────────────────────────┘`}
-                  </pre>
-                </div>
+                <h2 className="text-xl font-semibold text-ccd-text">Otomatisasi Pipeline Tanpa Script Berulang</h2>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  Anda tidak perlu menulis file konfigurasi CI/CD YAML yang rumit di setiap proyek Anda. CCD menggunakan file engine deployment terpusat yang mampu membaca konfigurasi proyek target secara dinamis.
+                </p>
               </div>
 
-              <div className="space-y-3 pt-4">
-                <h3 className="text-lg font-semibold text-ccd-text">Keunggulan Utama</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <h4 className="font-semibold text-base text-ccd-text mb-1.5 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-ccd-accent" />
-                      Pipeline Terpusat (Centralized)
-                    </h4>
-                    <p className="text-sm text-ccd-text-dim leading-relaxed">
-                      Menggunakan satu file GitHub Actions workflow utama ([central-deploy.yml](file:///home/rijal/projects/center-control-deployments/.github/workflows/central-deploy.yml)) di repositori pusat sebagai pendorong deployment untuk semua aplikasi.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-base text-ccd-text mb-1.5 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-ccd-cyan" />
-                      Verifikasi Status Otomatis
-                    </h4>
-                    <p className="text-sm text-ccd-text-dim leading-relaxed">
-                      Sistem melakukan pengetesan port/status kontainer sesaat setelah dijalankan di VPS target. Jika kontainer mati, pipeline langsung melaporkan kegagalan dan menampilkan logs-nya.
-                    </p>
-                  </div>
-                </div>
+              <div className="space-y-4 pt-2">
+                <h2 className="text-xl font-semibold text-ccd-text">Manajemen Variabel Lingkungan (.env) Visual</h2>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  CCD memindai file contoh pengaturan (`.env.example`) di repositori target Anda saat deployment dibuat. Anda dapat langsung mengedit nilai konfigurasi tersebut secara visual di halaman web tanpa perlu login SSH dan menyunting file secara manual di server.
+                </p>
               </div>
 
-              <div className="border-l-4 border-ccd-accent bg-ccd-accent/5 px-5 py-4 rounded-r-lg text-sm text-ccd-text-dim leading-relaxed mt-4">
-                <strong>Rekomendasi Keamanan:</strong> Jangan mengekspos port database atau API sensitif secara publik di VPS. Gunakan Docker internal network atau pasang Docker compose di belakang Reverse Proxy (seperti Nginx atau Traefik).
+              <div className="space-y-4 pt-2">
+                <h2 className="text-xl font-semibold text-ccd-text">Dukungan Strategi Docker & Docker Compose</h2>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  Mendukung dua jenis arsitektur deployment:
+                  <ul className="list-disc pl-6 mt-2 space-y-1">
+                    <li><strong>Standard Docker:</strong> Menjalankan kontainer aplikasi tunggal secara terisolasi.</li>
+                    <li><strong>Docker Compose:</strong> Menjalankan banyak kontainer sekaligus yang saling terhubung (misal: App Container + Database Container + Cache Memory) menggunakan konfigurasi terpadu.</li>
+                  </ul>
+                </p>
+              </div>
+
+              <div className="space-y-4 pt-2">
+                <h2 className="text-xl font-semibold text-ccd-text">Pembersihan Otomatis Sampah Docker (Pruning)</h2>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  Setiap kali Anda men-deploy versi baru, Docker biasanya meninggalkan sisa-sisa image versi lama yang tidak terpakai (dangling images). CCD memiliki fitur otomatis untuk menghapus file sampah ini sehingga harddisk server VPS Anda tidak cepat penuh.
+                </p>
               </div>
             </div>
           )}
@@ -210,7 +322,7 @@ services:
             <div className="space-y-6">
               <div>
                 <h1 className="text-3xl font-bold text-ccd-text tracking-tight mb-2">
-                  Persyaratan & Secrets
+                  Persyaratan Teknis & Secrets
                 </h1>
                 <p className="text-base text-ccd-text-muted">
                   Variabel lokal proyek dan repositori GitHub Actions Secrets yang wajib dikonfigurasi.
@@ -292,88 +404,6 @@ services:
             </div>
           )}
 
-          {/* Tab: Env & Server Setup */}
-          {activeTab === 'env-server' && (
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-3xl font-bold text-ccd-text tracking-tight mb-2">
-                  Environment & Server Setup
-                </h1>
-                <p className="text-base text-ccd-text-muted">
-                  Konfigurasi target environment dan kredensial server SSH.
-                </p>
-              </div>
-
-              <hr className="border-ccd-border/40" />
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-ccd-text">1. Setup Target Environment</h3>
-                <p className="text-base text-ccd-text-dim leading-relaxed">
-                  Environment (misal: <em>Staging</em> atau <em>Production</em>) bertindak sebagai pembagi target deployment Anda. 
-                  Anda dapat membuatnya di menu **Configuration &gt; Environments**:
-                </p>
-                <ul className="list-disc pl-5 text-sm text-ccd-text-dim space-y-2.5 leading-relaxed">
-                  <li>
-                    <strong>Target Branch to Deploy:</strong> Menentukan branch asal repositori target yang akan dicheckout saat memicu deployment. Defaultnya adalah <code className="text-ccd-cyan bg-black/20 px-1.5 py-0.5 rounded">main</code> untuk Production dan <code className="text-ccd-cyan bg-black/20 px-1.5 py-0.5 rounded">staging</code> untuk Staging.
-                  </li>
-                  <li>
-                    <strong>Suffix Key Matching:</strong> Nama branch target menentukan SSH key mana yang digunakan:
-                    <ul className="list-circle pl-5 mt-1 space-y-1 text-ccd-text-muted">
-                      <li>Jika branch target = <code className="text-sm">main</code> ➔ Menggunakan secret <code className="text-ccd-cyan font-semibold">SSH_KEY_PRODUCTION</code>.</li>
-                      <li>Jika branch target selain <code className="text-sm">main</code> (e.g. <code className="text-sm">staging</code>, <code className="text-sm">dev</code>) ➔ Menggunakan secret <code className="text-ccd-cyan font-semibold">SSH_KEY_STAGING</code>.</li>
-                    </ul>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-4 pt-4">
-                <h3 className="text-lg font-semibold text-ccd-text">2. Setup Server SSH Kredensial</h3>
-                <p className="text-base text-ccd-text-dim leading-relaxed">
-                  Tambahkan informasi akses server VPS Anda di menu **Configuration &gt; Servers**. Pastikan server terhubung dengan Environment yang sesuai:
-                </p>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead>
-                      <tr className="border-b border-ccd-border">
-                        <th className="py-2.5 font-bold text-ccd-text-muted uppercase">Nama Kolom</th>
-                        <th className="py-2.5 font-bold text-ccd-text-muted uppercase">Fungsi / Kegunaan</th>
-                        <th className="py-2.5 font-bold text-ccd-text-muted uppercase">Contoh</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ccd-border/40">
-                      <tr>
-                        <td className="py-3.5 font-semibold text-ccd-text">Host</td>
-                        <td className="py-3.5">Alamat IP publik VPS atau Domain Name server tujuan.</td>
-                        <td className="py-3.5 font-mono text-ccd-text-muted">103.18.23.44</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 font-semibold text-ccd-text">Username</td>
-                        <td className="py-3.5">User SSH yang digunakan untuk masuk ke server target.</td>
-                        <td className="py-3.5 font-mono text-ccd-text-muted">ubuntu / deploy</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 font-semibold text-ccd-text">SSH Port</td>
-                        <td className="py-3.5">Port SSH yang terbuka di VPS target (defaultnya 22).</td>
-                        <td className="py-3.5 font-mono text-ccd-text-muted">22</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="border-l-4 border-ccd-success bg-ccd-success/5 px-5 py-4 rounded-r-lg text-sm text-ccd-text-dim leading-relaxed">
-                <strong>Tips Akses Tanpa Sudo:</strong><br />
-                Pastikan user SSH target (misal `ubuntu`) sudah didaftarkan ke dalam grup `docker` di VPS target. Jika tidak, proses deployment docker run/compose di server target akan gagal karena masalah hak akses (Permission Denied).
-                <pre className="text-xs font-mono bg-black/40 text-ccd-cyan p-3 rounded mt-2 border border-ccd-border/50">
-                  {`# Jalankan command ini di VPS target Anda:
-sudo usermod -aG docker $USER
-newgrp docker`}
-                </pre>
-              </div>
-            </div>
-          )}
-
           {/* Tab: GitHub Actions Central Workflow */}
           {activeTab === 'workflow' && (
             <div className="space-y-6">
@@ -436,58 +466,51 @@ newgrp docker`}
             <div className="space-y-6">
               <div>
                 <h1 className="text-3xl font-bold text-ccd-text tracking-tight mb-2">
-                  Alur Deployment: Branch vs Image
+                  Strategi Rilis: Branch vs Image
                 </h1>
                 <p className="text-base text-ccd-text-muted">
-                  Memahami strategi promosi kode yang aman dari Staging menuju Production.
+                  Memahami opsi penyebaran aplikasi dan bagaimana mempromosikan perubahan secara aman.
                 </p>
               </div>
 
               <hr className="border-ccd-border/40" />
 
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-ccd-text">1. Deployment berbasis Branch (Build from Source)</h2>
+                <h2 className="text-xl font-semibold text-ccd-text">Opsi 1: Deployment berbasis Branch (Build from Source)</h2>
                 <p className="text-base text-ccd-text-dim leading-relaxed">
-                  Secara default, jika Anda tidak menentukan tag versi pada parameter konfigurasi (`VERSION_TAG` diset `latest` atau dikosongkan), CCD akan memicu pipeline untuk membangun kontainer langsung dari source code branch target.
+                  Ini adalah alur di mana GitHub Actions akan men-checkout kode Anda langsung dari branch git tertentu (misal branch `staging`), melakukan build Docker image dari awal, melakukan push, dan mendeploy-nya.
                 </p>
                 <div className="border-l-4 border-ccd-accent bg-ccd-accent/5 px-5 py-4 rounded-r-lg text-sm text-ccd-text-dim leading-relaxed">
-                  <strong>Kelebihan:</strong> Praktis untuk integrasi cepat di server Staging. Setiap kali developer melakukan push kode ke branch `staging`, perubahan bisa langsung dideploy dan di-build dari scratch.
+                  <strong>Kapan harus digunakan?</strong> Sangat cocok untuk server Staging/Uji coba di mana developer sering melakukan push update fitur baru dan ingin langsung melihat perubahannya secara real-time.
                 </div>
               </div>
 
               <div className="space-y-4 pt-4">
-                <h2 className="text-xl font-semibold text-ccd-text">2. Deployment berbasis Image (Promosi Image / Direkomendasikan untuk Prod)</h2>
+                <h2 className="text-xl font-semibold text-ccd-text">Opsi 2: Deployment berbasis Image (Promosi Image / Direkomendasikan untuk Production)</h2>
                 <p className="text-base text-ccd-text-dim leading-relaxed">
-                  Untuk mendeploy ke Production, sangat disarankan menggunakan metode **By Image** untuk menjamin konsistensi. Anda mempromosikan image Docker yang sudah sukses diuji di Staging ke server Production tanpa melakukan kompilasi/build ulang dari source code branch `main`.
+                  Ketika Anda merilis aplikasi ke server Production (Live publik), sangat tidak disarankan untuk me-rebuild kode dari branch git secara langsung untuk menghindari resiko inkonsistensi (misalnya ada perbedaan library/dependencies saat build).
+                </p>
+                <p className="text-base text-ccd-text-dim leading-relaxed">
+                  Sebagai gantinya, gunakan metode <strong>Promosi Image</strong>. Caranya adalah menggunakan Docker image yang sama persis yang sebelumnya sudah Anda uji dan berhasil berjalan di server Staging.
                 </p>
                 
-                <h3 className="text-base font-semibold text-ccd-text">Bagaimana cara kerjanya?</h3>
+                <h3 className="text-base font-semibold text-ccd-text">Langkah Penerapannya:</h3>
                 <ul className="list-disc pl-5 text-sm text-ccd-text-dim space-y-2.5 leading-relaxed">
                   <li>
-                    Tentukan tag versi spesifik pada kolom `VERSION_TAG` di Step 2 Wizard (misalnya: <code className="text-ccd-cyan bg-black/20 px-1.5 rounded font-mono">v1.2.0</code>).
+                    Saat deploy ke Staging, tentukan tag rilis unik pada parameter `VERSION_TAG` di konfigurasi (misalnya: <code className="text-ccd-cyan bg-black/20 px-1.5 rounded font-mono">v1.2.0</code>). Pipeline akan mem-build dan mengunggah image tersebut ke registry Docker Hub.
                   </li>
                   <li>
-                    Saat dideploy di Staging pertama kali, GitHub Actions akan melakukan build dan mempublikasikan image dengan nama <code className="text-ccd-text font-semibold">user/repo-name:v1.2.0</code> ke Docker Hub registry Anda.
+                    Setelah dites dan sukses di staging, lakukan deploy ke Production di dashboard CCD, dan masukkan tag versi yang sama (<code className="text-ccd-cyan bg-black/20 px-1.5 rounded font-mono">v1.2.0</code>).
                   </li>
                   <li>
-                    Ketika Anda ingin mendeploy kode tersebut ke Production, lakukan konfigurasi deployment ke server Production dengan mencantumkan tag <code className="text-ccd-cyan bg-black/20 px-1.5 rounded font-mono">v1.2.0</code> yang sama.
-                  </li>
-                  <li>
-                    GitHub Actions akan memvalidasi registry Docker Hub. Karena image dengan tag <code className="text-ccd-cyan bg-black/20 px-1.5 rounded font-mono">v1.2.0</code> sudah ada, pipeline akan <strong>melewati (skip)</strong> langkah Docker build & push, lalu langsung men-deploy image tersebut ke server Production.
+                    GitHub Actions secara otomatis mendeteksi bahwa image `v1.2.0` sudah terdaftar di Docker Hub. Pipeline akan <strong>melewati (skip)</strong> proses build dan push, lalu langsung mengunduh dan menjalankan kontainer tersebut di server Production Anda.
                   </li>
                 </ul>
               </div>
 
               <div className="border-l-4 border-ccd-warning bg-ccd-warning/5 px-5 py-4 rounded-r-lg text-sm text-ccd-text-dim leading-relaxed">
-                <strong>Catatan Alur PR Git:</strong><br />
-                Meskipun Anda mendeploy menggunakan image untuk mempercepat rilis ke Production, pastikan Anda tetap melakukan Pull Request (PR) untuk menggabungkan branch <code className="text-ccd-warning">staging</code> ke branch <code className="text-ccd-warning">main</code> di GitHub agar riwayat kode di git tetap sinkron dengan versi kontainer yang berjalan di server.
-              </div>
-
-              <div className="space-y-4 pt-4">
-                <h2 className="text-xl font-semibold text-ccd-text">3. Fitur Auto-Increment Tag (`+` Suffix)</h2>
-                <p className="text-base text-ccd-text-dim leading-relaxed">
-                  Untuk mempercepat proses penomoran tag rilis, backend CCD menyediakan fitur auto-increment. Jika Anda mengisi `VERSION_TAG` dengan tanda plus di bagian akhir (misalnya: <code className="text-ccd-cyan bg-black/20 px-1.5 rounded font-mono">v1.0.0+</code>), backend CCD akan membaca versi patch terakhir, menaikkan versinya (menjadi <code className="text-ccd-cyan bg-black/20 px-1.5 rounded font-mono">v1.0.1</code>), menulis nilainya ke database, dan memicu build dengan tag baru tersebut.
-                </p>
+                <strong>Catatan Sinkronisasi Git:</strong><br />
+                Meskipun Anda menggunakan metode promosi image untuk bypass build ke server Production, pastikan Anda tetap membuat Pull Request (PR) dan melakukan merge dari branch <code className="text-ccd-warning font-semibold">staging</code> ke <code className="text-ccd-warning font-semibold">main</code> di GitHub agar kode sumber di repositori Anda tetap sinkron dengan versi aplikasi yang sedang aktif berjalan.
               </div>
             </div>
           )}
@@ -600,7 +623,7 @@ newgrp docker`}
             <div className="space-y-6">
               <div>
                 <h1 className="text-3xl font-bold text-ccd-text tracking-tight mb-2">
-                  Troubleshooting & Tips
+                  Troubleshooting & Solusi
                 </h1>
                 <p className="text-base text-ccd-text-muted">
                   Solusi cepat untuk masalah umum yang terjadi saat deployment.
