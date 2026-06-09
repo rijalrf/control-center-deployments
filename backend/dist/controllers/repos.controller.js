@@ -37,6 +37,7 @@ exports.ReposController = void 0;
 const yaml = __importStar(require("js-yaml"));
 const Repository_1 = require("../models/Repository");
 const Environment_1 = require("../models/Environment");
+const Deployment_1 = require("../models/Deployment");
 const github_service_1 = require("../services/github.service");
 class ReposController {
     static async list(_req, res, next) {
@@ -194,34 +195,71 @@ class ReposController {
                 res.status(400).json({ error: 'Invalid docker-compose file structure (missing services)' });
                 return;
             }
+            // Fetch successful deployments ordered by id desc
+            const successfulDeployments = await Deployment_1.Deployment.findAll({
+                where: { status: 'success' },
+                order: [['id', 'DESC']],
+            });
+            const lastDeploy = successfulDeployments.find((d) => d.repositories && Array.isArray(d.repositories) && d.repositories.some((r) => String(r.id) === String(repo.id)));
+            let dbTag = null;
+            if (lastDeploy && lastDeploy.config) {
+                const repoConfig = lastDeploy.config[repo.name];
+                if (repoConfig && repoConfig['VERSION_TAG']) {
+                    dbTag = repoConfig['VERSION_TAG'];
+                }
+            }
             const servicesList = Object.keys(doc.services).map((serviceName) => {
                 const serviceObj = doc.services[serviceName];
                 const image = serviceObj?.image || '';
                 let currentTag = null;
-                let suggestedTag = 'v1';
+                let suggestedTag = 'v1.0.0';
+                // 1. Get tag from Git image if present
                 if (image && typeof image === 'string') {
                     const parts = image.split(':');
                     const lastPart = parts[parts.length - 1];
                     if (parts.length > 1 && !lastPart.includes('/')) {
                         currentTag = lastPart;
-                        const match = currentTag.match(/^(.*?)(\d+)$/);
-                        if (match) {
-                            const prefix = match[1];
-                            const num = parseInt(match[2], 10);
+                    }
+                }
+                // 2. Override/Prioritize database tag if available
+                if (dbTag) {
+                    currentTag = dbTag;
+                }
+                // 3. Increment logic using 3-digit semver
+                if (currentTag) {
+                    // Normalize currentTag if it's single digit (e.g. "v1" -> "v1.0.0")
+                    let normalizedTag = currentTag;
+                    const singleDigitMatch = currentTag.match(/^(v?)(\d+)$/i);
+                    if (singleDigitMatch) {
+                        const prefix = singleDigitMatch[1] || 'v';
+                        normalizedTag = `${prefix}${singleDigitMatch[2]}.0.0`;
+                        currentTag = normalizedTag; // update current tag display to 3 digits!
+                    }
+                    const semverRegex = /^(v?)(\d+)\.(\d+)\.(\d+)(.*)$/i;
+                    const semverMatch = normalizedTag.match(semverRegex);
+                    if (semverMatch) {
+                        const prefix = semverMatch[1];
+                        const major = parseInt(semverMatch[2], 10);
+                        const minor = parseInt(semverMatch[3], 10);
+                        const patch = parseInt(semverMatch[4], 10);
+                        const suffix = semverMatch[5] || '';
+                        suggestedTag = `${prefix}${major}.${minor}.${patch + 1}${suffix}`;
+                    }
+                    else {
+                        // Fallback for non-standard tag formats
+                        const generalMatch = normalizedTag.match(/^(.*?)(\d+)$/);
+                        if (generalMatch) {
+                            const prefix = generalMatch[1];
+                            const num = parseInt(generalMatch[2], 10);
                             suggestedTag = `${prefix}${num + 1}`;
                         }
                         else {
-                            const semverMatch = currentTag.match(/^(v?\d+\.\d+\.)(\d+)$/);
-                            if (semverMatch) {
-                                const prefix = semverMatch[1];
-                                const patch = parseInt(semverMatch[2], 10);
-                                suggestedTag = `${prefix}${patch + 1}`;
-                            }
-                            else {
-                                suggestedTag = `${currentTag}-next`;
-                            }
+                            suggestedTag = `${normalizedTag}-next`;
                         }
                     }
+                }
+                else {
+                    suggestedTag = 'v1.0.0';
                 }
                 return {
                     name: serviceName,

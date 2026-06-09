@@ -199,7 +199,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       const newRepoConfig: Record<string, string> = {
         ...currentRepoConfig,
         'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v1.0.0'),
         'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? ''
       }
 

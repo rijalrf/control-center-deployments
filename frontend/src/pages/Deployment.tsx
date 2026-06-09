@@ -1193,7 +1193,7 @@ export default function Deployment() {
                 
                 const defaults: Record<string, string> = {
                   'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v1.0.0'),
                   'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? '',
                 }
                 if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
@@ -1206,7 +1206,7 @@ export default function Deployment() {
               } catch (err) {
                 const defaults: Record<string, string> = {
                   'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v1.0.0'),
                   'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? '',
                 }
                 if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
@@ -1220,7 +1220,7 @@ export default function Deployment() {
                 mergedConfig['DEPLOY_STRATEGY'] = hasCompose ? 'docker-compose' : 'standard'
               }
               if (mergedConfig['VERSION_TAG'] === undefined) {
-                mergedConfig['VERSION_TAG'] = hasCompose ? '' : 'v2'
+                mergedConfig['VERSION_TAG'] = hasCompose ? '' : 'v1.0.0'
               }
               if (mergedConfig['DOCKER_BUILD_TARGET'] === undefined) {
                 mergedConfig['DOCKER_BUILD_TARGET'] = ''
