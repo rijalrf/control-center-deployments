@@ -209,13 +209,9 @@ class ReposController {
                     isProduction = true;
                 }
             }
-            const whereClause = { status: 'success' };
-            if (envIdQuery) {
-                whereClause.environment_id = envIdQuery;
-            }
             // Fetch successful deployments ordered by id desc
             const successfulDeployments = await Deployment_1.Deployment.findAll({
-                where: whereClause,
+                where: { status: 'success' },
                 order: [['id', 'DESC']],
             });
             // Filter deployments containing this repository and extract their VERSION_TAG

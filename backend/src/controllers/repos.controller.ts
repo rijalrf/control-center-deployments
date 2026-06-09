@@ -210,14 +210,9 @@ export class ReposController {
         }
       }
 
-      const whereClause: any = { status: 'success' };
-      if (envIdQuery) {
-        whereClause.environment_id = envIdQuery;
-      }
-
       // Fetch successful deployments ordered by id desc
       const successfulDeployments = await Deployment.findAll({
-        where: whereClause,
+        where: { status: 'success' },
         order: [['id', 'DESC']],
       });
 
