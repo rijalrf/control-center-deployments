@@ -1445,22 +1445,9 @@ export default function Deployment() {
       {viewingDeployment ? (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-ccd-text">Deployment Run #{viewingDeployment.id}</h2>
-              {viewingDeployment.environment && (
-                <span 
-                  className="text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border leading-none flex items-center gap-1.5"
-                  style={{
-                    backgroundColor: `${viewingDeployment.environment.color}15`,
-                    borderColor: `${viewingDeployment.environment.color}40`,
-                    color: viewingDeployment.environment.color
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: viewingDeployment.environment.color }} />
-                  Target: {viewingDeployment.environment.name}
-                </span>
-              )}
-            </div>
+            <h2 className="text-lg font-semibold text-ccd-text">
+              Deployment Run #{viewingDeployment.id} &mdash; {viewingDeployment.environment?.name || 'Unknown'}
+            </h2>
             <p className="text-xs text-ccd-text-muted mt-1 leading-relaxed">
               Active deployment pipeline run.
               {viewingDeployment.environment?.servers && viewingDeployment.environment.servers.length > 0 && (
@@ -1480,20 +1467,9 @@ export default function Deployment() {
             </div>
           ) : formData.environment ? (
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-ccd-text">New Deployment</h2>
-                <span 
-                  className="text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border leading-none flex items-center gap-1.5"
-                  style={{
-                    backgroundColor: `${formData.environment.color}15`,
-                    borderColor: `${formData.environment.color}40`,
-                    color: formData.environment.color
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: formData.environment.color }} />
-                  Target: {formData.environment.name}
-                </span>
-              </div>
+              <h2 className="text-lg font-semibold text-ccd-text">
+                New Deployment &mdash; {formData.environment.name}
+              </h2>
               <p className="text-xs text-ccd-text-muted mt-1">
                 Step 0{currentStep}: {STEPS[currentStep - 1].title} configuration.
                 {formData.environment.servers && formData.environment.servers.length > 0 && (
