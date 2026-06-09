@@ -408,6 +408,16 @@ jobs:
               fi
             fi
 
+            # 6.5 Docker Image Prune Cleanup (jika dikonfigurasi)
+            PRUNE_STRATEGY=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DOCKER_PRUNE_STRATEGY', ''))")
+            if [ "$PRUNE_STRATEGY" = "dangling" ]; then
+              echo "🧹 Membersihkan dangling images di server..."
+              docker image prune -f
+            elif [ "$PRUNE_STRATEGY" = "all" ]; then
+              echo "🧹 Membersihkan semua unused images di server..."
+              docker image prune -a -f
+            fi
+
             # 7. Jalankan Post-Deploy Commands (jika ada)
             if [ -s /tmp/post_deploy.sh ]; then
               echo "Menjalankan post-deploy commands..."
