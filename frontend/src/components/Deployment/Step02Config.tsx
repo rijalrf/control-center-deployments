@@ -390,12 +390,13 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                             suggestedTag = 'v1.0.0'
                           }
 
+                          const recentTags: string[] = (composeData[repo.id]?.data as any)?.recent_tags || []
                           const currentVal = getSpecialVal(repo.name, 'VERSION_TAG', '')
                           const isCustom = isCustomMode[repo.name] || 
                             (currentVal !== '' && 
-                             currentVal !== currentTag && 
                              currentVal !== `${currentTag}+` && 
-                             (!suggestedTag || currentVal !== suggestedTag))
+                             (!suggestedTag || currentVal !== suggestedTag) &&
+                             !recentTags.includes(currentVal))
                           const selectVal = isCustom ? 'custom' : currentVal
 
                           return (
@@ -416,14 +417,14 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                               >
                                 <option value="">-- Kosongkan --</option>
                                 {currentTag && (
-                                  <>
-                                    <option value={`${currentTag}+`}>{currentTag}+</option>
-                                    <option value={currentTag}>{currentTag}</option>
-                                  </>
+                                  <option value={`${currentTag}+`}>{currentTag}+</option>
                                 )}
                                 {!currentTag && suggestedTag && (
                                   <option value={suggestedTag}>{suggestedTag}</option>
                                 )}
+                                {recentTags.map((tag) => (
+                                  <option key={tag} value={tag}>{tag}</option>
+                                ))}
                                 <option value="custom">Kustom / Manual...</option>
                               </select>
 

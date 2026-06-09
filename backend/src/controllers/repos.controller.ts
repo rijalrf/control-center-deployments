@@ -202,17 +202,28 @@ export class ReposController {
         order: [['id', 'DESC']],
       });
 
-      const lastDeploy = successfulDeployments.find((d) => 
-        d.repositories && Array.isArray(d.repositories) && d.repositories.some((r: any) => String(r.id) === String(repo.id))
-      );
-
-      let dbTag: string | null = null;
-      if (lastDeploy && lastDeploy.config) {
-        const repoConfig = lastDeploy.config[repo.name];
-        if (repoConfig && repoConfig['VERSION_TAG']) {
-          dbTag = repoConfig['VERSION_TAG'];
+      // Filter deployments containing this repository and extract their VERSION_TAG
+      const recentTagsSet = new Set<string>();
+      for (const d of successfulDeployments) {
+        if (recentTagsSet.size >= 10) break;
+        if (d.repositories && Array.isArray(d.repositories) && d.repositories.some((r: any) => String(r.id) === String(repo.id))) {
+          if (d.config) {
+            const repoConfig = d.config[repo.name];
+            if (repoConfig && repoConfig['VERSION_TAG']) {
+              let tag = repoConfig['VERSION_TAG'];
+              // Normalize tag if it's single digit (e.g. "v1" -> "v1.0.0")
+              const singleDigitMatch = tag.match(/^(v?)(\d+)$/i);
+              if (singleDigitMatch) {
+                const prefix = singleDigitMatch[1] || 'v';
+                tag = `${prefix}${singleDigitMatch[2]}.0.0`;
+              }
+              recentTagsSet.add(tag);
+            }
+          }
         }
       }
+      const recentTags = Array.from(recentTagsSet);
+      const dbTag = recentTags[0] || null; // The latest successful tag
 
       const servicesList = Object.keys(doc.services).map((serviceName) => {
         const serviceObj = doc.services[serviceName];
@@ -281,6 +292,7 @@ export class ReposController {
       res.json({
         compose_path: composePath,
         services: servicesList,
+        recent_tags: recentTags,
       });
     } catch (err) {
       next(err);
