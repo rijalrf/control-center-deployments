@@ -347,19 +347,6 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold text-ccd-text">Deployment #{deployment.id}</h2>
-            {deployment.environment && (
-              <span 
-                className="text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border leading-none flex items-center gap-1"
-                style={{
-                  backgroundColor: `${deployment.environment.color}15`,
-                  borderColor: `${deployment.environment.color}40`,
-                  color: deployment.environment.color
-                }}
-              >
-                <span className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: deployment.environment.color }} />
-                {deployment.environment.name}
-              </span>
-            )}
             <span className={`badge uppercase tracking-wider text-[10px] px-2.5 py-0.5 border ${statusColors[overallStatus] || 'badge-muted'}`}>
               {overallStatus}
             </span>
@@ -404,6 +391,33 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
           </button>
         </div>
       </div>
+
+      {/* Target Environment Banner */}
+      {deployment.environment && (
+        <div className="ccd-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border animate-fade-in"
+          style={{
+            backgroundColor: `${deployment.environment.color}08`,
+            borderColor: `${deployment.environment.color}20`
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: deployment.environment.color }} />
+            <div>
+              <div className="text-xs font-bold text-ccd-text uppercase tracking-wider">
+                Target Environment: <span style={{ color: deployment.environment.color }}>{deployment.environment.name}</span>
+              </div>
+              <div className="text-[11px] text-ccd-text-muted font-mono mt-0.5">
+                Slug: {deployment.environment.slug} | Active Deployment Pipeline Run
+              </div>
+            </div>
+          </div>
+          {deployment.environment.servers && deployment.environment.servers.length > 0 && (
+            <div className="text-xs text-ccd-text-dim sm:text-right font-mono">
+              Server Host: <span className="text-ccd-text font-semibold">{deployment.environment.servers[0].name}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Two Columns: Left Step Progress | Right Animation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1470,29 +1484,60 @@ export default function Deployment() {
 
           {/* Step content */}
           <div className="ccd-card p-6">
+            {/* Step 1: Welcome / New Deployment Banner */}
+            {currentStep === 1 && (
+              <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-[#1e293b]/40 to-[#0f172a]/40 border border-ccd-border/30 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none" style={{
+                  backgroundImage: `radial-gradient(circle, #3b82f6 1px, transparent 1px)`,
+                  backgroundSize: '12px 12px'
+                }} />
+                <div className="relative z-10 animate-fade-in">
+                  <h1 className="text-base font-bold text-ccd-text flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-ccd-accent animate-pulse" />
+                    New Deployment Run
+                  </h1>
+                  <p className="text-xs text-ccd-text-muted mt-1 leading-relaxed max-w-2xl">
+                    Configure your deployment process. Select the target server infrastructure and choose the application repositories you want to compile, build, and deploy.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2+: Target Environment Banner */}
+            {currentStep > 1 && formData.environment && (
+              <div className="mb-6 p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in"
+                style={{
+                  backgroundColor: `${formData.environment.color}08`,
+                  borderColor: `${formData.environment.color}20`
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: formData.environment.color }} />
+                  <div>
+                    <div className="text-xs font-bold text-ccd-text uppercase tracking-wider">
+                      Target Environment: <span style={{ color: formData.environment.color }}>{formData.environment.name}</span>
+                    </div>
+                    <div className="text-[11px] text-ccd-text-muted font-mono mt-0.5">
+                      Target Branch: {formData.environment.target_branch || 'main'} | Slug: {formData.environment.slug}
+                    </div>
+                  </div>
+                </div>
+                {formData.environment.servers && formData.environment.servers.length > 0 && (
+                  <div className="text-xs text-ccd-text-dim sm:text-right font-mono">
+                    Server: <span className="text-ccd-text font-semibold">{formData.environment.servers[0].name}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-ccd-border">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-ccd-accent/20 border border-ccd-accent/30 flex items-center justify-center font-mono text-xs font-bold text-ccd-accent">
                   0{currentStep}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
-                    {formData.environment && (
-                      <span 
-                        className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded border leading-none flex items-center gap-1"
-                        style={{
-                          backgroundColor: `${formData.environment.color}15`,
-                          borderColor: `${formData.environment.color}40`,
-                          color: formData.environment.color
-                        }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: formData.environment.color }} />
-                        {formData.environment.name}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-ccd-text-muted mt-0.5">{STEPS[currentStep - 1].subtitle}</p>
+                  <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
+                  <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
