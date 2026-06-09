@@ -105,11 +105,56 @@ function buildStepRows(
   }));
 }
 
+function incrementVersionTag(tag: string): string {
+  if (tag.endsWith('+')) {
+    const baseTag = tag.slice(0, -1);
+    
+    // Normalize if it's single digit (e.g. "v1" -> "v1.0.0")
+    let normalizedTag = baseTag;
+    const singleDigitMatch = baseTag.match(/^(v?)(\d+)$/i);
+    if (singleDigitMatch) {
+      const prefix = singleDigitMatch[1] || 'v';
+      normalizedTag = `${prefix}${singleDigitMatch[2]}.0.0`;
+    }
+
+    const semverRegex = /^(v?)(\d+)\.(\d+)\.(\d+)(.*)$/i;
+    const semverMatch = normalizedTag.match(semverRegex);
+    if (semverMatch) {
+      const prefix = semverMatch[1];
+      const major = parseInt(semverMatch[2], 10);
+      const minor = parseInt(semverMatch[3], 10);
+      const patch = parseInt(semverMatch[4], 10);
+      const suffix = semverMatch[5] || '';
+      return `${prefix}${major}.${minor}.${patch + 1}${suffix}`;
+    } else {
+      const generalMatch = normalizedTag.match(/^(.*?)(\d+)$/);
+      if (generalMatch) {
+        const prefix = generalMatch[1];
+        const num = parseInt(generalMatch[2], 10);
+        return `${prefix}${num + 1}`;
+      } else {
+        return `${normalizedTag}-next`;
+      }
+    }
+  }
+  return tag;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export class DeploymentService {
   static async createDeployment(data: CreateDeploymentInput): Promise<Deployment> {
     const isDraft = data.status === 'draft';
+
+    // Resolve any version tags ending with '+'
+    if (data.config) {
+      for (const repoName of Object.keys(data.config)) {
+        const repoConfig = data.config[repoName];
+        if (repoConfig && repoConfig['VERSION_TAG'] && repoConfig['VERSION_TAG'].endsWith('+')) {
+          repoConfig['VERSION_TAG'] = incrementVersionTag(repoConfig['VERSION_TAG']);
+        }
+      }
+    }
 
     const deployment = await Deployment.create({
       environment_id: data.environment_id,
@@ -177,6 +222,11 @@ export class DeploymentService {
           }
         }
 
+        const finalRepoConfig = {
+          ...repoConfig,
+          DOCKER_PRUNE_STRATEGY: process.env.DOCKER_PRUNE_STRATEGY || '',
+        };
+
         const targetInputs: Record<string, string> = {
           target_repo_url:         r.clone_url ?? `https://github.com/${r.full_name}.git`,
           target_repo_name:        r.name,
@@ -184,7 +234,7 @@ export class DeploymentService {
           target_ref:              targetRef,
           environment:             envName,
           environment_secret_suffix: envSuffix,
-          config:                  JSON.stringify(repoConfig),
+          config:                  JSON.stringify(finalRepoConfig),
           server_host:             serverHost,
           server_username:         serverUsername,
           dockerfile_path:         dockerfilePath,

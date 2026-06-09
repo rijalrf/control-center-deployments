@@ -31,6 +31,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   const [bulkRepo, setBulkRepo] = useState<string | null>(null)
   const [bulkInput, setBulkInput] = useState<string>('')
   const [expandedAdvanced, setExpandedAdvanced] = useState<Record<string, boolean>>({})
+  const [isCustomMode, setIsCustomMode] = useState<Record<string, boolean>>({})
   const [expandedRepos, setExpandedRepos] = useState<Record<number, boolean>>(() => {
     const initial: Record<number, boolean> = {}
     repositories.forEach((repo, idx) => {
@@ -199,7 +200,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       const newRepoConfig: Record<string, string> = {
         ...currentRepoConfig,
         'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v1.0.0'),
         'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? ''
       }
 
@@ -385,12 +386,17 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                             currentTag = matchedService.current_tag || ''
                             suggestedTag = matchedService.suggested_tag || ''
                           } else {
-                            currentTag = 'v1'
-                            suggestedTag = 'v2'
+                            currentTag = ''
+                            suggestedTag = 'v1.0.0'
                           }
 
+                          const recentTags: string[] = (composeData[repo.id]?.data as any)?.recent_tags || []
                           const currentVal = getSpecialVal(repo.name, 'VERSION_TAG', '')
-                          const isCustom = currentVal !== '' && currentVal !== suggestedTag && currentVal !== currentTag
+                          const isCustom = isCustomMode[repo.name] || 
+                            (currentVal !== '' && 
+                             currentVal !== `${currentTag}+` && 
+                             (!suggestedTag || currentVal !== suggestedTag) &&
+                             !recentTags.includes(currentVal))
                           const selectVal = isCustom ? 'custom' : currentVal
 
                           return (
@@ -400,20 +406,25 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                                 onChange={(e) => {
                                   const val = e.target.value
                                   if (val === 'custom') {
+                                    setIsCustomMode(prev => ({ ...prev, [repo.name]: true }))
                                     setSpecialVal(repo.name, 'VERSION_TAG', '')
                                   } else {
+                                    setIsCustomMode(prev => ({ ...prev, [repo.name]: false }))
                                     setSpecialVal(repo.name, 'VERSION_TAG', val)
                                   }
                                 }}
                                 className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan cursor-pointer"
                               >
                                 <option value="">-- Kosongkan --</option>
-                                {suggestedTag && (
-                                  <option value={suggestedTag}>{suggestedTag}+</option>
-                                )}
                                 {currentTag && (
-                                  <option value={currentTag}>{currentTag}</option>
+                                  <option value={`${currentTag}+`}>{currentTag}+</option>
                                 )}
+                                {!currentTag && suggestedTag && (
+                                  <option value={suggestedTag}>{suggestedTag}</option>
+                                )}
+                                {recentTags.map((tag) => (
+                                  <option key={tag} value={tag}>{tag}</option>
+                                ))}
                                 <option value="custom">Kustom / Manual...</option>
                               </select>
 

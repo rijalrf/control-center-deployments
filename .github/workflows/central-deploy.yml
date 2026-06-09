@@ -153,7 +153,61 @@ jobs:
         env:
           CONFIG_JSON: ${{ github.event.inputs.config }}
 
+      - name: Determine Image Name and Check Registry
+        id: check_image
+        run: |
+          CUSTOM_IMAGE="${{ github.event.inputs.docker_image_name }}"
+          DHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+          CONFIG_JSON='${{ github.event.inputs.config }}'
+          VERSION_TAG=$(echo "$CONFIG_JSON" | jq -r '.VERSION_TAG // empty')
+          
+          # Determine base image name
+          if [ -z "$CUSTOM_IMAGE" ]; then
+            BASE_NAME="${DHUB_USER:-local}/${{ github.event.inputs.target_repo_name }}"
+          else
+            if [[ "$CUSTOM_IMAGE" != *"/"* ]] && [ -n "$DHUB_USER" ]; then
+              BASE_NAME="${DHUB_USER}/${CUSTOM_IMAGE}"
+            else
+              BASE_NAME="$CUSTOM_IMAGE"
+            fi
+            # Strip tag if it exists in CUSTOM_IMAGE to override it with VERSION_TAG
+            if [[ "$BASE_NAME" == *":"* ]]; then
+              BASE_NAME="${BASE_NAME%%:*}"
+            fi
+          fi
+          
+          # Append tag
+          if [ -n "$VERSION_TAG" ]; then
+            IMAGE_NAME="${BASE_NAME}:${VERSION_TAG}"
+          else
+            IMAGE_NAME="${BASE_NAME}:latest"
+          fi
+          
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          
+          # Only check if DHUB_USER is not empty and VERSION_TAG is not empty and is not "latest"
+          EXISTS="false"
+          if [ -n "$DHUB_USER" ] && [ -n "$VERSION_TAG" ] && [ "$VERSION_TAG" != "latest" ]; then
+            if [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+              echo "Logging in to Docker Hub to check image..."
+              echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "$DHUB_USER" --password-stdin
+            fi
+            
+            echo "Checking if $IMAGE_NAME exists in Docker Hub..."
+            if docker manifest inspect $IMAGE_NAME > /dev/null 2>&1; then
+              echo "✅ Image $IMAGE_NAME already exists in Docker Hub! Skipping build & push."
+              EXISTS="true"
+            else
+              echo "❌ Image $IMAGE_NAME does not exist in Docker Hub. Building from source..."
+            fi
+          fi
+          
+          echo "exists=$EXISTS" >> $GITHUB_OUTPUT
+        env:
+          CONFIG_JSON: ${{ github.event.inputs.config }}
+
       - name: Building Application Container Image
+        if: steps.check_image.outputs.exists != 'true'
         run: |
           CUSTOM_IMAGE="${{ github.event.inputs.docker_image_name }}"
           DHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
@@ -191,7 +245,7 @@ jobs:
           docker build $TARGET_FLAG -f ${{ github.event.inputs.dockerfile_path }} -t $IMAGE_NAME .
 
       - name: Uploading Image to Docker Hub Registry
-        if: env.DOCKERHUB_USERNAME != ''
+        if: env.DOCKERHUB_USERNAME != '' && steps.check_image.outputs.exists != 'true'
         run: |
           echo "Login ke Docker Hub..."
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -352,6 +406,16 @@ jobs:
                 docker logs ${TARGET_REPO_NAME} || true
                 exit 1
               fi
+            fi
+
+            # 6.5 Docker Image Prune Cleanup (jika dikonfigurasi)
+            PRUNE_STRATEGY=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DOCKER_PRUNE_STRATEGY', ''))")
+            if [ "$PRUNE_STRATEGY" = "dangling" ]; then
+              echo "🧹 Membersihkan dangling images di server..."
+              docker image prune -f
+            elif [ "$PRUNE_STRATEGY" = "all" ]; then
+              echo "🧹 Membersihkan semua unused images di server..."
+              docker image prune -a -f
             fi
 
             # 7. Jalankan Post-Deploy Commands (jika ada)
