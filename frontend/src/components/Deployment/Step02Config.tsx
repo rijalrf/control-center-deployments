@@ -28,6 +28,10 @@ const SPECIAL_KEYS = [
 
 export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   const { repositories, config } = data
+  const isProduction = data.environment?.name?.toLowerCase() === 'production' || 
+                       data.environment?.slug?.toLowerCase() === 'production' || 
+                       data.environment?.name?.toLowerCase() === 'prod' || 
+                       data.environment?.slug?.toLowerCase() === 'prod';
   const [bulkRepo, setBulkRepo] = useState<string | null>(null)
   const [bulkInput, setBulkInput] = useState<string>('')
   const [expandedAdvanced, setExpandedAdvanced] = useState<Record<string, boolean>>({})
@@ -201,10 +205,6 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       const result = validationMap[repo.id]
       const hasCompose = result?.docker_compose_exists || false
       
-      const isProduction = data.environment?.name?.toLowerCase() === 'production' || 
-                           data.environment?.slug?.toLowerCase() === 'production' || 
-                           data.environment?.name?.toLowerCase() === 'prod' || 
-                           data.environment?.slug?.toLowerCase() === 'prod';
       const defaultTag = isProduction ? 'v1' : 'v1.0.0';
 
       const newRepoConfig: Record<string, string> = {
@@ -397,10 +397,6 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                             suggestedTag = matchedService.suggested_tag || ''
                           } else {
                             currentTag = ''
-                            const isProduction = data.environment?.name?.toLowerCase() === 'production' || 
-                                                 data.environment?.slug?.toLowerCase() === 'production' || 
-                                                 data.environment?.name?.toLowerCase() === 'prod' || 
-                                                 data.environment?.slug?.toLowerCase() === 'prod';
                             suggestedTag = isProduction ? 'v1' : 'v1.0.0';
                           }
 
@@ -408,7 +404,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                           const currentVal = getSpecialVal(repo.name, 'VERSION_TAG', '')
                           const isCustom = isCustomMode[repo.name] || 
                             (currentVal !== '' && 
-                             currentVal !== `${currentTag}+` && 
+                             (isProduction || currentVal !== `${currentTag}+`) && 
                              (!suggestedTag || currentVal !== suggestedTag) &&
                              !recentTags.includes(currentVal))
                           const selectVal = isCustom ? 'custom' : currentVal
@@ -430,7 +426,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                                 className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan cursor-pointer"
                               >
                                 <option value="">-- Kosongkan --</option>
-                                {currentTag && (
+                                {currentTag && !isProduction && (
                                   <option value={`${currentTag}+`}>{currentTag}+</option>
                                 )}
                                 {!currentTag && suggestedTag && (
@@ -591,52 +587,54 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                       </div>
 
                       {/* Dockerfile & Build Target Options */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Dockerfile Path */}
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-ccd-text-muted">Dockerfile Path (relative to repo root)</label>
-                          <div className="relative flex items-center">
-                            <div 
-                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile'), field: 'DOCKERFILE_PATH' })}
-                              className="flex items-center gap-2.5 bg-ccd-surface border border-ccd-border rounded-lg px-3 py-2 text-ccd-text text-sm w-full font-mono select-none pr-12 cursor-pointer hover:border-ccd-accent/40 transition-colors group"
-                            >
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan shrink-0 group-hover:scale-105 transition-transform">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                              </svg>
-                              <span className="truncate text-xs text-ccd-text-dim group-hover:text-ccd-text transition-colors">
-                                {getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile')}
-                              </span>
+                      {!isProduction && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                          {/* Dockerfile Path */}
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-ccd-text-muted">Dockerfile Path (relative to repo root)</label>
+                            <div className="relative flex items-center">
+                              <div 
+                                onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile'), field: 'DOCKERFILE_PATH' })}
+                                className="flex items-center gap-2.5 bg-ccd-surface border border-ccd-border rounded-lg px-3 py-2 text-ccd-text text-sm w-full font-mono select-none pr-12 cursor-pointer hover:border-ccd-accent/40 transition-colors group"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 text-ccd-cyan shrink-0 group-hover:scale-105 transition-transform">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <span className="truncate text-xs text-ccd-text-dim group-hover:text-ccd-text transition-colors">
+                                  {getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile')}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile'), field: 'DOCKERFILE_PATH' })}
+                                className="absolute right-2.5 p-1 rounded hover:bg-ccd-muted/20 text-ccd-text-muted hover:text-ccd-warning transition-colors"
+                                title="Browse repository files visually"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                </svg>
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setExplorerTarget({ repo, initialPath: getSpecialVal(repo.name, 'DOCKERFILE_PATH', 'Dockerfile'), field: 'DOCKERFILE_PATH' })}
-                              className="absolute right-2.5 p-1 rounded hover:bg-ccd-muted/20 text-ccd-text-muted hover:text-ccd-warning transition-colors"
-                              title="Browse repository files visually"
-                            >
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                              </svg>
-                            </button>
+                          </div>
+
+                          {/* Target Build Stage */}
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-ccd-text-muted">Target Build Stage (optional, e.g. prod)</label>
+                            <input
+                              type="text"
+                              value={getSpecialVal(repo.name, 'DOCKER_BUILD_TARGET', '')}
+                              onChange={e => setSpecialVal(repo.name, 'DOCKER_BUILD_TARGET', e.target.value)}
+                              placeholder="Leave blank for default stage"
+                              className="ccd-input font-mono text-xs w-full"
+                            />
                           </div>
                         </div>
-
-                        {/* Target Build Stage */}
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-ccd-text-muted">Target Build Stage (optional, e.g. prod)</label>
-                          <input
-                            type="text"
-                            value={getSpecialVal(repo.name, 'DOCKER_BUILD_TARGET', '')}
-                            onChange={e => setSpecialVal(repo.name, 'DOCKER_BUILD_TARGET', e.target.value)}
-                            placeholder="Leave blank for default stage"
-                            className="ccd-input font-mono text-xs w-full"
-                          />
-                        </div>
-                      </div>
+                      )}
 
                       {/* Docker Compose File Path */}
-                      {strategy === 'docker-compose' && (
-                        <div className="space-y-1">
+                      {strategy === 'docker-compose' && !isProduction && (
+                        <div className="space-y-1 animate-fade-in">
                           <label className="text-xs font-semibold text-ccd-text-muted">Docker Compose File Path (relative to repo root)</label>
                           <div className="relative flex items-center">
                             <div 
