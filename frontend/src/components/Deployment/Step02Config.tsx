@@ -679,30 +679,34 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                       )}
 
                       {/* Pre-Deploy Commands */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-ccd-text-muted block">
-                          Pre-Deploy Script (commands run before container start)
-                        </label>
-                        <textarea
-                          value={getSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', '')}
-                          onChange={e => setSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', e.target.value)}
-                          placeholder="e.g. docker volume rm my_volume || true"
-                          className="ccd-input font-mono text-xs w-full h-16 resize-y"
-                        />
-                      </div>
+                      {!isProduction && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-ccd-text-muted block">
+                            Pre-Deploy Script (commands run before container start)
+                          </label>
+                          <textarea
+                            value={getSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', '')}
+                            onChange={e => setSpecialVal(repo.name, 'PRE_DEPLOY_COMMANDS', e.target.value)}
+                            placeholder="e.g. docker volume rm my_volume || true"
+                            className="ccd-input font-mono text-xs w-full h-16 resize-y"
+                          />
+                        </div>
+                      )}
 
                       {/* Post-Deploy Commands */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-ccd-text-muted block">
-                          Post-Deploy Script (commands run after container start)
-                        </label>
-                        <textarea
-                          value={getSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', '')}
-                          onChange={e => setSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', e.target.value)}
-                          placeholder="e.g. docker exec my_container php artisan migrate --force"
-                          className="ccd-input font-mono text-xs w-full h-16 resize-y"
-                        />
-                      </div>
+                      {!isProduction && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-ccd-text-muted block">
+                            Post-Deploy Script (commands run after container start)
+                          </label>
+                          <textarea
+                            value={getSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', '')}
+                            onChange={e => setSpecialVal(repo.name, 'POST_DEPLOY_COMMANDS', e.target.value)}
+                            placeholder="e.g. docker exec my_container php artisan migrate --force"
+                            className="ccd-input font-mono text-xs w-full h-16 resize-y"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
