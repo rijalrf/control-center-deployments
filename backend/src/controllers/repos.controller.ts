@@ -244,7 +244,40 @@ export class ReposController {
           }
         }
       }
-      const recentTags = Array.from(recentTagsSet);
+      const recentTags = Array.from(recentTagsSet).sort((a, b) => {
+        const clean = (s: string) => s.replace(/^v/i, '');
+        const parseParts = (s: string) => {
+          const semverRegex = /^(\d+)\.(\d+)\.(\d+)(.*)$/;
+          const match = clean(s).match(semverRegex);
+          if (match) {
+            return {
+              major: parseInt(match[1], 10),
+              minor: parseInt(match[2], 10),
+              patch: parseInt(match[3], 10),
+              suffix: match[4]
+            };
+          }
+          const singleDigitRegex = /^(\d+)(.*)$/;
+          const singleMatch = clean(s).match(singleDigitRegex);
+          if (singleMatch) {
+            return {
+              major: parseInt(singleMatch[1], 10),
+              minor: 0,
+              patch: 0,
+              suffix: singleMatch[2]
+            };
+          }
+          return { major: 0, minor: 0, patch: 0, suffix: clean(s) };
+        };
+
+        const pa = parseParts(a);
+        const pb = parseParts(b);
+
+        if (pa.major !== pb.major) return pb.major - pa.major;
+        if (pa.minor !== pb.minor) return pb.minor - pa.minor;
+        if (pa.patch !== pb.patch) return pb.patch - pa.patch;
+        return pb.suffix.localeCompare(pa.suffix);
+      });
 
       // Determine the latest tag from the database to be used as dbTag.
       // If we are in Production, we specifically want to find the latest successful Staging tag as the baseline!
