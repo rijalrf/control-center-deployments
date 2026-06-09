@@ -359,10 +359,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                         data.environment.servers.map((srv) => (
                           <div key={srv.id} className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-ccd-cyan" />
-                            <span className="truncate max-w-[100px]" title={srv.name}>{srv.name}</span>
-                            <span className="text-[10px] font-mono text-ccd-text-muted">
-                              ({srv.host}:{srv.port})
-                            </span>
+                            <span className="truncate max-w-[150px]" title={srv.name}>{srv.name}</span>
                           </div>
                         ))
                       ) : (
