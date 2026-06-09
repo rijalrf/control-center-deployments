@@ -353,17 +353,23 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                     </span>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Target Server</span>
+                    <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Target Environment</span>
                     <div className="text-xs font-semibold text-ccd-text flex flex-col gap-1">
-                      {data.environment?.servers && data.environment.servers.length > 0 ? (
-                        data.environment.servers.map((srv) => (
-                          <div key={srv.id} className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-ccd-cyan" />
-                            <span className="truncate max-w-[150px]" title={srv.name}>{srv.name}</span>
+                      {data.environment ? (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: data.environment.color }} />
+                            <span>{data.environment.name}</span>
                           </div>
-                        ))
+                          {data.environment.servers && data.environment.servers.map((srv) => (
+                            <div key={srv.id} className="text-[10px] text-ccd-text-muted pl-3 flex items-center gap-1">
+                              <span className="w-1 h-1 rounded-full bg-ccd-text-muted/30" />
+                              <span>Server: {srv.name}</span>
+                            </div>
+                          ))}
+                        </>
                       ) : (
-                        <span className="text-ccd-text-muted italic">No server configured</span>
+                        <span className="text-ccd-text-muted italic">No environment selected</span>
                       )}
                     </div>
                   </div>
