@@ -123,7 +123,7 @@ export default function FileExplorerModal({
           <div>
             <h3 className="text-sm font-semibold text-ccd-text">Repository File Explorer</h3>
             <p className="text-xs text-ccd-text-muted mt-0.5">
-              Select a Docker Compose file from <span className="font-mono text-ccd-text-dim">@{repoName}</span> ({branch})
+              Select a file from <span className="font-mono text-ccd-text-dim">@{repoName}</span> ({branch})
             </p>
           </div>
           <button onClick={onClose} className="ccd-btn-ghost p-1.5 rounded-lg">
@@ -222,31 +222,21 @@ export default function FileExplorerModal({
                     key={item.path}
                     onClick={() => handleFileClick(item)}
                     onDoubleClick={() => {
-                      if (isYaml || isCompose) {
-                        onSelect(item.path)
-                      }
+                      onSelect(item.path)
                     }}
                     className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer text-xs transition-all ${
                       isSelected
                         ? 'border-ccd-accent bg-ccd-accent/15 text-ccd-accent-light'
-                        : isCompose
-                        ? 'border-ccd-cyan/40 bg-ccd-cyan/5 text-ccd-cyan'
                         : 'border-ccd-border/40 hover:border-ccd-border hover:bg-ccd-muted/20 text-ccd-text-dim'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={`w-4 h-4 shrink-0 ${isCompose ? 'text-ccd-cyan' : 'text-ccd-text-muted'}`}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 shrink-0 text-ccd-text-muted">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
                       </svg>
                       <span className="truncate font-mono">{item.name}</span>
                     </div>
-
-                    {isCompose && (
-                      <span className="shrink-0 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-ccd-cyan/20 border border-ccd-cyan/30 text-ccd-cyan">
-                        COMPOSE
-                      </span>
-                    )}
                   </div>
                 )
               })}
@@ -259,7 +249,7 @@ export default function FileExplorerModal({
           <div className="min-w-0">
             <span className="text-[10px] uppercase font-mono text-ccd-text-muted block">Selected File Path</span>
             <span className="text-xs font-mono text-ccd-text truncate block mt-0.5">
-              {selectedFile ? selectedFile.path : <em className="opacity-40">Please select a yml/yaml file...</em>}
+              {selectedFile ? selectedFile.path : <em className="opacity-40">Please select a file...</em>}
             </span>
           </div>
           

@@ -8,6 +8,7 @@ router.use(auth_middleware_1.authMiddleware);
 router.get('/', deployments_controller_1.DeploymentsController.list);
 router.get('/:id', deployments_controller_1.DeploymentsController.getById);
 router.post('/', deployments_controller_1.DeploymentsController.create);
+router.put('/:id', deployments_controller_1.DeploymentsController.update);
 router.post('/:id/execute', deployments_controller_1.DeploymentsController.executeDraft);
 router.post('/:id/retry', deployments_controller_1.DeploymentsController.retry);
 router.patch('/:id/status', deployments_controller_1.DeploymentsController.updateStatus);

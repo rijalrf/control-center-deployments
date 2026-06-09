@@ -1180,7 +1180,8 @@ export default function Deployment() {
               'DOCKERFILE_PATH',
               'TARGET_COMPOSE_SERVICE',
               'VERSION_TAG',
-              'RELEASE_NOTES'
+              'RELEASE_NOTES',
+              'DOCKER_BUILD_TARGET'
             ];
             const currentRepoConfig = newConfig[repo.name] || {}
             const hasEnvVars = Object.keys(currentRepoConfig).some(key => !SPECIAL_KEYS.includes(key))
@@ -1193,6 +1194,7 @@ export default function Deployment() {
                 const defaults: Record<string, string> = {
                   'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
                   'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+                  'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? '',
                 }
                 if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
                   defaults['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
@@ -1204,7 +1206,8 @@ export default function Deployment() {
               } catch (err) {
                 const defaults: Record<string, string> = {
                   'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2')
+                  'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v2'),
+                  'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? '',
                 }
                 if (hasCompose && validationMap[repo.id]?.docker_compose_path) {
                   defaults['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
@@ -1218,6 +1221,9 @@ export default function Deployment() {
               }
               if (mergedConfig['VERSION_TAG'] === undefined) {
                 mergedConfig['VERSION_TAG'] = hasCompose ? '' : 'v2'
+              }
+              if (mergedConfig['DOCKER_BUILD_TARGET'] === undefined) {
+                mergedConfig['DOCKER_BUILD_TARGET'] = ''
               }
               if (hasCompose && mergedConfig['COMPOSE_FILE'] === undefined && validationMap[repo.id]?.docker_compose_path) {
                 mergedConfig['COMPOSE_FILE'] = validationMap[repo.id].docker_compose_path!
