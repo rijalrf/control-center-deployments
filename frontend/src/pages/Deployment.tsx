@@ -392,6 +392,8 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
         </div>
       </div>
 
+
+
       {/* Two Columns: Left Step Progress | Right Animation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Progress Steps */}
@@ -676,6 +678,9 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
                   </g>
                 </g>
                 <text y="34" textAnchor="middle" fill={serverStatus === 'running' ? '#22d3ee' : '#64748b'} className="text-[10px] font-bold tracking-wider uppercase transition-colors duration-300">Target Server</text>
+                {deployment.environment && (
+                  <text y="46" textAnchor="middle" fill={deployment.environment.color} className="text-[9px] font-bold tracking-wide uppercase transition-colors duration-300">{deployment.environment.name}</text>
+                )}
               </g>
             </svg>
 
@@ -1396,9 +1401,11 @@ export default function Deployment() {
       docker_image_name: dr.docker_image_name || '',
     }))
 
+    const fullEnv = environments.find(e => e.id === d.environment_id) || d.environment || null;
+
     setFormData({
       environment_id: d.environment_id,
-      environment: d.environment || null,
+      environment: fullEnv,
       repositories: reposForForm,
       config: d.config || {},
     })
@@ -1434,6 +1441,70 @@ export default function Deployment() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Page Title Header (outside cards, matching Repos.tsx) */}
+      {viewingDeployment ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ccd-text">
+              Deployment Run #{viewingDeployment.id} &mdash; {viewingDeployment.environment?.name || 'Unknown'}
+            </h2>
+            <p className="text-xs text-ccd-text-muted mt-1 leading-relaxed">
+              Active deployment pipeline run.
+              {viewingDeployment.environment?.servers && viewingDeployment.environment.servers.length > 0 && (
+                <span> Active server: <strong className="text-ccd-text-dim">{viewingDeployment.environment.servers[0].name}</strong></span>
+              )}
+            </p>
+          </div>
+        </div>
+      ) : showWizard ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {currentStep === 1 ? (
+            <div>
+              <h2 className="text-lg font-semibold text-ccd-text">New Deployment</h2>
+              <p className="text-xs text-ccd-text-muted mt-1">
+                Configure your deployment run. Select target environment and applications.
+              </p>
+            </div>
+          ) : formData.environment ? (
+            <div>
+              <h2 className="text-lg font-semibold text-ccd-text">
+                New Deployment &mdash; {formData.environment.name}
+              </h2>
+              <p className="text-xs text-ccd-text-muted mt-1">
+                Step 0{currentStep}: {STEPS[currentStep - 1].title} configuration.
+                {formData.environment.servers && formData.environment.servers.length > 0 && (
+                  <span> Server: <strong className="text-ccd-text-dim">{formData.environment.servers[0].name}</strong></span>
+                )}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-lg font-semibold text-ccd-text">New Deployment</h2>
+              <p className="text-xs text-ccd-text-muted mt-1">Configure your deployment settings.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ccd-text">Deployments</h2>
+            <p className="text-sm text-ccd-text-muted mt-1">
+              Track and manage remote code deployments across your environment infrastructure.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowWizard(true)}
+            className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 shadow-lg shadow-ccd-accent/20 text-xs py-2.5 px-4 inline-flex items-center gap-2"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Deployment
+          </button>
+        </div>
+      )}
+
       {viewingDeployment ? (
         <ActiveDeploymentDashboard
           deployment={viewingDeployment}
@@ -1444,9 +1515,9 @@ export default function Deployment() {
         />
       ) : showWizard ? (
         /* Form Panel / Stepper Wizard */
-        <div className="w-full">
+        <div className="w-full space-y-6">
           {/* Stepper header */}
-          <div className="ccd-card p-5 mb-5">
+          <div className="ccd-card p-5">
             <StepIndicator current={currentStep} steps={STEPS} />
           </div>
 
@@ -1602,24 +1673,6 @@ export default function Deployment() {
       ) : (
         /* Deployments List Dashboard */
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-ccd-text">Deployments</h2>
-              <p className="text-sm text-ccd-text-muted mt-1">
-                Track and manage code deployments across your environment infrastructure.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowWizard(true)}
-              className="ccd-btn-primary bg-gradient-to-r from-ccd-accent to-ccd-cyan hover:opacity-90 shadow-lg shadow-ccd-accent/20 text-xs py-2.5 px-4 inline-flex items-center gap-2"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              New Deployment
-            </button>
-          </div>
 
           {/* Filters Bar */}
           <div className="bg-ccd-surface/30 p-4 rounded-xl border border-ccd-border/50 flex flex-col md:flex-row md:items-end gap-3 text-xs">

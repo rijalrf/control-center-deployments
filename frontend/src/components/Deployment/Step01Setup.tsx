@@ -118,12 +118,12 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
         <label className="block text-xs font-semibold text-ccd-text-muted uppercase tracking-wider mb-3">
           Target Environment <span className="text-ccd-danger">*</span>
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           {environments.map(env => (
             <button
               key={env.id}
               onClick={() => onChange({ environment_id: env.id, environment: env })}
-              className={`relative p-4 rounded-xl border text-left transition-all duration-150 ${
+              className={`flex-1 relative p-4 rounded-xl border text-left transition-all duration-150 ${
                 data.environment_id === env.id
                   ? 'border-ccd-accent bg-ccd-accent/10 glow-accent'
                   : 'border-ccd-border bg-ccd-surface hover:border-ccd-muted'
@@ -151,7 +151,7 @@ export default function Step01Setup({ data, onChange, isValidated = false, valid
             </button>
           ))}
           {environments.length === 0 && (
-            <div className="col-span-3 text-center py-8 text-sm text-ccd-text-muted">
+            <div className="w-full text-center py-8 text-sm text-ccd-text-muted">
               No environments configured. Go to Configuration to add one.
             </div>
           )}

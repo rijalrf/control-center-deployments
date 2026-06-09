@@ -3,12 +3,17 @@ import { Deployment } from '../models/Deployment';
 import { DeploymentStep } from '../models/DeploymentStep';
 import { Environment } from '../models/Environment';
 import { User } from '../models/User';
+import { Server } from '../models/Server';
 import { DeploymentService } from '../services/deployment.service';
 import { DeploymentRepository, DeploymentConfig, DeploymentStatus, StepStatus, StepDetail } from '../types';
 
 // Reusable include for fetching a deployment with its relations
 const DEPLOYMENT_INCLUDES = [
-  { model: Environment, as: 'environment' },
+  { 
+    model: Environment, 
+    as: 'environment',
+    include: [{ model: Server, as: 'servers' }]
+  },
   { model: DeploymentStep, as: 'steps' },
 ];
 
@@ -35,7 +40,12 @@ export class DeploymentsController {
     try {
       const deployments = await Deployment.findAll({
         include: [
-          { model: Environment, as: 'environment', attributes: ['id', 'name', 'slug', 'color'] },
+          { 
+            model: Environment, 
+            as: 'environment', 
+            attributes: ['id', 'name', 'slug', 'color'],
+            include: [{ model: Server, as: 'servers' }]
+          },
           { model: User, as: 'user', attributes: ['id', 'login', 'name', 'avatar_url'] },
           { model: DeploymentStep, as: 'steps' },
         ],
@@ -51,7 +61,11 @@ export class DeploymentsController {
     try {
       const deployment = await Deployment.findByPk(req.params.id, {
         include: [
-          { model: Environment, as: 'environment' },
+          { 
+            model: Environment, 
+            as: 'environment',
+            include: [{ model: Server, as: 'servers' }]
+          },
           { model: User, as: 'user', attributes: ['id', 'login', 'name', 'avatar_url'] },
           { model: DeploymentStep, as: 'steps' },
         ],
