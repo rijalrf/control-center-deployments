@@ -27,6 +27,10 @@ on:
       server_username:
         description: 'SSH Username'
         required: true
+      server_port:
+        description: 'SSH Port'
+        required: false
+        default: '22'
       dockerfile_path:
         description: 'Path ke Dockerfile (relatif terhadap root repo)'
         required: false
@@ -260,7 +264,7 @@ jobs:
           host: ${{ github.event.inputs.server_host }}
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
-          port: 22
+          port: ${{ github.event.inputs.server_port || 22 }}
           envs: CONFIG_JSON,TARGET_REPO_NAME,COMPOSE_B64
           script: |
             echo "Membaca konfigurasi..."
@@ -299,7 +303,7 @@ jobs:
           host: ${{ github.event.inputs.server_host }}
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
-          port: 22
+          port: ${{ github.event.inputs.server_port || 22 }}
           envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,CONFIG_JSON,DOCKER_IMAGE_NAME
           script: |
             set -e
