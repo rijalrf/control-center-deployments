@@ -197,8 +197,27 @@ export class ReposController {
       }
 
       // Fetch successful deployments ordered by id desc
+      let isProduction = false;
+      const envIdQuery = req.query.environment_id ? parseInt(req.query.environment_id as string, 10) : null;
+      if (envIdQuery) {
+        const env = await Environment.findByPk(envIdQuery);
+        if (env && (env.name.toLowerCase() === 'production' || env.slug.toLowerCase() === 'production' || env.name.toLowerCase() === 'prod' || env.slug.toLowerCase() === 'prod')) {
+          isProduction = true;
+        }
+      } else {
+        if (branch === 'main' || branch === 'master') {
+          isProduction = true;
+        }
+      }
+
+      const whereClause: any = { status: 'success' };
+      if (envIdQuery) {
+        whereClause.environment_id = envIdQuery;
+      }
+
+      // Fetch successful deployments ordered by id desc
       const successfulDeployments = await Deployment.findAll({
-        where: { status: 'success' },
+        where: whereClause,
         order: [['id', 'DESC']],
       });
 
@@ -211,11 +230,19 @@ export class ReposController {
             const repoConfig = d.config[repo.name];
             if (repoConfig && repoConfig['VERSION_TAG']) {
               let tag = repoConfig['VERSION_TAG'];
-              // Normalize tag if it's single digit (e.g. "v1" -> "v1.0.0")
-              const singleDigitMatch = tag.match(/^(v?)(\d+)$/i);
-              if (singleDigitMatch) {
-                const prefix = singleDigitMatch[1] || 'v';
-                tag = `${prefix}${singleDigitMatch[2]}.0.0`;
+              if (isProduction) {
+                // Normalize tag to 1 digit
+                const match = tag.match(/^(v?)(\d+)/i);
+                if (match) {
+                  tag = `${match[1] || ''}${match[2]}`;
+                }
+              } else {
+                // Normalize tag if it's single digit (e.g. "v1" -> "v1.0.0")
+                const singleDigitMatch = tag.match(/^(v?)(\d+)$/i);
+                if (singleDigitMatch) {
+                  const prefix = singleDigitMatch[1] || 'v';
+                  tag = `${prefix}${singleDigitMatch[2]}.0.0`;
+                }
               }
               recentTagsSet.add(tag);
             }
@@ -230,7 +257,7 @@ export class ReposController {
         const image = serviceObj?.image || '';
         
         let currentTag: string | null = null;
-        let suggestedTag = 'v1.0.0';
+        let suggestedTag = isProduction ? 'v1' : 'v1.0.0';
 
         // 1. Get tag from Git image if present
         if (image && typeof image === 'string') {
@@ -246,39 +273,52 @@ export class ReposController {
           currentTag = dbTag;
         }
 
-        // 3. Increment logic using 3-digit semver
+        // 3. Increment logic
         if (currentTag) {
-          // Normalize currentTag if it's single digit (e.g. "v1" -> "v1.0.0")
-          let normalizedTag = currentTag;
-          const singleDigitMatch = currentTag.match(/^(v?)(\d+)$/i);
-          if (singleDigitMatch) {
-            const prefix = singleDigitMatch[1] || 'v';
-            normalizedTag = `${prefix}${singleDigitMatch[2]}.0.0`;
-            currentTag = normalizedTag; // update current tag display to 3 digits!
-          }
-
-          const semverRegex = /^(v?)(\d+)\.(\d+)\.(\d+)(.*)$/i;
-          const semverMatch = normalizedTag.match(semverRegex);
-          if (semverMatch) {
-            const prefix = semverMatch[1];
-            const major = parseInt(semverMatch[2], 10);
-            const minor = parseInt(semverMatch[3], 10);
-            const patch = parseInt(semverMatch[4], 10);
-            const suffix = semverMatch[5] || '';
-            suggestedTag = `${prefix}${major}.${minor}.${patch + 1}${suffix}`;
-          } else {
-            // Fallback for non-standard tag formats
-            const generalMatch = normalizedTag.match(/^(.*?)(\d+)$/);
-            if (generalMatch) {
-              const prefix = generalMatch[1];
-              const num = parseInt(generalMatch[2], 10);
-              suggestedTag = `${prefix}${num + 1}`;
+          if (isProduction) {
+            // Normalize currentTag to 1-digit for production (e.g. "v1.0.0" -> "v1", "1.0.0" -> "1")
+            const match = currentTag.match(/^(v?)(\d+)/i);
+            if (match) {
+              const prefix = match[1] || '';
+              const major = parseInt(match[2], 10);
+              currentTag = `${prefix}${major}`;
+              suggestedTag = `${prefix}${major + 1}`;
             } else {
-              suggestedTag = `${normalizedTag}-next`;
+              suggestedTag = `${currentTag}-next`;
+            }
+          } else {
+            // Normalize currentTag if it's single digit (e.g. "v1" -> "v1.0.0")
+            let normalizedTag = currentTag;
+            const singleDigitMatch = currentTag.match(/^(v?)(\d+)$/i);
+            if (singleDigitMatch) {
+              const prefix = singleDigitMatch[1] || 'v';
+              normalizedTag = `${prefix}${singleDigitMatch[2]}.0.0`;
+              currentTag = normalizedTag; // update current tag display to 3 digits!
+            }
+
+            const semverRegex = /^(v?)(\d+)\.(\d+)\.(\d+)(.*)$/i;
+            const semverMatch = normalizedTag.match(semverRegex);
+            if (semverMatch) {
+              const prefix = semverMatch[1];
+              const major = parseInt(semverMatch[2], 10);
+              const minor = parseInt(semverMatch[3], 10);
+              const patch = parseInt(semverMatch[4], 10);
+              const suffix = semverMatch[5] || '';
+              suggestedTag = `${prefix}${major}.${minor}.${patch + 1}${suffix}`;
+            } else {
+              // Fallback for non-standard tag formats
+              const generalMatch = normalizedTag.match(/^(.*?)(\d+)$/);
+              if (generalMatch) {
+                const prefix = generalMatch[1];
+                const num = parseInt(generalMatch[2], 10);
+                suggestedTag = `${prefix}${num + 1}`;
+              } else {
+                suggestedTag = `${normalizedTag}-next`;
+              }
             }
           }
         } else {
-          suggestedTag = 'v1.0.0';
+          suggestedTag = isProduction ? 'v1' : 'v1.0.0';
         }
 
         return {

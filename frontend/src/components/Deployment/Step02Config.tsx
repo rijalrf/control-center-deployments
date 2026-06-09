@@ -89,7 +89,11 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       const composePath = customPath || config[repo.name]?.['COMPOSE_FILE'] || getComposeDefaultPath(repo)
 
       const res = await api.get(`/repos/${repo.id}/compose-services`, {
-        params: { branch: resolvedBranch, path: composePath }
+        params: { 
+          branch: resolvedBranch, 
+          path: composePath,
+          environment_id: data.environment_id
+        }
       })
 
       setComposeData(prev => ({
@@ -197,10 +201,16 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       const result = validationMap[repo.id]
       const hasCompose = result?.docker_compose_exists || false
       
+      const isProduction = data.environment?.name?.toLowerCase() === 'production' || 
+                           data.environment?.slug?.toLowerCase() === 'production' || 
+                           data.environment?.name?.toLowerCase() === 'prod' || 
+                           data.environment?.slug?.toLowerCase() === 'prod';
+      const defaultTag = isProduction ? 'v1' : 'v1.0.0';
+
       const newRepoConfig: Record<string, string> = {
         ...currentRepoConfig,
         'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v1.0.0'),
+        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : defaultTag),
         'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? ''
       }
 
@@ -387,7 +397,11 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                             suggestedTag = matchedService.suggested_tag || ''
                           } else {
                             currentTag = ''
-                            suggestedTag = 'v1.0.0'
+                            const isProduction = data.environment?.name?.toLowerCase() === 'production' || 
+                                                 data.environment?.slug?.toLowerCase() === 'production' || 
+                                                 data.environment?.name?.toLowerCase() === 'prod' || 
+                                                 data.environment?.slug?.toLowerCase() === 'prod';
+                            suggestedTag = isProduction ? 'v1' : 'v1.0.0';
                           }
 
                           const recentTags: string[] = (composeData[repo.id]?.data as any)?.recent_tags || []
