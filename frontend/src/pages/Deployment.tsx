@@ -1412,9 +1412,11 @@ export default function Deployment() {
       docker_image_name: dr.docker_image_name || '',
     }))
 
+    const fullEnv = environments.find(e => e.id === d.environment_id) || d.environment || null;
+
     setFormData({
       environment_id: d.environment_id,
-      environment: d.environment || null,
+      environment: fullEnv,
       repositories: reposForForm,
       config: d.config || {},
     })

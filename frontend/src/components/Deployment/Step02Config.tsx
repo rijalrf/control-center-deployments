@@ -329,7 +329,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
             {isExpanded && (
               <div className="animate-slide-down">
                 {/* Metadata / Info Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-5 py-4 border-b border-ccd-border/30 bg-ccd-surface/10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-5 py-4 border-b border-ccd-border/30 bg-ccd-surface/10">
                   <div className="space-y-1">
                     <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Deployment Strategy</span>
                     <span className="text-xs font-semibold text-ccd-text flex items-center gap-1.5">
@@ -351,6 +351,24 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                     <span className="text-xs font-mono text-ccd-text-dim break-all">
                       [dockerhub-user]/{repo.name}:{currentVersionTag}
                     </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-ccd-text-muted tracking-wider block">Target Server</span>
+                    <div className="text-xs font-semibold text-ccd-text flex flex-col gap-1">
+                      {data.environment?.servers && data.environment.servers.length > 0 ? (
+                        data.environment.servers.map((srv) => (
+                          <div key={srv.id} className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-ccd-cyan" />
+                            <span className="truncate max-w-[100px]" title={srv.name}>{srv.name}</span>
+                            <span className="text-[10px] font-mono text-ccd-text-muted">
+                              ({srv.host}:{srv.port})
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-ccd-text-muted italic">No server configured</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
