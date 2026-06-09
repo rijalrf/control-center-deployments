@@ -196,6 +196,27 @@ class ReposController {
                 return;
             }
             // Fetch successful deployments ordered by id desc
+            let isProduction = false;
+            const envIdQuery = req.query.environment_id ? parseInt(req.query.environment_id, 10) : null;
+            if (envIdQuery) {
+                const env = await Environment_1.Environment.findByPk(envIdQuery);
+                if (env && (env.name.toLowerCase() === 'production' || env.slug.toLowerCase() === 'production' || env.name.toLowerCase() === 'prod' || env.slug.toLowerCase() === 'prod')) {
+                    isProduction = true;
+                }
+            }
+            else {
+                if (branch === 'main' || branch === 'master') {
+                    isProduction = true;
+                }
+            }
+            // Fetch all environments to find Staging environment
+            const environments = await Environment_1.Environment.findAll();
+            const stagingEnv = environments.find(e => {
+                const name = e.name.toLowerCase();
+                const slug = e.slug.toLowerCase();
+                return name.includes('stage') || name.includes('staging') || slug.includes('stage') || slug.includes('staging');
+            });
+            // Fetch successful deployments ordered by id desc
             const successfulDeployments = await Deployment_1.Deployment.findAll({
                 where: { status: 'success' },
                 order: [['id', 'DESC']],
@@ -221,8 +242,57 @@ class ReposController {
                     }
                 }
             }
-            const recentTags = Array.from(recentTagsSet);
-            const dbTag = recentTags[0] || null; // The latest successful tag
+            const recentTags = Array.from(recentTagsSet).sort((a, b) => {
+                const clean = (s) => s.replace(/^v/i, '');
+                const parseParts = (s) => {
+                    const semverRegex = /^(\d+)\.(\d+)\.(\d+)(.*)$/;
+                    const match = clean(s).match(semverRegex);
+                    if (match) {
+                        return {
+                            major: parseInt(match[1], 10),
+                            minor: parseInt(match[2], 10),
+                            patch: parseInt(match[3], 10),
+                            suffix: match[4]
+                        };
+                    }
+                    const singleDigitRegex = /^(\d+)(.*)$/;
+                    const singleMatch = clean(s).match(singleDigitRegex);
+                    if (singleMatch) {
+                        return {
+                            major: parseInt(singleMatch[1], 10),
+                            minor: 0,
+                            patch: 0,
+                            suffix: singleMatch[2]
+                        };
+                    }
+                    return { major: 0, minor: 0, patch: 0, suffix: clean(s) };
+                };
+                const pa = parseParts(a);
+                const pb = parseParts(b);
+                if (pa.major !== pb.major)
+                    return pb.major - pa.major;
+                if (pa.minor !== pb.minor)
+                    return pb.minor - pa.minor;
+                if (pa.patch !== pb.patch)
+                    return pb.patch - pa.patch;
+                return pb.suffix.localeCompare(pa.suffix);
+            });
+            // Determine the latest tag from the database to be used as dbTag.
+            // If we are in Production, we specifically want to find the latest successful Staging tag as the baseline!
+            let dbTag = null;
+            if (isProduction && stagingEnv) {
+                const latestStagingDeployment = successfulDeployments.find(d => d.environment_id === stagingEnv.id &&
+                    d.repositories && Array.isArray(d.repositories) && d.repositories.some((r) => String(r.id) === String(repo.id)));
+                if (latestStagingDeployment && latestStagingDeployment.config) {
+                    const repoConfig = latestStagingDeployment.config[repo.name];
+                    if (repoConfig && repoConfig['VERSION_TAG']) {
+                        dbTag = repoConfig['VERSION_TAG'];
+                    }
+                }
+            }
+            if (!dbTag) {
+                dbTag = recentTags[0] || null; // Fallback to latest tag overall
+            }
             const servicesList = Object.keys(doc.services).map((serviceName) => {
                 const serviceObj = doc.services[serviceName];
                 const image = serviceObj?.image || '';
@@ -240,36 +310,42 @@ class ReposController {
                 if (dbTag) {
                     currentTag = dbTag;
                 }
-                // 3. Increment logic using 3-digit semver
+                // 3. Increment logic
                 if (currentTag) {
-                    // Normalize currentTag if it's single digit (e.g. "v1" -> "v1.0.0")
-                    let normalizedTag = currentTag;
-                    const singleDigitMatch = currentTag.match(/^(v?)(\d+)$/i);
-                    if (singleDigitMatch) {
-                        const prefix = singleDigitMatch[1] || 'v';
-                        normalizedTag = `${prefix}${singleDigitMatch[2]}.0.0`;
-                        currentTag = normalizedTag; // update current tag display to 3 digits!
-                    }
-                    const semverRegex = /^(v?)(\d+)\.(\d+)\.(\d+)(.*)$/i;
-                    const semverMatch = normalizedTag.match(semverRegex);
-                    if (semverMatch) {
-                        const prefix = semverMatch[1];
-                        const major = parseInt(semverMatch[2], 10);
-                        const minor = parseInt(semverMatch[3], 10);
-                        const patch = parseInt(semverMatch[4], 10);
-                        const suffix = semverMatch[5] || '';
-                        suggestedTag = `${prefix}${major}.${minor}.${patch + 1}${suffix}`;
+                    if (isProduction) {
+                        // For production, the suggested tag is the exact staging tag (no increment needed for promotion)
+                        suggestedTag = currentTag;
                     }
                     else {
-                        // Fallback for non-standard tag formats
-                        const generalMatch = normalizedTag.match(/^(.*?)(\d+)$/);
-                        if (generalMatch) {
-                            const prefix = generalMatch[1];
-                            const num = parseInt(generalMatch[2], 10);
-                            suggestedTag = `${prefix}${num + 1}`;
+                        // Normalize currentTag if it's single digit (e.g. "v1" -> "v1.0.0")
+                        let normalizedTag = currentTag;
+                        const singleDigitMatch = currentTag.match(/^(v?)(\d+)$/i);
+                        if (singleDigitMatch) {
+                            const prefix = singleDigitMatch[1] || 'v';
+                            normalizedTag = `${prefix}${singleDigitMatch[2]}.0.0`;
+                            currentTag = normalizedTag; // update current tag display to 3 digits!
+                        }
+                        const semverRegex = /^(v?)(\d+)\.(\d+)\.(\d+)(.*)$/i;
+                        const semverMatch = normalizedTag.match(semverRegex);
+                        if (semverMatch) {
+                            const prefix = semverMatch[1];
+                            const major = parseInt(semverMatch[2], 10);
+                            const minor = parseInt(semverMatch[3], 10);
+                            const patch = parseInt(semverMatch[4], 10);
+                            const suffix = semverMatch[5] || '';
+                            suggestedTag = `${prefix}${major}.${minor}.${patch + 1}${suffix}`;
                         }
                         else {
-                            suggestedTag = `${normalizedTag}-next`;
+                            // Fallback for non-standard tag formats
+                            const generalMatch = normalizedTag.match(/^(.*?)(\d+)$/);
+                            if (generalMatch) {
+                                const prefix = generalMatch[1];
+                                const num = parseInt(generalMatch[2], 10);
+                                suggestedTag = `${prefix}${num + 1}`;
+                            }
+                            else {
+                                suggestedTag = `${normalizedTag}-next`;
+                            }
                         }
                     }
                 }

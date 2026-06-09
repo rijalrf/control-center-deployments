@@ -193,6 +193,7 @@ export class DeploymentService {
       const server         = await Server.findOne({ where: { environment_id: data.environment_id } });
       const serverHost     = server?.host ?? 'localhost';
       const serverUsername = server?.username ?? 'deploy';
+      const serverPort     = server?.port ?? 22;
       const targetBranch   = envObj?.target_branch?.trim().toLowerCase() || (envName.toLowerCase() === 'production' ? 'main' : 'staging');
       const envSuffix      = targetBranch === 'main' ? 'PRODUCTION' : 'STAGING';
 
@@ -237,6 +238,7 @@ export class DeploymentService {
           config:                  JSON.stringify(finalRepoConfig),
           server_host:             serverHost,
           server_username:         serverUsername,
+          server_port:             String(serverPort),
           dockerfile_path:         dockerfilePath,
           docker_image_name:       r.docker_image_name ?? '',
           build_target:            buildTarget,

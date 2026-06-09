@@ -28,6 +28,10 @@ const SPECIAL_KEYS = [
 
 export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   const { repositories, config } = data
+  const isProduction = data.environment?.name?.toLowerCase() === 'production' || 
+                       data.environment?.slug?.toLowerCase() === 'production' || 
+                       data.environment?.name?.toLowerCase() === 'prod' || 
+                       data.environment?.slug?.toLowerCase() === 'prod';
   const [bulkRepo, setBulkRepo] = useState<string | null>(null)
   const [bulkInput, setBulkInput] = useState<string>('')
   const [expandedAdvanced, setExpandedAdvanced] = useState<Record<string, boolean>>({})
@@ -89,7 +93,11 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       const composePath = customPath || config[repo.name]?.['COMPOSE_FILE'] || getComposeDefaultPath(repo)
 
       const res = await api.get(`/repos/${repo.id}/compose-services`, {
-        params: { branch: resolvedBranch, path: composePath }
+        params: { 
+          branch: resolvedBranch, 
+          path: composePath,
+          environment_id: data.environment_id
+        }
       })
 
       setComposeData(prev => ({
@@ -197,10 +205,12 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
       const result = validationMap[repo.id]
       const hasCompose = result?.docker_compose_exists || false
       
+      const defaultTag = isProduction ? 'v1' : 'v1.0.0';
+
       const newRepoConfig: Record<string, string> = {
         ...currentRepoConfig,
         'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
-        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : 'v1.0.0'),
+        'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : defaultTag),
         'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? ''
       }
 
@@ -387,14 +397,14 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                             suggestedTag = matchedService.suggested_tag || ''
                           } else {
                             currentTag = ''
-                            suggestedTag = 'v1.0.0'
+                            suggestedTag = isProduction ? 'v1' : 'v1.0.0';
                           }
 
                           const recentTags: string[] = (composeData[repo.id]?.data as any)?.recent_tags || []
                           const currentVal = getSpecialVal(repo.name, 'VERSION_TAG', '')
                           const isCustom = isCustomMode[repo.name] || 
                             (currentVal !== '' && 
-                             currentVal !== `${currentTag}+` && 
+                             (isProduction || currentVal !== `${currentTag}+`) && 
                              (!suggestedTag || currentVal !== suggestedTag) &&
                              !recentTags.includes(currentVal))
                           const selectVal = isCustom ? 'custom' : currentVal
@@ -416,7 +426,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                                 className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan cursor-pointer"
                               >
                                 <option value="">-- Kosongkan --</option>
-                                {currentTag && (
+                                {currentTag && !isProduction && (
                                   <option value={`${currentTag}+`}>{currentTag}+</option>
                                 )}
                                 {!currentTag && suggestedTag && (
@@ -577,7 +587,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                       </div>
 
                       {/* Dockerfile & Build Target Options */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
                         {/* Dockerfile Path */}
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-ccd-text-muted">Dockerfile Path (relative to repo root)</label>
@@ -622,7 +632,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
 
                       {/* Docker Compose File Path */}
                       {strategy === 'docker-compose' && (
-                        <div className="space-y-1">
+                        <div className="space-y-1 animate-fade-in">
                           <label className="text-xs font-semibold text-ccd-text-muted">Docker Compose File Path (relative to repo root)</label>
                           <div className="relative flex items-center">
                             <div 
