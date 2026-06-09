@@ -14,6 +14,7 @@ interface FileExplorerModalProps {
   repoName: string;
   branch: string;
   initialPath?: string;
+  field: 'COMPOSE_FILE' | 'DOCKERFILE_PATH';
   onSelect: (path: string) => void;
   onClose: () => void;
 }
@@ -23,6 +24,7 @@ export default function FileExplorerModal({
   repoName,
   branch,
   initialPath = '',
+  field,
   onSelect,
   onClose
 }: FileExplorerModalProps) {
@@ -59,8 +61,20 @@ export default function FileExplorerModal({
     })
       .then(res => {
         if (!active) return
+        // Filter: only show directories and relevant files
+        const filtered = (res.data as FileItem[]).filter(item => {
+          if (item.type === 'dir') return true;
+          const nameLower = item.name.toLowerCase();
+          if (field === 'COMPOSE_FILE') {
+            return nameLower.endsWith('.yml') || nameLower.endsWith('.yaml');
+          } else if (field === 'DOCKERFILE_PATH') {
+            return nameLower.includes('dockerfile');
+          }
+          return true;
+        });
+
         // Sort: directories first, then files alphabetically
-        const sorted = (res.data as FileItem[]).sort((a, b) => {
+        const sorted = filtered.sort((a, b) => {
           if (a.type !== b.type) {
             return a.type === 'dir' ? -1 : 1
           }
@@ -79,7 +93,7 @@ export default function FileExplorerModal({
     return () => {
       active = false
     }
-  }, [repoId, branch, currentPath])
+  }, [repoId, branch, currentPath, field])
 
   // Breadcrumb path parts
   const breadcrumbs = useMemo(() => {

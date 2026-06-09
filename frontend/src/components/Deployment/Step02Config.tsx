@@ -699,6 +699,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
             'main'
           }
           initialPath={explorerTarget.initialPath}
+          field={explorerTarget.field}
           onSelect={(path) => {
             const updatedConfig = {
               ...config,
