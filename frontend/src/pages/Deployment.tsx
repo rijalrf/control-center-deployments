@@ -347,6 +347,19 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold text-ccd-text">Deployment #{deployment.id}</h2>
+            {deployment.environment && (
+              <span 
+                className="text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border leading-none flex items-center gap-1"
+                style={{
+                  backgroundColor: `${deployment.environment.color}15`,
+                  borderColor: `${deployment.environment.color}40`,
+                  color: deployment.environment.color
+                }}
+              >
+                <span className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: deployment.environment.color }} />
+                {deployment.environment.name}
+              </span>
+            )}
             <span className={`badge uppercase tracking-wider text-[10px] px-2.5 py-0.5 border ${statusColors[overallStatus] || 'badge-muted'}`}>
               {overallStatus}
             </span>
@@ -676,6 +689,9 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
                   </g>
                 </g>
                 <text y="34" textAnchor="middle" fill={serverStatus === 'running' ? '#22d3ee' : '#64748b'} className="text-[10px] font-bold tracking-wider uppercase transition-colors duration-300">Target Server</text>
+                {deployment.environment && (
+                  <text y="46" textAnchor="middle" fill={deployment.environment.color} className="text-[9px] font-bold tracking-wide uppercase transition-colors duration-300">{deployment.environment.name}</text>
+                )}
               </g>
             </svg>
 
@@ -1458,8 +1474,23 @@ export default function Deployment() {
                   0{currentStep}
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
-                  <p className="text-xs text-ccd-text-muted">{STEPS[currentStep - 1].subtitle}</p>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-ccd-text">{STEPS[currentStep - 1].title}</h2>
+                    {formData.environment && (
+                      <span 
+                        className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded border leading-none flex items-center gap-1"
+                        style={{
+                          backgroundColor: `${formData.environment.color}15`,
+                          borderColor: `${formData.environment.color}40`,
+                          color: formData.environment.color
+                        }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: formData.environment.color }} />
+                        {formData.environment.name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-ccd-text-muted mt-0.5">{STEPS[currentStep - 1].subtitle}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
