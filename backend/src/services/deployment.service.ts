@@ -222,6 +222,11 @@ export class DeploymentService {
           }
         }
 
+        const finalRepoConfig = {
+          ...repoConfig,
+          DOCKER_PRUNE_STRATEGY: process.env.DOCKER_PRUNE_STRATEGY || '',
+        };
+
         const targetInputs: Record<string, string> = {
           target_repo_url:         r.clone_url ?? `https://github.com/${r.full_name}.git`,
           target_repo_name:        r.name,
@@ -229,7 +234,7 @@ export class DeploymentService {
           target_ref:              targetRef,
           environment:             envName,
           environment_secret_suffix: envSuffix,
-          config:                  JSON.stringify(repoConfig),
+          config:                  JSON.stringify(finalRepoConfig),
           server_host:             serverHost,
           server_username:         serverUsername,
           dockerfile_path:         dockerfilePath,

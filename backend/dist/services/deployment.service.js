@@ -156,6 +156,10 @@ class DeploymentService {
                             targetRef = 'staging';
                     }
                 }
+                const finalRepoConfig = {
+                    ...repoConfig,
+                    DOCKER_PRUNE_STRATEGY: process.env.DOCKER_PRUNE_STRATEGY || '',
+                };
                 const targetInputs = {
                     target_repo_url: r.clone_url ?? `https://github.com/${r.full_name}.git`,
                     target_repo_name: r.name,
@@ -163,7 +167,7 @@ class DeploymentService {
                     target_ref: targetRef,
                     environment: envName,
                     environment_secret_suffix: envSuffix,
-                    config: JSON.stringify(repoConfig),
+                    config: JSON.stringify(finalRepoConfig),
                     server_host: serverHost,
                     server_username: serverUsername,
                     dockerfile_path: dockerfilePath,

@@ -23,8 +23,7 @@ const SPECIAL_KEYS = [
   'TARGET_COMPOSE_SERVICE',
   'VERSION_TAG',
   'RELEASE_NOTES',
-  'DOCKER_BUILD_TARGET',
-  'DOCKER_PRUNE_STRATEGY'
+  'DOCKER_BUILD_TARGET'
 ]
 
 export default function Step02Config({ data, onChange }: Step02ConfigProps) {
@@ -457,22 +456,6 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                         placeholder="Tuliskan catatan rilis (misal: fixing bug auth, update UI dashboard, dsb.)"
                         className="ccd-input text-xs w-full h-[38px] min-h-[38px] max-h-40 resize-y py-1.5"
                       />
-                    </div>
-
-                    {/* Docker Image Prune (Cleanup) */}
-                    <div className="flex-1 space-y-1">
-                      <label className="text-xs font-semibold text-ccd-text block">
-                        Docker Image Prune (Cleanup)
-                      </label>
-                      <select
-                        value={getSpecialVal(repo.name, 'DOCKER_PRUNE_STRATEGY', '')}
-                        onChange={(e) => setSpecialVal(repo.name, 'DOCKER_PRUNE_STRATEGY', e.target.value)}
-                        className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan cursor-pointer h-[38px]"
-                      >
-                        <option value="">Do Not Clean (Jangan Bersihkan)</option>
-                        <option value="dangling">Clean Dangling Images Only (docker image prune)</option>
-                        <option value="all">Clean All Unused Images (docker image prune -a)</option>
-                      </select>
                     </div>
                   </div>
                 </div>

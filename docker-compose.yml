@@ -67,6 +67,7 @@ services:
       GITHUB_CENTRAL_REF: ${GITHUB_CENTRAL_REF:-main}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       BACKEND_PORT: ${BACKEND_PORT:-5000}
+      DOCKER_PRUNE_STRATEGY: ${DOCKER_PRUNE_STRATEGY:-}
     ports:
       - "5000:5000"
     volumes:
