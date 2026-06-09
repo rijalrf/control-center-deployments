@@ -209,6 +209,13 @@ class ReposController {
                     isProduction = true;
                 }
             }
+            // Fetch all environments to find Staging environment
+            const environments = await Environment_1.Environment.findAll();
+            const stagingEnv = environments.find(e => {
+                const name = e.name.toLowerCase();
+                const slug = e.slug.toLowerCase();
+                return name.includes('stage') || name.includes('staging') || slug.includes('stage') || slug.includes('staging');
+            });
             // Fetch successful deployments ordered by id desc
             const successfulDeployments = await Deployment_1.Deployment.findAll({
                 where: { status: 'success' },
@@ -224,20 +231,11 @@ class ReposController {
                         const repoConfig = d.config[repo.name];
                         if (repoConfig && repoConfig['VERSION_TAG']) {
                             let tag = repoConfig['VERSION_TAG'];
-                            if (isProduction) {
-                                // Normalize tag to 1 digit
-                                const match = tag.match(/^(v?)(\d+)/i);
-                                if (match) {
-                                    tag = `${match[1] || ''}${match[2]}`;
-                                }
-                            }
-                            else {
-                                // Normalize tag if it's single digit (e.g. "v1" -> "v1.0.0")
-                                const singleDigitMatch = tag.match(/^(v?)(\d+)$/i);
-                                if (singleDigitMatch) {
-                                    const prefix = singleDigitMatch[1] || 'v';
-                                    tag = `${prefix}${singleDigitMatch[2]}.0.0`;
-                                }
+                            // Normalize tag if it's single digit (e.g. "v1" -> "v1.0.0")
+                            const singleDigitMatch = tag.match(/^(v?)(\d+)$/i);
+                            if (singleDigitMatch) {
+                                const prefix = singleDigitMatch[1] || 'v';
+                                tag = `${prefix}${singleDigitMatch[2]}.0.0`;
                             }
                             recentTagsSet.add(tag);
                         }
@@ -245,12 +243,27 @@ class ReposController {
                 }
             }
             const recentTags = Array.from(recentTagsSet);
-            const dbTag = recentTags[0] || null; // The latest successful tag
+            // Determine the latest tag from the database to be used as dbTag.
+            // If we are in Production, we specifically want to find the latest successful Staging tag as the baseline!
+            let dbTag = null;
+            if (isProduction && stagingEnv) {
+                const latestStagingDeployment = successfulDeployments.find(d => d.environment_id === stagingEnv.id &&
+                    d.repositories && Array.isArray(d.repositories) && d.repositories.some((r) => String(r.id) === String(repo.id)));
+                if (latestStagingDeployment && latestStagingDeployment.config) {
+                    const repoConfig = latestStagingDeployment.config[repo.name];
+                    if (repoConfig && repoConfig['VERSION_TAG']) {
+                        dbTag = repoConfig['VERSION_TAG'];
+                    }
+                }
+            }
+            if (!dbTag) {
+                dbTag = recentTags[0] || null; // Fallback to latest tag overall
+            }
             const servicesList = Object.keys(doc.services).map((serviceName) => {
                 const serviceObj = doc.services[serviceName];
                 const image = serviceObj?.image || '';
                 let currentTag = null;
-                let suggestedTag = isProduction ? 'v1' : 'v1.0.0';
+                let suggestedTag = 'v1.0.0';
                 // 1. Get tag from Git image if present
                 if (image && typeof image === 'string') {
                     const parts = image.split(':');
@@ -266,17 +279,8 @@ class ReposController {
                 // 3. Increment logic
                 if (currentTag) {
                     if (isProduction) {
-                        // Normalize currentTag to 1-digit for production (e.g. "v1.0.0" -> "v1", "1.0.0" -> "1")
-                        const match = currentTag.match(/^(v?)(\d+)/i);
-                        if (match) {
-                            const prefix = match[1] || '';
-                            const major = parseInt(match[2], 10);
-                            currentTag = `${prefix}${major}`;
-                            suggestedTag = `${prefix}${major + 1}`;
-                        }
-                        else {
-                            suggestedTag = `${currentTag}-next`;
-                        }
+                        // For production, the suggested tag is the exact staging tag (no increment needed for promotion)
+                        suggestedTag = currentTag;
                     }
                     else {
                         // Normalize currentTag if it's single digit (e.g. "v1" -> "v1.0.0")
@@ -312,7 +316,7 @@ class ReposController {
                     }
                 }
                 else {
-                    suggestedTag = isProduction ? 'v1' : 'v1.0.0';
+                    suggestedTag = 'v1.0.0';
                 }
                 return {
                     name: serviceName,
