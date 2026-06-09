@@ -386,12 +386,16 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                             currentTag = matchedService.current_tag || ''
                             suggestedTag = matchedService.suggested_tag || ''
                           } else {
-                            currentTag = 'v1'
-                            suggestedTag = 'v2'
+                            currentTag = ''
+                            suggestedTag = 'v1.0.0'
                           }
 
                           const currentVal = getSpecialVal(repo.name, 'VERSION_TAG', '')
-                          const isCustom = isCustomMode[repo.name] || (currentVal !== '' && currentVal !== suggestedTag && currentVal !== currentTag)
+                          const isCustom = isCustomMode[repo.name] || 
+                            (currentVal !== '' && 
+                             currentVal !== currentTag && 
+                             currentVal !== `${currentTag}+` && 
+                             (!suggestedTag || currentVal !== suggestedTag))
                           const selectVal = isCustom ? 'custom' : currentVal
 
                           return (
@@ -411,11 +415,14 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
                                 className="ccd-input text-xs w-full bg-ccd-bg border-ccd-border focus:border-ccd-cyan cursor-pointer"
                               >
                                 <option value="">-- Kosongkan --</option>
-                                {suggestedTag && (
-                                  <option value={suggestedTag}>{suggestedTag}+</option>
-                                )}
                                 {currentTag && (
-                                  <option value={currentTag}>{currentTag}</option>
+                                  <>
+                                    <option value={`${currentTag}+`}>{currentTag}+ (new version)</option>
+                                    <option value={currentTag}>{currentTag} (success deploy)</option>
+                                  </>
+                                )}
+                                {!currentTag && suggestedTag && (
+                                  <option value={suggestedTag}>{suggestedTag} (new version)</option>
                                 )}
                                 <option value="custom">Kustom / Manual...</option>
                               </select>
