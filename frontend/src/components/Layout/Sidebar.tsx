@@ -72,13 +72,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-ccd-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-ccd-accent to-ccd-cyan flex items-center justify-center glow-accent">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} className="w-4 h-4">
-              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
-              <line x1="12" y1="22" x2="12" y2="15.5" />
-              <polyline points="22 8.5 12 15.5 2 8.5" />
-            </svg>
-          </div>
+          <img src="/logo-ccd.png" alt="CCD Logo" className="w-8 h-8 rounded-lg object-contain" />
           <div>
             <div className="text-sm font-bold text-ccd-text tracking-wide">Control Center</div>
             <div className="text-xs text-ccd-text-muted font-mono">Deployment</div>
