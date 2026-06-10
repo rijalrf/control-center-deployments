@@ -37,7 +37,6 @@ interface StartDeploymentData {
 interface CreateDeploymentInput extends StartDeploymentData {
   user_id: number;
   notes?: string;
-  accessToken: string;
   status?: string;
 }
 
@@ -174,7 +173,7 @@ export class DeploymentService {
     await DeploymentStep.bulkCreate(buildStepRows(steps, deployment.id, initDetail));
 
     if (!isDraft) {
-      void this.startGitHubActionsDeployment(deployment.id, data.accessToken, data);
+      void this.startGitHubActionsDeployment(deployment.id, data);
     }
 
     return deployment;
@@ -184,7 +183,6 @@ export class DeploymentService {
 
   private static async startGitHubActionsDeployment(
     deploymentId: number,
-    accessToken: string,
     data: StartDeploymentData,
   ): Promise<void> {
     try {
@@ -209,16 +207,16 @@ export class DeploymentService {
         const configuredBranch = envObj?.target_branch;
 
         if (configuredBranch && configuredBranch.trim() !== '') {
-          const hasConfiguredBranch = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, configuredBranch);
+          const hasConfiguredBranch = await GitHubService.checkBranchExists(repoOwner, repoNameOnly, configuredBranch);
           if (hasConfiguredBranch) {
             targetRef = configuredBranch;
           }
         } else {
           if (envName.toLowerCase() === 'production') {
-            const hasMain = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'main');
+            const hasMain = await GitHubService.checkBranchExists(repoOwner, repoNameOnly, 'main');
             if (hasMain) targetRef = 'main';
           } else {
-            const hasStaging = await GitHubService.checkBranchExists(accessToken, repoOwner, repoNameOnly, 'staging');
+            const hasStaging = await GitHubService.checkBranchExists(repoOwner, repoNameOnly, 'staging');
             if (hasStaging) targetRef = 'staging';
           }
         }
@@ -244,7 +242,7 @@ export class DeploymentService {
           build_target:            buildTarget,
         };
 
-        const runMeta = await GitHubService.dispatchCentralWorkflow(accessToken, targetInputs, env.central.ref);
+        const runMeta = await GitHubService.dispatchCentralWorkflow(targetInputs, env.central.ref);
         runsInfo.push({
           ...runMeta,
           repoName:   r.name,
@@ -265,7 +263,7 @@ export class DeploymentService {
         { where: { deployment_id: deploymentId, step_number: 1 } },
       );
 
-      this.pollGitHubActionsProgress(deploymentId, accessToken, runsInfo);
+      this.pollGitHubActionsProgress(deploymentId, runsInfo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('Gagal memulai deployment via GitHub Actions:', err);
@@ -281,7 +279,6 @@ export class DeploymentService {
 
   private static pollGitHubActionsProgress(
     deploymentId: number,
-    accessToken: string,
     runsInfo: RunInfo[],
   ): void {
     const INTERVAL_MS  = 4_000;
@@ -308,7 +305,7 @@ export class DeploymentService {
         for (const run of runsMap) {
           if (!run.runId) {
             const githubRun = await GitHubService.findWorkflowRun(
-              accessToken, run.owner, run.repo, run.workflowId, run.dispatchTime,
+              run.owner, run.repo, run.workflowId, run.dispatchTime,
             );
             if (githubRun) {
               run.runId     = githubRun.id;
@@ -324,7 +321,7 @@ export class DeploymentService {
         // 2. Use first run as reference for step tracking
         const firstRun = runsMap[0];
         const jobs     = await GitHubService.getWorkflowRunJobs(
-          accessToken, firstRun.owner, firstRun.repo, firstRun.runId!,
+          firstRun.owner, firstRun.repo, firstRun.runId!,
         );
 
         if (!jobs.length) return;
@@ -336,7 +333,7 @@ export class DeploymentService {
 
         // Update run-level status
         const runStatus    = await GitHubService.getWorkflowRunStatus(
-          accessToken, firstRun.owner, firstRun.repo, firstRun.runId!,
+          firstRun.owner, firstRun.repo, firstRun.runId!,
         );
         firstRun.status    = runStatus.status    ?? firstRun.status;
         firstRun.conclusion = runStatus.conclusion ?? firstRun.conclusion;
@@ -391,7 +388,7 @@ export class DeploymentService {
 
           // 4. Replace mock logs with real GitHub job logs
           try {
-            const logs = await GitHubService.getJobLogs(accessToken, firstRun.owner, firstRun.repo, firstRun.jobId!);
+            const logs = await GitHubService.getJobLogs(firstRun.owner, firstRun.repo, firstRun.jobId!);
             if (logs && !logs.startsWith('Tidak dapat mengambil log dari GitHub API')) {
               await Deployment.update({ log: logs }, { where: { id: deploymentId } });
 
@@ -444,7 +441,6 @@ export class DeploymentService {
 
   private static async resetAndStartDeployment(
     deployment: Deployment,
-    accessToken: string,
   ): Promise<void> {
     const deploymentId = deployment.id;
 
@@ -463,12 +459,12 @@ export class DeploymentService {
       config:         deployment.config ?? {},
     };
 
-    void this.startGitHubActionsDeployment(deploymentId, accessToken, data);
+    void this.startGitHubActionsDeployment(deploymentId, data);
   }
 
   // ── Public: execute draft ───────────────────────────────────────────────────
 
-  static async executeDraftDeployment(deploymentId: number, accessToken: string): Promise<Deployment> {
+  static async executeDraftDeployment(deploymentId: number): Promise<Deployment> {
     const deployment = await Deployment.findByPk(deploymentId, {
       include: [{ model: DeploymentStep, as: 'steps' }],
     });
@@ -477,13 +473,13 @@ export class DeploymentService {
     if (deployment.status !== 'draft')   throw new Error('Deployment is not a draft and cannot be executed');
 
     await deployment.update({ status: 'pending', deployed_at: null });
-    await this.resetAndStartDeployment(deployment, accessToken);
+    await this.resetAndStartDeployment(deployment);
     return deployment;
   }
 
   // ── Public: retry ───────────────────────────────────────────────────────────
 
-  static async retryDeployment(deploymentId: number, accessToken: string): Promise<Deployment> {
+  static async retryDeployment(deploymentId: number): Promise<Deployment> {
     const deployment = await Deployment.findByPk(deploymentId, {
       include: [{ model: DeploymentStep, as: 'steps' }],
     });
@@ -494,7 +490,7 @@ export class DeploymentService {
     }
 
     await deployment.update({ status: 'pending', deployed_at: null, log: '' });
-    await this.resetAndStartDeployment(deployment, accessToken);
+    await this.resetAndStartDeployment(deployment);
     return deployment;
   }
 

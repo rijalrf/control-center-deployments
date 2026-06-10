@@ -47,23 +47,23 @@ interface GitHubEmail {
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export class GitHubService {
-  private static getEffectiveToken(accessToken: string | null): string {
+  private static getGlobalToken(): string {
     const configToken = env.github.token;
     if (
-      configToken &&
-      configToken !== 'your_github_personal_access_token' &&
-      configToken.trim() !== ''
+      !configToken ||
+      configToken === 'your_github_personal_access_token' ||
+      configToken.trim() === ''
     ) {
-      return configToken;
+      throw new Error('Global GitHub Personal Access Token (GITHUB_TOKEN) is not configured in .env');
     }
-    if (!accessToken) {
-      throw new Error('GitHub access token is required.');
-    }
-    return accessToken;
+    return configToken;
   }
 
   static async syncRepositories(accessToken: string | null): Promise<Repository[]> {
-    const token    = this.getEffectiveToken(accessToken);
+    if (!accessToken) {
+      throw new Error('GitHub OAuth access token is required to sync repositories.');
+    }
+    const token    = accessToken;
     const org      = env.github.org && env.github.org !== 'your_github_org_or_username'
       ? env.github.org
       : null;
@@ -102,11 +102,10 @@ export class GitHubService {
   }
 
   static async dispatchCentralWorkflow(
-    accessToken: string,
     targetInputs: Record<string, string>,
     ref = 'main',
   ): Promise<{ owner: string; repo: string; workflowId: string; dispatchTime: Date }> {
-    const token   = this.getEffectiveToken(accessToken);
+    const token   = this.getGlobalToken();
     const octokit = new Octokit({ auth: token });
 
     let owner = env.central.owner;
@@ -131,13 +130,12 @@ export class GitHubService {
   }
 
   static async findWorkflowRun(
-    accessToken: string,
     owner: string,
     repo: string,
     workflowId: string,
     afterTime: Date,
   ): Promise<WorkflowRun | null> {
-    const token   = this.getEffectiveToken(accessToken);
+    const token   = this.getGlobalToken();
     const octokit = new Octokit({ auth: token });
     const { data } = await octokit.actions.listWorkflowRuns({
       owner,
@@ -157,12 +155,11 @@ export class GitHubService {
   }
 
   static async getWorkflowRunStatus(
-    accessToken: string,
     owner: string,
     repo: string,
     runId: number,
   ): Promise<{ status: string | null; conclusion: string | null; html_url: string }> {
-    const token    = this.getEffectiveToken(accessToken);
+    const token    = this.getGlobalToken();
     const octokit  = new Octokit({ auth: token });
     const { data } = await octokit.actions.getWorkflowRun({ owner, repo, run_id: runId });
     return {
@@ -173,25 +170,23 @@ export class GitHubService {
   }
 
   static async getWorkflowRunJobs(
-    accessToken: string,
     owner: string,
     repo: string,
     runId: number,
   ): Promise<WorkflowJob[]> {
-    const token    = this.getEffectiveToken(accessToken);
+    const token    = this.getGlobalToken();
     const octokit  = new Octokit({ auth: token });
     const { data } = await octokit.actions.listJobsForWorkflowRun({ owner, repo, run_id: runId });
     return data.jobs as WorkflowJob[];
   }
 
   static async getJobLogs(
-    accessToken: string,
     owner: string,
     repo: string,
     jobId: number,
   ): Promise<string> {
     try {
-      const token    = this.getEffectiveToken(accessToken);
+      const token    = this.getGlobalToken();
       const octokit  = new Octokit({ auth: token });
       const { data } = await octokit.actions.downloadJobLogsForWorkflowRun({
         owner,
@@ -205,11 +200,10 @@ export class GitHubService {
   }
 
   static async getRepoEnvKeys(
-    accessToken: string | null,
     owner: string,
     repo: string,
   ): Promise<string[]> {
-    const token   = this.getEffectiveToken(accessToken);
+    const token   = this.getGlobalToken();
     const octokit = new Octokit({ auth: token });
     let content   = '';
 
@@ -245,12 +239,11 @@ export class GitHubService {
   }
 
   static async checkBranchExists(
-    accessToken: string | null,
     owner: string,
     repo: string,
     branch: string,
   ): Promise<boolean> {
-    const token   = this.getEffectiveToken(accessToken);
+    const token   = this.getGlobalToken();
     const octokit = new Octokit({ auth: token });
     try {
       await octokit.repos.getBranch({ owner, repo, branch });
@@ -261,13 +254,12 @@ export class GitHubService {
   }
 
   static async getFileContent(
-    accessToken: string | null,
     owner: string,
     repo: string,
     path: string,
     ref: string,
   ): Promise<string> {
-    const token   = this.getEffectiveToken(accessToken);
+    const token   = this.getGlobalToken();
     const octokit = new Octokit({ auth: token });
     const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
     if (data && 'content' in data && typeof (data as any).content === 'string') {
@@ -283,14 +275,13 @@ export class GitHubService {
    * Returns the path where the file was found, or null if not found anywhere.
    */
   static async findFile(
-    accessToken: string | null,
     owner: string,
     repo: string,
     filename: string | string[],
     ref: string,
     extraPaths: string[] = [],
   ): Promise<string | null> {
-    const token   = this.getEffectiveToken(accessToken);
+    const token   = this.getGlobalToken();
     const octokit = new Octokit({ auth: token });
 
     const names = Array.isArray(filename) ? filename : [filename];
@@ -333,13 +324,12 @@ export class GitHubService {
   }
 
   static async getRepoContents(
-    accessToken: string | null,
     owner: string,
     repo: string,
     path: string,
     ref: string
   ): Promise<any[]> {
-    const token = this.getEffectiveToken(accessToken);
+    const token = this.getGlobalToken();
     const octokit = new Octokit({ auth: token });
     const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
     if (Array.isArray(data)) {
