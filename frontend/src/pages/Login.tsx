@@ -83,13 +83,7 @@ export default function Login() {
         <div className="ccd-card rounded-2xl p-8 border border-ccd-border/80 backdrop-blur-sm">
           {/* Logo */}
           <div className="flex flex-col items-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-ccd-accent to-ccd-cyan flex items-center justify-center mb-3 glow-accent">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={1.5} className="w-7 h-7">
-                <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
-                <line x1="12" y1="22" x2="12" y2="15.5" />
-                <polyline points="22 8.5 12 15.5 2 8.5" />
-              </svg>
-            </div>
+            <img src="/logo-ccd.png" alt="CCD Logo" className="w-14 h-14 rounded-2xl object-contain mb-3" />
             <h1 className="text-xl font-bold text-ccd-text tracking-tight">Control Center</h1>
             <p className="text-ccd-text-muted text-xs mt-0.5">Deployment Management Platform</p>
           </div>
