@@ -7,9 +7,12 @@ import { GitHubService } from '../services/github.service';
 import { getErrorMessage } from '../utils/errors';
 
 export class ReposController {
-  static async list(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repos = await Repository.findAll({ order: [['name', 'ASC']] });
+      const repos = await Repository.findAll({ 
+        where: { user_id: req.user!.id },
+        order: [['name', 'ASC']] 
+      });
       res.json(repos);
     } catch (err) {
       next(err);
@@ -19,7 +22,7 @@ export class ReposController {
   static async sync(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userToken = req.user?.access_token ?? null;
-      const results   = await GitHubService.syncRepositories(userToken);
+      const results   = await GitHubService.syncRepositories(req.user!.id, userToken);
       res.json({ synced: results.length, repositories: results });
     } catch (err: unknown) {
       // Surface GitHub 401 as a 502 (bad credentials from upstream)
@@ -40,7 +43,7 @@ export class ReposController {
 
   static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findByPk(req.params.id);
+      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;
@@ -54,7 +57,7 @@ export class ReposController {
 
   static async getEnvKeys(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findByPk(req.params.id);
+      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;
@@ -85,14 +88,14 @@ export class ReposController {
         return;
       }
 
-      const envObj = await Environment.findByPk(environment_id);
+      const envObj = await Environment.findOne({ where: { id: environment_id, user_id: req.user!.id } });
       const configuredBranch = envObj?.target_branch?.trim() || '';
       const envName = envObj?.name ?? 'staging';
 
       const results = await Promise.all(
         repositories.map(async (repoInput) => {
           // Check visibility from DB
-          const repo = await Repository.findByPk(repoInput.id);
+          const repo = await Repository.findOne({ where: { id: repoInput.id, user_id: req.user!.id } });
           if (repo && repo.visibility === 'private') {
             throw new Error(`Sistem saat ini hanya mendukung deployment untuk repositori Public. Repositori "${repo.full_name}" bersifat Private.`);
           }
@@ -159,7 +162,7 @@ export class ReposController {
 
   static async getComposeServices(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findByPk(req.params.id);
+      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;
@@ -204,7 +207,7 @@ export class ReposController {
       let isProduction = false;
       const envIdQuery = req.query.environment_id ? parseInt(req.query.environment_id as string, 10) : null;
       if (envIdQuery) {
-        const env = await Environment.findByPk(envIdQuery);
+        const env = await Environment.findOne({ where: { id: envIdQuery, user_id: req.user!.id } });
         if (env && (env.name.toLowerCase() === 'production' || env.slug.toLowerCase() === 'production' || env.name.toLowerCase() === 'prod' || env.slug.toLowerCase() === 'prod')) {
           isProduction = true;
         }
@@ -215,7 +218,7 @@ export class ReposController {
       }
 
       // Fetch all environments to find Staging environment
-      const environments = await Environment.findAll();
+      const environments = await Environment.findAll({ where: { user_id: req.user!.id } });
       const stagingEnv = environments.find(e => {
         const name = e.name.toLowerCase();
         const slug = e.slug.toLowerCase();
@@ -224,7 +227,7 @@ export class ReposController {
 
       // Fetch successful deployments ordered by id desc
       const successfulDeployments = await Deployment.findAll({
-        where: { status: 'success' },
+        where: { status: 'success', user_id: req.user!.id },
         order: [['id', 'DESC']],
       });
 
@@ -384,7 +387,7 @@ export class ReposController {
 
   static async getContents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findByPk(req.params.id);
+      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;

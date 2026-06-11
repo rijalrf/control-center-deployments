@@ -59,7 +59,7 @@ export class GitHubService {
     return configToken;
   }
 
-  static async syncRepositories(accessToken: string | null): Promise<Repository[]> {
+  static async syncRepositories(userId: number, accessToken: string | null): Promise<Repository[]> {
     if (!accessToken) {
       throw new Error('GitHub OAuth access token is required to sync repositories.');
     }
@@ -82,18 +82,37 @@ export class GitHubService {
     const now     = new Date();
     const results = await Promise.all(
       ghRepos.map(async (r) => {
-        const [repo] = await Repository.upsert({
-          github_id:      String(r.id),
-          name:           r.name,
-          full_name:      r.full_name,
-          description:    r.description,
-          url:            r.html_url,
-          clone_url:      r.clone_url,
-          language:       r.language,
-          default_branch: r.default_branch,
-          visibility:     r.visibility ?? 'private',
-          synced_at:      now,
-        });
+        // Because we changed the unique index to (github_id, user_id), 
+        // we can still use a manual findOrCreate/update approach to be safe with Sequelize.
+        let repo = await Repository.findOne({ where: { github_id: String(r.id), user_id: userId } });
+        
+        if (repo) {
+           await repo.update({
+             name:           r.name,
+             full_name:      r.full_name,
+             description:    r.description,
+             url:            r.html_url,
+             clone_url:      r.clone_url,
+             language:       r.language,
+             default_branch: r.default_branch,
+             visibility:     r.visibility ?? 'private',
+             synced_at:      now,
+           });
+        } else {
+           repo = await Repository.create({
+             user_id:        userId,
+             github_id:      String(r.id),
+             name:           r.name,
+             full_name:      r.full_name,
+             description:    r.description,
+             url:            r.html_url,
+             clone_url:      r.clone_url,
+             language:       r.language,
+             default_branch: r.default_branch,
+             visibility:     r.visibility ?? 'private',
+             synced_at:      now,
+           });
+        }
         return repo;
       }),
     );

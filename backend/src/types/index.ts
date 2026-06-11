@@ -41,6 +41,7 @@ export interface UserAttributes {
 
 export interface EnvironmentAttributes {
   id: number;
+  user_id: number;
   name: string;
   slug: string;
   description: string | null;
@@ -52,6 +53,7 @@ export interface EnvironmentAttributes {
 
 export interface ServerAttributes {
   id: number;
+  user_id: number;
   name: string;
   host: string;
   port: number;
@@ -64,6 +66,7 @@ export interface ServerAttributes {
 
 export interface RepositoryAttributes {
   id: number;
+  user_id: number;
   github_id: string;
   name: string;
   full_name: string;
