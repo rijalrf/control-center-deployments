@@ -60,9 +60,7 @@ function ConfirmModal({ message, onConfirm, onCancel }: ConfirmModalProps) {
 }
 
 // ── Environments Section ──────────────────────────────────────
-function EnvironmentsSection() {
-  const [envs, setEnvs]             = useState<Environment[]>([])
-  const [loading, setLoading]       = useState(true)
+function EnvironmentsSection({ envs, loading, onUpdate }: { envs: Environment[], loading: boolean, onUpdate: () => void }) {
   const [showModal, setShowModal]   = useState(false)
   const [editTarget, setEditTarget] = useState<Environment | null>(null)
   const [delTarget, setDelTarget]   = useState<Environment | null>(null)
@@ -70,15 +68,6 @@ function EnvironmentsSection() {
   const [form, setForm]             = useState({ name: '', slug: '', description: '', color: '#06b6d4', target_branch: 'main' })
   const [error, setError]           = useState('')
   const { showToast }               = useToast()
-
-  const fetch = () => {
-    setLoading(true)
-    api.get('/environments')
-      .then(r => setEnvs(r.data))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { fetch() }, [])
 
   const startAdd = () => {
     setForm({ name: '', slug: '', description: '', color: '#06b6d4', target_branch: 'main' })
@@ -112,7 +101,7 @@ function EnvironmentsSection() {
         showToast(`Environment "${form.name}" created successfully!`, 'success')
         setShowModal(false)
       }
-      fetch()
+      onUpdate()
     } catch (err: unknown) {
       const errMsg = getApiErrorMessage(err, 'Failed to save environment')
       setError(errMsg)
@@ -128,7 +117,7 @@ function EnvironmentsSection() {
       await api.delete(`/environments/${delTarget.id}`)
       showToast(`Environment "${delTarget.name}" deleted successfully.`, 'success')
       setDelTarget(null)
-      fetch()
+      onUpdate()
     } catch (e: unknown) {
       showToast(getApiErrorMessage(e, 'Failed to delete environment'), 'error')
     }
@@ -306,9 +295,8 @@ function EnvironmentsSection() {
 }
 
 // ── Servers Section ───────────────────────────────────────────
-function ServersSection() {
+function ServersSection({ envs, onUpdate }: { envs: Environment[], onUpdate: () => void }) {
   const [servers, setServers]     = useState<Server[]>([])
-  const [envs, setEnvs]           = useState<Environment[]>([])
   const [loading, setLoading]     = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [delTarget, setDelTarget] = useState<Server | null>(null)
@@ -324,6 +312,7 @@ function ServersSection() {
       const res = await api.post(`/servers/${id}/ping`)
       showToast(res.data.message || 'Connection test completed', res.data.status === 'active' ? 'success' : 'error')
       fetch()
+      onUpdate()
     } catch (err: unknown) {
       showToast(getApiErrorMessage(err, 'Failed to test connection'), 'error')
     } finally {
@@ -333,8 +322,8 @@ function ServersSection() {
 
   const fetch = () => {
     setLoading(true)
-    Promise.all([api.get('/servers'), api.get('/environments')])
-      .then(([s, e]) => { setServers(s.data); setEnvs(e.data) })
+    api.get('/servers')
+      .then(s => setServers(s.data))
       .finally(() => setLoading(false))
   }
 
@@ -350,6 +339,7 @@ function ServersSection() {
       setForm({ name: '', host: '', port: '22', username: '', environment_id: '' })
       setShowModal(false)
       fetch()
+      onUpdate() // update parent to refresh environment server counts
     } catch (err: unknown) {
       const errMsg = getApiErrorMessage(err, 'Failed to add server')
       setError(errMsg)
@@ -366,6 +356,7 @@ function ServersSection() {
       showToast(`Server "${delTarget.name}" deleted successfully.`, 'success')
       setDelTarget(null)
       fetch()
+      onUpdate() // update parent
     } catch (e: unknown) {
       showToast(getApiErrorMessage(e, 'Failed to delete server'), 'error')
     }
@@ -495,14 +486,28 @@ function ServersSection() {
 
 // ── Main Configuration Page ───────────────────────────────────
 export default function Configuration() {
+  const [envs, setEnvs] = useState<Environment[]>([])
+  const [loadingEnvs, setLoadingEnvs] = useState(true)
+
+  const fetchEnvs = () => {
+    setLoadingEnvs(true)
+    api.get('/environments')
+      .then(r => setEnvs(r.data))
+      .finally(() => setLoadingEnvs(false))
+  }
+
+  useEffect(() => {
+    fetchEnvs()
+  }, [])
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-lg font-semibold text-ccd-text">Infrastructure Configuration</h2>
         <p className="text-sm text-ccd-text-muted mt-1">Manage deployment environments and server infrastructure</p>
       </div>
-      <EnvironmentsSection />
-      <ServersSection />
+      <EnvironmentsSection envs={envs} loading={loadingEnvs} onUpdate={fetchEnvs} />
+      <ServersSection envs={envs} onUpdate={fetchEnvs} />
     </div>
   )
 }
