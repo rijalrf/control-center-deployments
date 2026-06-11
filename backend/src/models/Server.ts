@@ -4,6 +4,7 @@ import { ServerAttributes } from '../types';
 
 export class Server extends Model<ServerAttributes, Omit<ServerAttributes, 'id'>> implements ServerAttributes {
   public id!: number;
+  public user_id!: number;
   public name!: string;
   public host!: string;
   public port!: number;
@@ -17,6 +18,7 @@ export class Server extends Model<ServerAttributes, Omit<ServerAttributes, 'id'>
 
 Server.init({
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
+  user_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
   name: { type: DataTypes.STRING(100), allowNull: false },
   host: { type: DataTypes.STRING(255), allowNull: false },
   port: { type: DataTypes.SMALLINT.UNSIGNED, defaultValue: 22 },

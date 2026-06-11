@@ -16,6 +16,7 @@ export class EnvironmentsController {
   static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const envs = await Environment.findAll({
+        where: { user_id: req.user!.id },
         include: [{ model: Server, as: 'servers' }],
       });
 
@@ -42,6 +43,7 @@ export class EnvironmentsController {
       }
 
       const env = await Environment.create({
+        user_id: req.user!.id,
         name,
         slug,
         description: description ?? null,
@@ -60,7 +62,7 @@ export class EnvironmentsController {
 
   static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const env = await Environment.findByPk(req.params.id);
+      const env = await Environment.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
       if (!env) {
         res.status(404).json({ error: 'Not found' });
         return;
@@ -81,7 +83,7 @@ export class EnvironmentsController {
 
   static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const env = await Environment.findByPk(req.params.id);
+      const env = await Environment.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
       if (!env) {
         res.status(404).json({ error: 'Not found' });
         return;

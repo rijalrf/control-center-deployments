@@ -4,6 +4,7 @@ import { RepositoryAttributes } from '../types';
 
 export class Repository extends Model<RepositoryAttributes, Omit<RepositoryAttributes, 'id'>> implements RepositoryAttributes {
   public id!: number;
+  public user_id!: number;
   public github_id!: string;
   public name!: string;
   public full_name!: string;
@@ -21,7 +22,8 @@ export class Repository extends Model<RepositoryAttributes, Omit<RepositoryAttri
 
 Repository.init({
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
-  github_id: { type: DataTypes.STRING(50), allowNull: false, unique: true },
+  user_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+  github_id: { type: DataTypes.STRING(50), allowNull: false },
   name: { type: DataTypes.STRING(200), allowNull: false },
   full_name: { type: DataTypes.STRING(300), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
@@ -35,4 +37,10 @@ Repository.init({
   sequelize,
   tableName: 'repositories',
   underscored: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['github_id', 'user_id']
+    }
+  ]
 });

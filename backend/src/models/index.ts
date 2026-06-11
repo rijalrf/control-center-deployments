@@ -8,6 +8,15 @@ import { DeploymentStep } from './DeploymentStep';
 import { EnvVar } from './EnvVar';
 
 // ── Associations ────────────────────────────────────────────
+User.hasMany(Repository, { foreignKey: 'user_id', as: 'repositories' });
+Repository.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+User.hasMany(Environment, { foreignKey: 'user_id', as: 'environments' });
+Environment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+User.hasMany(Server, { foreignKey: 'user_id', as: 'servers' });
+Server.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 Environment.hasMany(Server, { foreignKey: 'environment_id', as: 'servers' });
 Server.belongsTo(Environment, { foreignKey: 'environment_id', as: 'environment' });
 
