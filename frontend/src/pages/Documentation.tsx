@@ -31,6 +31,7 @@ export default function Documentation() {
   const codeSnippets = {
     env: `GITHUB_CLIENT_ID=your_client_id
 GITHUB_CLIENT_SECRET=your_client_secret
+GITHUB_CALLBACK_URL=http://localhost:5000/api/auth/github/callback
 GITHUB_TOKEN=ghp_your_personal_access_token_with_workflow_scope
 JWT_SECRET=super_secret_jwt_random_string_here
 GITHUB_CENTRAL_OWNER=repo_owner

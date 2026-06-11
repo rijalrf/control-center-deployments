@@ -10,6 +10,10 @@ import routes from './routes';
 const app = express();
 
 // ── Middleware ──────────────────────────────────────────────
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
 app.use(cors({
   origin: env.FRONTEND_URL,
   credentials: true,

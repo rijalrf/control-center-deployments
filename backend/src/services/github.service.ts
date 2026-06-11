@@ -75,7 +75,7 @@ export class GitHubService {
       const { data } = await octokit.repos.listForOrg({ org, type: 'all', per_page: 100 });
       ghRepos = data as GitHubRepo[];
     } else {
-      const { data } = await octokit.repos.listForAuthenticatedUser({ visibility: 'all', per_page: 100 });
+      const { data } = await octokit.repos.listForAuthenticatedUser({ visibility: 'all', affiliation: 'owner', per_page: 100 });
       ghRepos = data as GitHubRepo[];
     }
 
