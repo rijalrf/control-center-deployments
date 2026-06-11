@@ -6,7 +6,9 @@ import { env } from '../config/env';
 
 const router = Router();
 
-router.post('/login', AuthController.login);
+// GitHub OAuth
+router.get('/github', AuthController.githubLogin);
+router.get('/github/callback', AuthController.githubCallback);
 
 router.get('/me', authMiddleware, AuthController.getMe);
 router.post('/logout', AuthController.logout);

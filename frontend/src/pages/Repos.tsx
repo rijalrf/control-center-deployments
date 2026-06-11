@@ -81,12 +81,34 @@ export default function Repos() {
             <div className="spinner w-8 h-8" />
           </div>
         ) : repos.length === 0 ? (
-          <div className="text-center py-20">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} className="w-12 h-12 text-ccd-text-muted mx-auto mb-3">
-              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-            </svg>
-            <p className="text-ccd-text-muted text-sm">No repositories synced yet.</p>
-            <p className="text-ccd-text-muted text-xs mt-1">Click "Sync from GitHub" to import your repositories.</p>
+          <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+            <div className="w-16 h-16 bg-ccd-border/30 rounded-2xl flex items-center justify-center mb-4">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-8 h-8 text-ccd-text-dim">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-ccd-text mb-1">Tidak ada repositori</h3>
+            <p className="text-ccd-text-muted text-sm max-w-sm mb-6">
+              Anda belum memiliki repositori yang tersinkronisasi. Hubungkan dengan GitHub untuk melihat dan mendeploy repositori Anda.
+            </p>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="ccd-btn-primary px-6 py-2.5"
+            >
+              {syncing ? (
+                <><div className="spinner w-4 h-4" />Menyinkronkan...</>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 mr-1.5">
+                    <polyline points="23 4 23 10 17 10" />
+                    <polyline points="1 20 1 14 7 14" />
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                  </svg>
+                  Connect / Sync with GitHub
+                </>
+              )}
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">

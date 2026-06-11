@@ -91,7 +91,6 @@ export class DeploymentsController {
       }
 
       const userId    = req.user!.id;
-      const userToken = req.user!.access_token ?? '';
 
       const deployment = await DeploymentService.createDeployment({
         environment_id,
@@ -99,7 +98,6 @@ export class DeploymentsController {
         repositories,
         config: config ?? {},
         notes,
-        accessToken: userToken,
         status,
       });
 
@@ -189,9 +187,8 @@ export class DeploymentsController {
   static async executeDraft(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const deploymentId = parseInt(req.params.id, 10);
-      const userToken    = req.user!.access_token ?? '';
 
-      const deployment = await DeploymentService.executeDraftDeployment(deploymentId, userToken);
+      const deployment = await DeploymentService.executeDraftDeployment(deploymentId);
       const result     = await Deployment.findByPk(deployment.id, { include: DEPLOYMENT_INCLUDES });
       res.json(result);
     } catch (err) {
@@ -202,9 +199,8 @@ export class DeploymentsController {
   static async retry(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const deploymentId = parseInt(req.params.id, 10);
-      const userToken    = req.user!.access_token ?? '';
 
-      const deployment = await DeploymentService.retryDeployment(deploymentId, userToken);
+      const deployment = await DeploymentService.retryDeployment(deploymentId);
       const result     = await Deployment.findByPk(deployment.id, { include: DEPLOYMENT_INCLUDES });
       res.json(result);
     } catch (err) {

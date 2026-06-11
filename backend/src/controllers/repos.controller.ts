@@ -60,15 +60,13 @@ export class ReposController {
         return;
       }
 
-      const userToken = req.user?.access_token ?? null;
-
       const [owner, repoName] = repo.full_name.split('/');
       if (!owner || !repoName) {
         res.status(400).json({ error: 'Invalid repository name format' });
         return;
       }
 
-      const keys = await GitHubService.getRepoEnvKeys(userToken, owner, repoName);
+      const keys = await GitHubService.getRepoEnvKeys(owner, repoName);
       res.json({ keys });
     } catch (err) {
       next(err);
@@ -91,11 +89,15 @@ export class ReposController {
       const configuredBranch = envObj?.target_branch?.trim() || '';
       const envName = envObj?.name ?? 'staging';
 
-      const userToken = req.user?.access_token ?? null;
-
       const results = await Promise.all(
-        repositories.map(async (repo) => {
-          const [repoOwner, repoNameOnly] = repo.full_name.split('/');
+        repositories.map(async (repoInput) => {
+          // Check visibility from DB
+          const repo = await Repository.findByPk(repoInput.id);
+          if (repo && repo.visibility === 'private') {
+            throw new Error(`Sistem saat ini hanya mendukung deployment untuk repositori Public. Repositori "${repo.full_name}" bersifat Private.`);
+          }
+
+          const [repoOwner, repoNameOnly] = repoInput.full_name.split('/');
           
           let desiredBranch = configuredBranch;
           if (!desiredBranch) {
@@ -104,17 +106,17 @@ export class ReposController {
 
           let branchExists = false;
           try {
-            branchExists = await GitHubService.checkBranchExists(userToken, repoOwner, repoNameOnly, desiredBranch);
+            branchExists = await GitHubService.checkBranchExists(repoOwner, repoNameOnly, desiredBranch);
           } catch (err) {
             // ignore
           }
 
-          const resolvedBranch = branchExists ? desiredBranch : repo.default_branch;
+          const resolvedBranch = branchExists ? desiredBranch : repoInput.default_branch;
 
           // Search for Dockerfile in common locations
           let dockerfilePath: string | null = null;
           try {
-            dockerfilePath = await GitHubService.findFile(userToken, repoOwner, repoNameOnly, 'Dockerfile', resolvedBranch);
+            dockerfilePath = await GitHubService.findFile(repoOwner, repoNameOnly, 'Dockerfile', resolvedBranch);
           } catch (err) {
             // ignore
           }
@@ -123,7 +125,7 @@ export class ReposController {
           let dockerComposePath: string | null = null;
           try {
             dockerComposePath = await GitHubService.findFile(
-              userToken, repoOwner, repoNameOnly,
+              repoOwner, repoNameOnly,
               ['docker-compose.yml', 'docker-compose.yaml'],
               resolvedBranch,
             );
@@ -132,7 +134,7 @@ export class ReposController {
           }
 
           return {
-            repository_id: repo.id,
+            repository_id: repoInput.id,
             desired_branch: desiredBranch,
             exists: branchExists,
             resolved_branch: resolvedBranch,
@@ -146,7 +148,11 @@ export class ReposController {
       );
 
       res.json({ results });
-    } catch (err) {
+    } catch (err: any) {
+      if (err.message && err.message.includes('bersifat Private')) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
       next(err);
     }
   }
@@ -159,7 +165,6 @@ export class ReposController {
         return;
       }
 
-      const userToken = req.user?.access_token ?? null;
       const [owner, repoName] = repo.full_name.split('/');
       if (!owner || !repoName) {
         res.status(400).json({ error: 'Invalid repository name format' });
@@ -172,7 +177,6 @@ export class ReposController {
       if (!composePath) {
         try {
           composePath = await GitHubService.findFile(
-            userToken,
             owner,
             repoName,
             ['docker-compose.yml', 'docker-compose.yaml'],
@@ -188,7 +192,7 @@ export class ReposController {
         return;
       }
 
-      const rawYaml = await GitHubService.getFileContent(userToken, owner, repoName, composePath, branch);
+      const rawYaml = await GitHubService.getFileContent(owner, repoName, composePath, branch);
       const doc = yaml.load(rawYaml) as any;
 
       if (!doc || typeof doc !== 'object' || !doc.services || typeof doc.services !== 'object') {
@@ -386,7 +390,6 @@ export class ReposController {
         return;
       }
 
-      const userToken = req.user?.access_token ?? null;
       const [owner, repoName] = repo.full_name.split('/');
       if (!owner || !repoName) {
         res.status(400).json({ error: 'Invalid repository name format' });
@@ -396,7 +399,7 @@ export class ReposController {
       const branch = (req.query.branch as string) || repo.default_branch || 'main';
       const path = (req.query.path as string) || '';
 
-      const contents = await GitHubService.getRepoContents(userToken, owner, repoName, path, branch);
+      const contents = await GitHubService.getRepoContents(owner, repoName, path, branch);
       res.json(contents);
     } catch (err) {
       next(err);
