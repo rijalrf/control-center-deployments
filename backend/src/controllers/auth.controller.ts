@@ -15,7 +15,7 @@ const COOKIE_OPTIONS = {
 
 export class AuthController {
   static async githubLogin(_req: Request, res: Response): Promise<void> {
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${env.github.clientId}&redirect_uri=${env.github.callbackUrl}&scope=repo,user:email`;
+    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${env.github.clientId}&redirect_uri=${env.github.callbackUrl}&scope=repo,workflow,read:org,user:email`;
     res.redirect(githubAuthUrl);
   }
 
@@ -89,16 +89,70 @@ export class AuthController {
     }
   }
 
+  static async login(req: Request, res: Response): Promise<void> {
+    try {
+      const { username, password } = req.body as { username?: string; password?: string };
+      if (!username || !password) {
+        res.status(400).json({ error: 'Username and password are required' });
+        return;
+      }
+
+      const user = await User.findOne({ where: { login: username } });
+      if (!user) {
+        res.status(401).json({ error: 'Invalid username or password' });
+        return;
+      }
+
+      const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+      if (user.password !== hashedPassword) {
+        res.status(401).json({ error: 'Invalid username or password' });
+        return;
+      }
+
+      const token = jwt.sign(
+        { id: user.id, login: user.login },
+        env.JWT_SECRET,
+        { expiresIn: env.JWT_EXPIRES_IN },
+      );
+
+      res.cookie('ccd_token', token, COOKIE_OPTIONS);
+      res.json({
+        message: 'Logged in successfully',
+        user: {
+          id: user.id,
+          github_id: user.github_id,
+          login: user.login,
+          name: user.name,
+          email: user.email,
+          avatar_url: user.avatar_url,
+          has_github_token: !!user.access_token,
+          created_at: user.created_at
+        }
+      });
+    } catch (err: unknown) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   static getMe(req: Request, res: Response): void {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const { id, github_id, login, name, email, avatar_url, created_at } =
-      req.user as UserAttributes;
+    const { id, github_id, login, name, email, avatar_url, access_token, created_at } =
+      req.user as User;
 
-    res.json({ id, github_id, login, name, email, avatar_url, created_at });
+    res.json({
+      id,
+      github_id,
+      login,
+      name,
+      email,
+      avatar_url,
+      has_github_token: !!access_token,
+      created_at
+    });
   }
 
   static logout(_req: Request, res: Response): void {

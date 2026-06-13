@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import api from '../services/api'
 import { Repository } from '../types'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../utils/errors'
 
 const LANG_COLORS: Record<string, string> = {
@@ -16,6 +17,7 @@ export default function Repos() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const { showToast }         = useToast()
+  const { user }              = useAuth()
 
   const fetchRepos = () => {
     setLoading(true)
@@ -28,13 +30,25 @@ export default function Repos() {
   useEffect(() => { fetchRepos() }, [])
 
   const handleSync = async () => {
+    if (!user?.has_github_token) {
+      showToast('Anda perlu menghubungkan akun GitHub untuk melakukan sinkronisasi.', 'info')
+      window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`
+      return
+    }
+
     setSyncing(true)
     try {
       const res = await api.post('/repos/sync')
       showToast(`Synced ${res.data.synced} repositories from GitHub`, 'success')
       fetchRepos()
-    } catch (err: unknown) {
-      showToast(getApiErrorMessage(err, 'Sync failed'), 'error')
+    } catch (err: any) {
+      const message = getApiErrorMessage(err, 'Sync failed')
+      if (message.toLowerCase().includes('token is required') || (err.response && err.response.status === 401)) {
+        showToast('Sesi GitHub berakhir. Menghubungkan ulang...', 'info')
+        window.location.href = `${import.meta.env.VITE_API_URL}/auth/github`
+      } else {
+        showToast(message, 'error')
+      }
     } finally {
       setSyncing(false)
     }
@@ -68,7 +82,7 @@ export default function Repos() {
                 <polyline points="1 20 1 14 7 14" />
                 <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
               </svg>
-              Sync from GitHub
+              {user?.has_github_token ? 'Sync from GitHub' : 'Connect GitHub'}
             </>
           )}
         </button>
@@ -80,16 +94,20 @@ export default function Repos() {
           <div className="flex items-center justify-center py-20">
             <div className="spinner w-8 h-8" />
           </div>
-        ) : repos.length === 0 ? (
+        ) : repos.length === 0 || !user?.has_github_token ? (
           <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
             <div className="w-16 h-16 bg-ccd-border/30 rounded-2xl flex items-center justify-center mb-4">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-8 h-8 text-ccd-text-dim">
                 <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-ccd-text mb-1">Tidak ada repositori</h3>
+            <h3 className="text-lg font-medium text-ccd-text mb-1">
+              {!user?.has_github_token ? 'Hubungkan GitHub' : 'Tidak ada repositori'}
+            </h3>
             <p className="text-ccd-text-muted text-sm max-w-sm mb-6">
-              Anda belum memiliki repositori yang tersinkronisasi. Hubungkan dengan GitHub untuk melihat dan mendeploy repositori Anda.
+              {!user?.has_github_token 
+                ? 'Akun Anda belum terhubung dengan GitHub. Hubungkan sekarang untuk mensinkronisasi repositori Anda.'
+                : 'Anda belum memiliki repositori yang tersinkronisasi. Klik tombol di bawah untuk mengambil data dari GitHub.'}
             </p>
             <button
               onClick={handleSync}
@@ -105,7 +123,7 @@ export default function Repos() {
                     <polyline points="1 20 1 14 7 14" />
                     <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
                   </svg>
-                  Connect / Sync with GitHub
+                  {!user?.has_github_token ? 'Connect to GitHub' : 'Sync from GitHub'}
                 </>
               )}
             </button>
