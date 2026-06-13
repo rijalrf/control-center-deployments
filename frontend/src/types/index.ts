@@ -13,6 +13,7 @@ export interface User {
   email: string | null;
   avatar_url: string | null;
   password?: string | null;
+  has_github_token?: boolean;
   created_at: string;
 }
 
