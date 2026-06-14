@@ -123,18 +123,10 @@ jobs:
 
           print(f"Memodifikasi {compose_file} untuk menggunakan image {expected_image}...")
 
-          # Calculate path to .env relative to the compose file
-          # Root of deployment is ".", where .env is located.
-          # If compose_file is ".docker/docker-compose.yml", dirname is ".docker", 
-          # relative path to "." from ".docker" is "..".
-          rel_to_root = os.path.relpath(".", os.path.dirname(compose_file))
-          env_path = os.path.join(rel_to_root, ".env")
-          print(f"Menggunakan env_file path: {env_path}")
-
           for s_name, s_data in data["services"].items():
               if not s_data:
                   continue
-              s_data["env_file"] = [env_path]
+              s_data["env_file"] = [".env"]
               image_val = s_data.get("image", "")
               if image_val:
                   is_match = False
@@ -298,6 +290,8 @@ jobs:
                 if [ "$COMPOSE_DIR" != "." ]; then
                   echo "Membuat subdirektori $COMPOSE_DIR..."
                   mkdir -p "$COMPOSE_DIR"
+                  echo "Symlinking .env ke $COMPOSE_DIR/.env..."
+                  ln -sf "$PWD/.env" "$COMPOSE_DIR/.env"
                 fi
                 echo "$COMPOSE_B64" | base64 -d > "$COMPOSE_FILE"
               else
