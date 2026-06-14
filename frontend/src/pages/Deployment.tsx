@@ -370,7 +370,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
               Try Again
             </button>
           )}
-          {overallStatus === 'draft' && onEditPlan && (
+          {(overallStatus === 'draft' || overallStatus === 'failed') && onEditPlan && (
             <button
               onClick={() => onEditPlan(deployment)}
               className="ccd-btn-secondary text-xs py-2 px-4 border border-ccd-border/50 flex items-center gap-1.5"
@@ -380,7 +380,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
-              Edit / Reuse Plan
+              Edit Plan
             </button>
           )}
           <button

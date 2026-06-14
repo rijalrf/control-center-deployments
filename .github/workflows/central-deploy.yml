@@ -268,7 +268,7 @@ jobs:
           envs: CONFIG_JSON,TARGET_REPO_NAME,COMPOSE_B64
           script: |
             echo "Membaca konfigurasi..."
-            DEPLOY_DIR=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_DIR', '/app/${TARGET_REPO_NAME}'))")
+            DEPLOY_DIR=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_DIR', '/home/${{ github.event.inputs.server_username }}/${TARGET_REPO_NAME}'))")
             STRATEGY=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_STRATEGY', 'standard'))")
             COMPOSE_FILE=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('COMPOSE_FILE', 'docker-compose.yml'))")
 
@@ -310,7 +310,7 @@ jobs:
 
             # 1. Parse config JSON using Python directly from environment
             STRATEGY=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_STRATEGY', 'standard'))")
-            DEPLOY_DIR=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_DIR', '/app/${TARGET_REPO_NAME}'))")
+            DEPLOY_DIR=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_DIR', '/home/${{ github.event.inputs.server_username }}/${TARGET_REPO_NAME}'))")
             COMPOSE_FILE=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('COMPOSE_FILE', 'docker-compose.yml'))")
             
             # Write custom scripts to files directly from env using Python (no shell escaping issues)

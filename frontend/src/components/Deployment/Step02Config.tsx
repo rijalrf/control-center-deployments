@@ -214,18 +214,22 @@ export default function Step02Config({ data, onChange, validationResults }: Step
     const hasStrategy = currentRepoConfig['DEPLOY_STRATEGY'] !== undefined
     const hasTag = currentRepoConfig['VERSION_TAG'] !== undefined
     const hasBuildTarget = currentRepoConfig['DOCKER_BUILD_TARGET'] !== undefined
+    const hasDeployDir = currentRepoConfig['DEPLOY_DIR'] !== undefined
     
-    if (!hasStrategy || !hasTag || !hasBuildTarget) {
+    if (!hasStrategy || !hasTag || !hasBuildTarget || !hasDeployDir) {
       const result = validationMap[repo.id]
       const hasCompose = result?.docker_compose_exists || false
       
       const defaultTag = isProduction ? 'v1' : 'v1.0.0';
+      const sshUser = data.environment?.servers?.[0]?.username || 'deploy';
+      const defaultDeployDir = `/home/${sshUser}/${repo.name}`;
 
       const newRepoConfig: Record<string, string> = {
         ...currentRepoConfig,
         'DEPLOY_STRATEGY': currentRepoConfig['DEPLOY_STRATEGY'] ?? (hasCompose ? 'docker-compose' : 'standard'),
         'VERSION_TAG': currentRepoConfig['VERSION_TAG'] ?? (hasCompose ? '' : defaultTag),
-        'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? ''
+        'DOCKER_BUILD_TARGET': currentRepoConfig['DOCKER_BUILD_TARGET'] ?? '',
+        'DEPLOY_DIR': currentRepoConfig['DEPLOY_DIR'] ?? defaultDeployDir
       }
 
       if (hasCompose && currentRepoConfig['COMPOSE_FILE'] === undefined && result?.docker_compose_path) {
@@ -616,7 +620,7 @@ export default function Step02Config({ data, onChange, validationResults }: Step
                           type="text"
                           value={getSpecialVal(repo.name, 'DEPLOY_DIR', '')}
                           onChange={e => setSpecialVal(repo.name, 'DEPLOY_DIR', e.target.value)}
-                          placeholder={`/app/${repo.name}`}
+                          placeholder={`/home/${data.environment?.servers?.[0]?.username || 'deploy'}/${repo.name}`}
                           className="ccd-input font-mono text-xs w-full"
                         />
                       </div>

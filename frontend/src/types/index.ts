@@ -60,6 +60,7 @@ export interface Repository {
 }
 
 export interface DeploymentRepository {
+  id: number;
   github_id: string;
   name: string;
   full_name: string;

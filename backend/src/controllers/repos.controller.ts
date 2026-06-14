@@ -43,7 +43,13 @@ export class ReposController {
 
   static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      let repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      
+      // Fallback for older data that might store github_id instead of database id
+      if (!repo) {
+        repo = await Repository.findOne({ where: { github_id: req.params.id, user_id: req.user!.id } });
+      }
+
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;
@@ -57,7 +63,13 @@ export class ReposController {
 
   static async getEnvKeys(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      let repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      
+      // Fallback for older data that might store github_id instead of database id
+      if (!repo) {
+        repo = await Repository.findOne({ where: { github_id: req.params.id, user_id: req.user!.id } });
+      }
+
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;
@@ -162,7 +174,13 @@ export class ReposController {
 
   static async getComposeServices(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      let repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      
+      // Fallback for older data that might store github_id instead of database id
+      if (!repo) {
+        repo = await Repository.findOne({ where: { github_id: req.params.id, user_id: req.user!.id } });
+      }
+
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;
@@ -387,7 +405,13 @@ export class ReposController {
 
   static async getContents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      let repo = await Repository.findOne({ where: { id: req.params.id, user_id: req.user!.id } });
+      
+      // Fallback for older data that might store github_id instead of database id
+      if (!repo) {
+        repo = await Repository.findOne({ where: { github_id: req.params.id, user_id: req.user!.id } });
+      }
+
       if (!repo) {
         res.status(404).json({ error: 'Repository not found' });
         return;
