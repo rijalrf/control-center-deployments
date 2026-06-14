@@ -145,14 +145,27 @@ jobs:
                   if "build" in s_data or s_name == repo_name or s_name == "app" or len(data["services"]) == 1:
                       s_data["image"] = expected_image
 
+          # Identify external networks
+          external_networks = []
+          if "networks" in data and data["networks"]:
+              for net_name, net_config in data["networks"].items():
+                  if net_config and net_config.get("external"):
+                      # If it's a dict like {external: true} or {external: {name: 'real-name'}}
+                      actual_name = net_name
+                      if isinstance(net_config.get("external"), dict):
+                          actual_name = net_config["external"].get("name", net_name)
+                      external_networks.append(actual_name)
+
           modified_yaml = yaml.dump(data, default_flow_style=False)
           b64_content = base64.b64encode(modified_yaml.encode("utf-8")).decode("utf-8")
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
               fh.write(f"compose_b64={b64_content}\n")
+              fh.write(f"external_networks={' '.join(external_networks)}\n")
           '
           else
             echo "Standard strategy, skipping compose generation."
             echo "compose_b64=" >> $GITHUB_OUTPUT
+            echo "external_networks=" >> $GITHUB_OUTPUT
           fi
         env:
           CONFIG_JSON: ${{ github.event.inputs.config }}
@@ -265,7 +278,7 @@ jobs:
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
           port: ${{ github.event.inputs.server_port || 22 }}
-          envs: CONFIG_JSON,TARGET_REPO_NAME,COMPOSE_B64
+          envs: CONFIG_JSON,TARGET_REPO_NAME,COMPOSE_B64,EXTERNAL_NETWORKS
           script: |
             echo "Membaca konfigurasi..."
             DEPLOY_DIR=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('DEPLOY_DIR', '/home/${{ github.event.inputs.server_username }}/${TARGET_REPO_NAME}'))")
@@ -276,6 +289,16 @@ jobs:
             mkdir -p "$DEPLOY_DIR" || sudo mkdir -p "$DEPLOY_DIR"
             chown -R $USER:$USER "$DEPLOY_DIR" 2>/dev/null || sudo chown -R $USER:$USER "$DEPLOY_DIR" || true
             cd "$DEPLOY_DIR"
+
+            echo "Menyiapkan docker network eksternal (jika ada)..."
+            for net in $EXTERNAL_NETWORKS; do
+              if ! docker network inspect "$net" >/dev/null 2>&1; then
+                echo "Membuat network eksternal: $net..."
+                docker network create "$net"
+              else
+                echo "Network eksternal $net sudah ada."
+              fi
+            done
 
             echo "Menulis file .env..."
             python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); exclude={'DEPLOY_STRATEGY', 'DEPLOY_DIR', 'COMPOSE_FILE', 'PRE_DEPLOY_COMMANDS', 'POST_DEPLOY_COMMANDS', 'DOCKERFILE_PATH'}; f=open('.env', 'w'); [f.write(f'{k}={v}\n') for k, v in d.items() if k not in exclude]"
@@ -303,6 +326,7 @@ jobs:
           CONFIG_JSON: ${{ github.event.inputs.config }}
           TARGET_REPO_NAME: ${{ github.event.inputs.target_repo_name }}
           COMPOSE_B64: ${{ steps.compose_gen.outputs.compose_b64 }}
+          EXTERNAL_NETWORKS: ${{ steps.compose_gen.outputs.external_networks }}
 
       - name: Deploying Container & Verifying Service
         uses: appleboy/ssh-action@v1.0.3
@@ -311,7 +335,7 @@ jobs:
           username: ${{ github.event.inputs.server_username }}
           key: ${{ secrets[format('SSH_KEY_{0}', github.event.inputs.environment_secret_suffix)] }}
           port: ${{ github.event.inputs.server_port || 22 }}
-          envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,CONFIG_JSON,DOCKER_IMAGE_NAME
+          envs: TARGET_REPO_NAME,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,CONFIG_JSON,DOCKER_IMAGE_NAME,EXTERNAL_NETWORKS
           script: |
             set -e
 
@@ -326,6 +350,14 @@ jobs:
 
             echo "Menuju direktori deployment: $DEPLOY_DIR..."
             cd "$DEPLOY_DIR"
+
+            echo "Memastikan docker network eksternal ada..."
+            for net in $EXTERNAL_NETWORKS; do
+              if ! docker network inspect "$net" >/dev/null 2>&1; then
+                echo "Membuat network eksternal: $net..."
+                docker network create "$net"
+              fi
+            done
 
             # 2. Login Docker Hub / Parse image name and version tag
             VERSION_TAG=$(python3 -c "import json, os; d=json.loads(os.environ.get('CONFIG_JSON', '{}')); print(d.get('VERSION_TAG', ''))")
@@ -442,3 +474,4 @@ jobs:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           CONFIG_JSON: ${{ github.event.inputs.config }}
           DOCKER_IMAGE_NAME: ${{ github.event.inputs.docker_image_name }}
+          EXTERNAL_NETWORKS: ${{ steps.compose_gen.outputs.external_networks }}
