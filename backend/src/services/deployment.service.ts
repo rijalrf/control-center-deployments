@@ -470,9 +470,11 @@ export class DeploymentService {
     });
 
     if (!deployment)                     throw new Error('Deployment not found');
-    if (deployment.status !== 'draft')   throw new Error('Deployment is not a draft and cannot be executed');
+    if (deployment.status !== 'draft' && deployment.status !== 'failed' && deployment.status !== 'cancelled') {
+      throw new Error('Only draft, failed, or cancelled deployments can be executed');
+    }
 
-    await deployment.update({ status: 'pending', deployed_at: null });
+    await deployment.update({ status: 'pending', deployed_at: null, log: '' });
     await this.resetAndStartDeployment(deployment);
     return deployment;
   }

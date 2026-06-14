@@ -163,8 +163,8 @@ export class DeploymentsController {
         return;
       }
 
-      if (deployment.status !== 'draft') {
-        res.status(400).json({ error: 'Only draft deployments can be updated' });
+      if (deployment.status !== 'draft' && deployment.status !== 'failed' && deployment.status !== 'cancelled') {
+        res.status(400).json({ error: 'Only draft, failed, or cancelled deployments can be updated' });
         return;
       }
 
