@@ -159,8 +159,8 @@ jobs:
           modified_yaml = yaml.dump(data, default_flow_style=False)
           b64_content = base64.b64encode(modified_yaml.encode("utf-8")).decode("utf-8")
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
-              fh.write(f"compose_b64={b64_content}\n")
-              fh.write(f"external_networks={' '.join(external_networks)}\n")
+              fh.write("compose_b64=" + b64_content + "\n")
+              fh.write("external_networks=" + " ".join(external_networks) + "\n")
           '
           else
             echo "Standard strategy, skipping compose generation."
