@@ -286,6 +286,11 @@ jobs:
             if [ "$STRATEGY" = "docker-compose" ]; then
               if [ -n "$COMPOSE_B64" ]; then
                 echo "Menulis file $COMPOSE_FILE dari flow..."
+                COMPOSE_DIR=$(dirname "$COMPOSE_FILE")
+                if [ "$COMPOSE_DIR" != "." ]; then
+                  echo "Membuat subdirektori $COMPOSE_DIR..."
+                  mkdir -p "$COMPOSE_DIR"
+                fi
                 echo "$COMPOSE_B64" | base64 -d > "$COMPOSE_FILE"
               else
                 echo "❌ Error: Strategi docker-compose dipilih tetapi COMPOSE_B64 kosong!"
