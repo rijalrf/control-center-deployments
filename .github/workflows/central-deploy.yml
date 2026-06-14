@@ -361,8 +361,8 @@ jobs:
             # 3. Eksekusi Pull & Down
             if [ "$STRATEGY" = "docker-compose" ]; then
               echo "Menggunakan strategi Docker Compose dengan file: $COMPOSE_FILE"
-              docker compose -f $COMPOSE_FILE --env-file .env pull
-              docker compose -f $COMPOSE_FILE --env-file .env down
+              docker compose -f $COMPOSE_FILE --env-file "$PWD/.env" pull
+              docker compose -f $COMPOSE_FILE --env-file "$PWD/.env" down
             else
               echo "Menggunakan strategi Standard Docker..."
               if [ ! -z "$DOCKERHUB_USERNAME" ]; then
@@ -383,7 +383,7 @@ jobs:
             # 5. Jalankan Container
             if [ "$STRATEGY" = "docker-compose" ]; then
               echo "Memulai container via Docker Compose..."
-              docker compose -f $COMPOSE_FILE --env-file .env up -d
+              docker compose -f $COMPOSE_FILE --env-file "$PWD/.env" up -d
             else
               TARGET_PORT=$(grep -E "^PORT=" .env | cut -d'=' -f2)
               if [ -z "$TARGET_PORT" ]; then TARGET_PORT=80; fi
@@ -400,9 +400,9 @@ jobs:
             sleep 3
             if [ "$STRATEGY" = "docker-compose" ]; then
               echo "Verifikasi kontainer docker compose..."
-              docker compose -f $COMPOSE_FILE --env-file .env ps
+              docker compose -f $COMPOSE_FILE --env-file "$PWD/.env" ps
               # Jika docker compose ps kosong (nggak ada service jalan), kita fail
-              if [ -z "$(docker compose -f $COMPOSE_FILE --env-file .env ps -q)" ]; then
+              if [ -z "$(docker compose -f $COMPOSE_FILE --env-file "$PWD/.env" ps -q)" ]; then
                 echo "❌ Deployment Gagal: Tidak ada container yang berjalan!"
                 exit 1
               fi
