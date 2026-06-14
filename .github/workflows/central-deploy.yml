@@ -150,7 +150,7 @@ jobs:
           if "networks" in data and data["networks"]:
               for net_name, net_config in data["networks"].items():
                   if net_config and net_config.get("external"):
-                      # If it's a dict like {external: true} or {external: {name: 'real-name'}}
+                      # If it is a dict like {external: true} or {external: {name: "real-name"}}
                       actual_name = net_name
                       if isinstance(net_config.get("external"), dict):
                           actual_name = net_config["external"].get("name", net_name)
