@@ -370,7 +370,7 @@ function ActiveDeploymentDashboard({ deployment, onBack, onRefresh, onRetry, onE
               Try Again
             </button>
           )}
-          {overallStatus !== 'running' && overallStatus !== 'pending' && onEditPlan && (
+          {overallStatus === 'draft' && onEditPlan && (
             <button
               onClick={() => onEditPlan(deployment)}
               className="ccd-btn-secondary text-xs py-2 px-4 border border-ccd-border/50 flex items-center gap-1.5"
@@ -1386,7 +1386,7 @@ export default function Deployment() {
 
   const handleEditPlan = (d: DeploymentType) => {
     const reposForForm: Repository[] = (d.repositories || []).map(dr => ({
-      id: parseInt(dr.github_id) || 0,
+      id: dr.id || parseInt(dr.github_id) || 0,
       github_id: dr.github_id,
       name: dr.name,
       full_name: dr.full_name,
