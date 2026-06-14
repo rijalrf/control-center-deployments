@@ -1552,7 +1552,7 @@ export default function Deployment() {
                 validationResults={validationResults}
               />
             )}
-            {currentStep === 2 && <Step02Config data={formData} onChange={updateData} />}
+            {currentStep === 2 && <Step02Config data={formData} onChange={updateData} validationResults={validationResults} />}
             {currentStep === 3 && <Step03Review data={formData} validationResults={validationResults} />}
 
             {/* Navigation buttons */}
@@ -1624,20 +1624,29 @@ export default function Deployment() {
                     </button>
                   )
                 ) : currentStep === 2 ? (
-                  <button
-                    onClick={handleNext}
-                    disabled={!canNext() || loadingKeys}
-                    className="ccd-btn-primary flex items-center gap-2"
-                  >
-                    {loadingKeys ? (
-                      <>
-                        <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
-                        Loading variables...
-                      </>
-                    ) : (
-                      <>Next →</>
-                    )}
-                  </button>
+                  <>
+                    <button
+                      onClick={handleSavePlan}
+                      disabled={submitting}
+                      className="ccd-btn-secondary border border-ccd-border/50 text-xs py-2.5 px-4"
+                    >
+                      Save as Plan
+                    </button>
+                    <button
+                      onClick={handleNext}
+                      disabled={!canNext() || loadingKeys}
+                      className="ccd-btn-primary flex items-center gap-2"
+                    >
+                      {loadingKeys ? (
+                        <>
+                          <div className="spinner w-4 h-4 border-t-transparent animate-spin" />
+                          Loading variables...
+                        </>
+                      ) : (
+                        <>Next →</>
+                      )}
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button

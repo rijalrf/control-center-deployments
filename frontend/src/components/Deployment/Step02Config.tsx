@@ -11,6 +11,16 @@ interface Step02ConfigProps {
     config: Record<string, Record<string, string>>;
   };
   onChange: (update: Partial<Step02ConfigProps['data']>) => void;
+  validationResults?: Record<number, {
+    resolved_branch: string;
+    desired_branch: string;
+    exists: boolean;
+    fallback_used: boolean;
+    dockerfile_exists: boolean;
+    dockerfile_path: string | null;
+    docker_compose_exists: boolean;
+    docker_compose_path: string | null;
+  }>;
 }
 
 const SPECIAL_KEYS = [
@@ -26,7 +36,7 @@ const SPECIAL_KEYS = [
   'DOCKER_BUILD_TARGET'
 ]
 
-export default function Step02Config({ data, onChange }: Step02ConfigProps) {
+export default function Step02Config({ data, onChange, validationResults }: Step02ConfigProps) {
   const { repositories, config } = data
   const isProduction = data.environment?.name?.toLowerCase() === 'production' || 
                        data.environment?.slug?.toLowerCase() === 'production' || 
@@ -46,13 +56,17 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
   const [explorerTarget, setExplorerTarget] = useState<{ repo: Repository; initialPath: string; field: 'COMPOSE_FILE' | 'DOCKERFILE_PATH' } | null>(null)
 
   const validationMap = React.useMemo(() => {
+    // Prioritas: prop dari parent (selalu up-to-date), fallback localStorage
+    if (validationResults && Object.keys(validationResults).length > 0) {
+      return validationResults;
+    }
     try {
       const validationSaved = localStorage.getItem('ccd_wizard_validation_results')
       return validationSaved ? JSON.parse(validationSaved) : {}
     } catch (e) {
       return {}
     }
-  }, [])
+  }, [validationResults])
 
   const getComposeDefaultPath = (repo: Repository) => {
     const result = validationMap[repo.id]
@@ -89,7 +103,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
     }))
     try {
       const targetBranch = data.environment?.target_branch || (data.environment?.name?.toLowerCase() === 'production' ? 'main' : 'staging')
-      const resolvedBranch = validationMap[repo.id]?.resolved_branch || targetBranch || repo.default_branch || 'main'
+      const resolvedBranch = validationMap[repo.id]?.resolved_branch || repo.branch || targetBranch || repo.default_branch || 'main'
       const composePath = customPath || config[repo.name]?.['COMPOSE_FILE'] || getComposeDefaultPath(repo)
 
       const res = await api.get(`/repos/${repo.id}/compose-services`, {
@@ -737,6 +751,7 @@ export default function Step02Config({ data, onChange }: Step02ConfigProps) {
           repoName={explorerTarget.repo.name}
           branch={
             validationMap[explorerTarget.repo.id]?.resolved_branch ||
+            explorerTarget.repo.branch ||
             explorerTarget.repo.default_branch ||
             'main'
           }
